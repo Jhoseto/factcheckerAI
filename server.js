@@ -16,8 +16,9 @@ app.use((req, res, next) => {
 });
 
 // Replicate Vite proxy logic for production
-// IMPORTANT: Use the object-style config for newer http-proxy-middleware
-app.use('/api/oembed', createProxyMiddleware({
+// Using pathFilter to ensure pathRewrite sees the full URL path
+app.use(createProxyMiddleware({
+    pathFilter: '/api/oembed',
     target: 'https://www.youtube.com',
     changeOrigin: true,
     secure: false,
@@ -25,17 +26,15 @@ app.use('/api/oembed', createProxyMiddleware({
         '^/api/oembed': '/oembed',
     },
     onProxyReq: (proxyReq, req, res) => {
-        console.log(`[Proxy] Forwarding ${req.url} to YouTube oEmbed`);
+        console.log(`[Proxy] oEmbed: Forwarding ${req.originalUrl} to YouTube`);
     },
     onProxyRes: (proxyRes, req, res) => {
-        console.log(`[Proxy] Received ${proxyRes.statusCode} from YouTube oEmbed`);
-    },
-    onError: (err, req, res) => {
-        console.error('[Proxy] Error in oEmbed proxy:', err);
+        console.log(`[Proxy] oEmbed: Received ${proxyRes.statusCode}`);
     }
 }));
 
-app.use('/api/youtube', createProxyMiddleware({
+app.use(createProxyMiddleware({
+    pathFilter: '/api/youtube',
     target: 'https://www.youtube.com',
     changeOrigin: true,
     secure: false,
@@ -46,10 +45,10 @@ app.use('/api/youtube', createProxyMiddleware({
         '^/api/youtube': '',
     },
     onProxyReq: (proxyReq, req, res) => {
-        console.log(`[Proxy] Forwarding ${req.url} to YouTube Direct`);
+        console.log(`[Proxy] YouTube: Forwarding ${req.originalUrl} to YouTube`);
     },
     onProxyRes: (proxyRes, req, res) => {
-        console.log(`[Proxy] Received ${proxyRes.statusCode} from YouTube Direct`);
+        console.log(`[Proxy] YouTube: Received ${proxyRes.statusCode}`);
     }
 }));
 
@@ -57,8 +56,12 @@ app.use('/api/youtube', createProxyMiddleware({
 app.use(express.static(path.join(__dirname, 'dist')));
 
 // Handle React routing (history API fallback)
-// Only catch requests that don't start with /api to avoid sending HTML for failed API calls
-app.get(/^(?!\/api).*/, (req, res) => {
+// This is the LAST route, so it only catches what didn't match the proxies or static files
+app.get('*', (req, res) => {
+    // If it's an API call that wasn't caught by the proxy, return 404 instead of HTML
+    if (req.url.startsWith('/api')) {
+        return res.status(404).json({ error: 'API route not found' });
+    }
     res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
