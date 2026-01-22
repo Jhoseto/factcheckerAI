@@ -1,9 +1,12 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import html2canvas from 'html2canvas';
-import { analyzeYouTubeLink, analyzeNewsLink } from './services/geminiService';
-import { VideoAnalysis, APIUsage } from './types';
+import { analyzeYouTubeQuick, analyzeYouTubeBatch, analyzeYouTubeStandard, analyzeNewsLink } from './services/geminiService';
+import { VideoAnalysis, APIUsage, AnalysisMode, YouTubeVideoMetadata, CostEstimate } from './types';
 import ReliabilityChart from './components/ReliabilityChart';
+import AnalysisModeSelector from './components/AnalysisModeSelector';
+import { getYouTubeMetadata } from './services/youtubeMetadataService';
+import { getAllCostEstimates } from './services/costEstimationService';
 
 const LOADING_PHASES = [
   "Инициализиране на защитена връзка с аналитичните възли...",
@@ -67,6 +70,12 @@ const App: React.FC = () => {
   const [newsUrl, setNewsUrl] = useState('');
   const [isExporting, setIsExporting] = useState(false);
 
+  // New state for analysis mode selection
+  const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('quick');
+  const [videoMetadata, setVideoMetadata] = useState<YouTubeVideoMetadata | null>(null);
+  const [costEstimates, setCostEstimates] = useState<Record<AnalysisMode, CostEstimate> | null>(null);
+  const [fetchingMetadata, setFetchingMetadata] = useState(false);
+
   const fullReportRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -80,6 +89,39 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [loading]);
 
+  // Fetch YouTube metadata when URL changes
+  useEffect(() => {
+    const fetchMetadata = async () => {
+      if (!youtubeUrl.trim()) {
+        setVideoMetadata(null);
+        setCostEstimates(null);
+        return;
+      }
+
+      setFetchingMetadata(true);
+      setError(null);
+
+      try {
+        const metadata = await getYouTubeMetadata(youtubeUrl);
+        setVideoMetadata(metadata);
+
+        // Calculate cost estimates based on video duration
+        const estimates = getAllCostEstimates(metadata.duration);
+        setCostEstimates(estimates);
+      } catch (e: any) {
+        setError(e.message);
+        setVideoMetadata(null);
+        setCostEstimates(null);
+      } finally {
+        setFetchingMetadata(false);
+      }
+    };
+
+    // Debounce the metadata fetching
+    const timeoutId = setTimeout(fetchMetadata, 800);
+    return () => clearTimeout(timeoutId);
+  }, [youtubeUrl]);
+
   const handleStartAnalysis = async (type: 'video' | 'news') => {
     const url = type === 'video' ? youtubeUrl : newsUrl;
     if (!url.trim()) return;
@@ -87,7 +129,27 @@ const App: React.FC = () => {
     setError(null);
     setAnalysis(null);
     try {
-      const response = type === 'video' ? await analyzeYouTubeLink(url) : await analyzeNewsLink(url);
+      let response;
+
+      if (type === 'video') {
+        // Route to correct analysis function based on selected mode
+        switch (analysisMode) {
+          case 'quick':
+            response = await analyzeYouTubeQuick(url);
+            break;
+          case 'batch':
+            response = await analyzeYouTubeBatch(url);
+            break;
+          case 'standard':
+            response = await analyzeYouTubeStandard(url);
+            break;
+          default:
+            response = await analyzeYouTubeStandard(url);
+        }
+      } else {
+        response = await analyzeNewsLink(url);
+      }
+
       setAnalysis(response.analysis);
       setUsageData(response.usage);
     } catch (e: any) {
@@ -104,6 +166,9 @@ const App: React.FC = () => {
     setNewsUrl('');
     setError(null);
     setActiveTab('summary');
+    setVideoMetadata(null);
+    setCostEstimates(null);
+    setAnalysisMode('quick');
   };
 
   const handleSaveFullReport = async () => {
@@ -195,8 +260,58 @@ const App: React.FC = () => {
           <div className="space-y-4">
             <div className="editorial-card p-6 md:p-8 rounded-sm space-y-5 border-b-8 border-b-slate-900 bg-white">
               <label className="text-[9px] md:text-[10px] font-black text-slate-900 uppercase tracking-widest border-b-2 border-slate-900 pb-0.5 block w-max">Разследване на Видео</label>
-              <input type="text" value={youtubeUrl} onChange={e => setYoutubeUrl(e.target.value)} placeholder="YouTube URL..." className="w-full bg-slate-50 border border-slate-200 p-4 font-bold text-sm outline-none focus:border-slate-900 transition-all focus:ring-4 focus:ring-slate-900/5" />
-              <button onClick={() => handleStartAnalysis('video')} className="w-full bg-slate-900 text-white p-5 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-black transition-all shadow-xl shadow-slate-900/20 active:scale-[0.98]">АНАЛИЗИРАЙ ВИДЕОПОТОК</button>
+
+              <input
+                type="text"
+                value={youtubeUrl}
+                onChange={e => setYoutubeUrl(e.target.value)}
+                placeholder="YouTube URL..."
+                className="w-full bg-slate-50 border border-slate-200 p-4 font-bold text-sm outline-none focus:border-slate-900 transition-all focus:ring-4 focus:ring-slate-900/5"
+              />
+
+              {/* Video metadata display */}
+              {fetchingMetadata && (
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-900 rounded-full animate-spin"></div>
+                  <span>Извличане на информация за видеото...</span>
+                </div>
+              )}
+
+              {videoMetadata && !fetchingMetadata && (
+                <div className="bg-slate-50 p-4 rounded-sm border border-slate-200">
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl">📹</span>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-black text-slate-900 truncate mb-1">{videoMetadata.title}</h3>
+                      <div className="flex flex-wrap gap-3 text-xs text-slate-600">
+                        <span className="font-bold">👤 {videoMetadata.author}</span>
+                        <span className="font-bold">⏱️ {videoMetadata.durationFormatted}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Mode selector */}
+              {videoMetadata && (
+                <AnalysisModeSelector
+                  selectedMode={analysisMode}
+                  onModeChange={setAnalysisMode}
+                  costEstimates={costEstimates}
+                  disabled={loading}
+                />
+              )}
+
+              <button
+                onClick={() => handleStartAnalysis('video')}
+                disabled={loading || !youtubeUrl.trim()}
+                className={`w-full p-5 text-[10px] font-black uppercase tracking-[0.2em] transition-all shadow-xl shadow-slate-900/20 ${loading || !youtubeUrl.trim()
+                  ? 'bg-slate-400 text-slate-200 cursor-not-allowed'
+                  : 'bg-slate-900 text-white hover:bg-black active:scale-[0.98]'
+                  }`}
+              >
+                {loading ? 'АНАЛИЗИРА СЕ...' : 'АНАЛИЗИРАЙ ВИДЕОПОТОК'}
+              </button>
             </div>
             <div className="editorial-card p-6 md:p-8 rounded-sm space-y-5 border-b-8 border-b-amber-900 bg-white">
               <label className="text-[9px] md:text-[10px] font-black text-amber-900 uppercase tracking-widest border-b-2 border-amber-900 pb-0.5 block w-max">Разследване на Текст</label>

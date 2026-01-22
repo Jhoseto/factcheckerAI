@@ -100,3 +100,22 @@ export interface AnalysisResponse {
   analysis: VideoAnalysis;
   usage: APIUsage;
 }
+
+// New types for analysis modes
+export type AnalysisMode = 'quick' | 'batch' | 'standard';
+
+export interface YouTubeVideoMetadata {
+  videoId: string;
+  title: string;
+  author: string;
+  duration: number; // in seconds
+  durationFormatted: string; // e.g., "39:25"
+}
+
+export interface CostEstimate {
+  mode: AnalysisMode;
+  estimatedTokens: number;
+  estimatedCostUSD: number;
+  estimatedTime: string;
+  features: string[];
+}
