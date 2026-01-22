@@ -1,0 +1,8 @@
+{
+  "name": "FactCheck AI - Медиен Анализатор",
+  "description": "Професионална AI система за разследващ фактчекинг и анализ на видео съдържание. Използва Deep Contextual Reasoning AI Engine by Serezliev за транскрипция, извличане на твърдения и оценка на достоверността.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
