@@ -2,7 +2,7 @@
 import { GoogleGenAI } from "@google/genai";
 
 /**
- * Extract transcript from YouTube video using Gemini
+ * Extract transcript from YouTube video using professional processing engine
  * This is cheaper than full video analysis as we only ask for text extraction
  */
 export const extractYouTubeTranscript = async (url: string): Promise<string> => {

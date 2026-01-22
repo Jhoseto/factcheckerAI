@@ -210,9 +210,15 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen pb-20 px-4 md:px-8 max-w-[1200px] mx-auto bg-[#f9f9f9] print:bg-white print:p-0">
       <header className="py-6 md:py-10 border-b border-slate-300 mb-8 md:mb-12 flex flex-col md:flex-row justify-between items-center md:items-end print:hidden gap-6">
-        <div className="text-center md:text-left">
-          <h1 className="text-2xl md:text-3xl font-black tracking-tighter text-slate-900 uppercase mb-0.5 serif italic text-nowrap">ФАКТЧЕКЪР <span className="text-amber-900">AI</span></h1>
-          <p className="text-[9px] md:text-[10px] font-bold text-slate-500 uppercase tracking-widest">Deep Context Generative Engine by Serezliev Intelligence Unit | v4.8</p>
+        <div className="text-center md:text-left group cursor-default">
+          <h1 className="text-2xl md:text-3xl font-black tracking-[calc(-0.05em)] text-slate-900 uppercase mb-0.5 serif italic text-nowrap flex items-center justify-center md:justify-start">
+            <span className="relative">
+              FACTCHECKER
+              <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-slate-200 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left"></span>
+            </span>
+            <span className="bg-amber-900 text-white px-1.5 py-0.5 ml-0.5 rounded-sm text-[0.6em] tracking-normal not-italic font-black flex items-center justify-center self-center h-6 shadow-sm shadow-amber-900/20">AI</span>
+          </h1>
+          <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest opacity-80 group-hover:opacity-100 transition-opacity">Deep Context Generative Engine | v4.8</p>
         </div>
         <div className="flex flex-col md:flex-row gap-4 md:gap-8 items-center md:items-end">
           {usageData && (
@@ -237,16 +243,23 @@ const App: React.FC = () => {
       {!analysis && !loading && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-16 mt-4 md:mt-10 items-start print:hidden">
           <div className="space-y-8 text-center lg:text-left">
-            <div className="relative inline-block group">
-              <span className="text-[10px] font-black text-amber-900 uppercase tracking-[0.5em] mb-4 block animate-pulse">CLASSIFIED ACCESS</span>
-              <h2 className="text-3xl md:text-5xl font-bold text-slate-900 tracking-tight leading-tight mb-6 md:mb-8 serif">
-                Одит на <br />
-                <span className="text-slate-900 relative inline-block">
-                  истината
-                  <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-amber-900"></span>
+            <div className="relative inline-block space-y-4">
+              <div className="flex items-center gap-3">
+                <span className="h-[1.5px] w-6 bg-amber-900/60"></span>
+                <span className="text-[10px] font-black text-amber-900 uppercase tracking-[0.4em] block">КЛАСИФИЦИРАН ДОСТЪП</span>
+              </div>
+
+              <h2 className="text-5xl md:text-7xl font-black text-slate-900 tracking-[-0.02em] leading-[0.85]" style={{ fontFamily: '"Playfair Display", serif' }}>
+                <span className="block mb-2">
+                  <span className="text-amber-900">О</span>дит на
+                </span>
+                <span className="text-slate-900 block ml-4 md:ml-8 relative">
+                  <span className="text-amber-900">И</span>стината
+                  <span className="absolute -bottom-2 md:-bottom-4 left-0 w-32 h-[1px] bg-slate-200"></span>
                 </span>
               </h2>
-              <div className="absolute -left-10 top-0 bottom-0 w-2.5 bg-slate-900 hidden lg:block rounded-full shadow-lg shadow-amber-900/20"></div>
+
+              <div className="absolute -left-8 top-2 bottom-2 w-[1px] bg-amber-900/10 hidden lg:block"></div>
             </div>
             <div className="space-y-5 max-w-lg">
               <p className="text-slate-800 text-lg md:text-2xl leading-relaxed font-semibold serif italic border-l-4 border-amber-900 pl-6 py-2 text-left bg-white/50 backdrop-blur-sm shadow-sm">
@@ -588,7 +601,7 @@ const ReportView: React.FC<{ analysis: VideoAnalysis, reportRef?: React.RefObjec
       </div>
 
       <footer className="mt-20 pt-8 border-t border-slate-200 text-center">
-        <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.5em] mb-4">© FACTCHECKER AI | ПЪЛЕН МЕДИЕН АНАЛИЗАТОР</div>
+        <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.5em] mb-4">© ФАКТЧЕКЪР AI | ПЪЛЕН МЕДИЕН АНАЛИЗАТОР</div>
         <p className="text-[7px] text-slate-300 uppercase leading-relaxed max-w-2xl mx-auto">
           Този документ е генериран чрез алгоритмите на Deep Contextual Reasoning Engine v4.8.
           Всички изводи са базирани на статистическа вероятност и крос-рефериране с независими източници.

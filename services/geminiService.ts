@@ -230,7 +230,7 @@ const analysisSchema = {
 export const analyzeYouTubeStandard = async (url: string): Promise<AnalysisResponse> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
-    // Use the video directly as input, just like in AI Studio
+    // Use the video directly as input for the engine
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: [{
@@ -254,8 +254,8 @@ export const analyzeYouTubeStandard = async (url: string): Promise<AnalysisRespo
     });
 
     if (!response.text) {
-      console.error('Gemini response:', response);
-      throw new Error("Gemini не върна текст. Моделът може да е блокирал отговора или има проблем с API-то. Проверете конзолата за детайли.");
+      console.error('Service response error:', response);
+      throw new Error("Възникна грешка при генериране на документа. Моля, опитайте отново.");
     }
 
     const parsed = JSON.parse(response.text.trim()) as VideoAnalysis;
@@ -271,7 +271,7 @@ export const analyzeYouTubeStandard = async (url: string): Promise<AnalysisRespo
     return { analysis: parsed, usage };
   } catch (e: any) {
     if (e.message?.includes('429')) {
-      throw new Error("Лимитът на вашия API ключ е превишен. Моля, изчакайте малко или проверете квотите в Google AI Studio.");
+      throw new Error("Системата е претоварена. Моля, изчакайте малко преди следващата заявка.");
     }
     throw new Error(e.message || "Грешка при разследването.");
   }
@@ -311,8 +311,8 @@ export const analyzeYouTubeBatch = async (url: string): Promise<AnalysisResponse
     });
 
     if (!response.text) {
-      console.error('Gemini response:', response);
-      throw new Error("Gemini не върна текст. Моделът може да е блокирал отговора или има проблем с API-то. Проверете конзолата за детайли.");
+      console.error('Service response error:', response);
+      throw new Error("Възникна техническа грешка при обработка на данните.");
     }
 
     const parsed = JSON.parse(response.text.trim()) as VideoAnalysis;
@@ -328,7 +328,7 @@ export const analyzeYouTubeBatch = async (url: string): Promise<AnalysisResponse
     return { analysis: parsed, usage };
   } catch (e: any) {
     if (e.message?.includes('429')) {
-      throw new Error("Лимитът на вашия API ключ е превишен. Моля, изчакайте малко или проверете квотите в Google AI Studio.");
+      throw new Error("Системата е претоварена. Моля, опитайте след малко.");
     }
     throw new Error(e.message || "Грешка при разследването.");
   }
@@ -376,8 +376,8 @@ export const analyzeYouTubeQuick = async (url: string): Promise<AnalysisResponse
     });
 
     if (!response.text) {
-      console.error('Gemini response:', response);
-      throw new Error("Gemini не върна текст. Моделът може да е блокирал отговора или има проблем с API-то.");
+      console.error('Service response error:', response);
+      throw new Error("Възникна грешка при бързия анализ на съдържанието.");
     }
 
     const parsed = JSON.parse(response.text.trim()) as VideoAnalysis;
@@ -417,8 +417,8 @@ export const analyzeNewsLink = async (url: string): Promise<AnalysisResponse> =>
     });
 
     if (!response.text) {
-      console.error('Gemini response:', response);
-      throw new Error("Gemini не върна текст. Моделът може да е блокирал отговора или има проблем с API-то. Проверете конзолата за детайли.");
+      console.error('Service response error:', response);
+      throw new Error("Възникна грешка при извличане на информацията.");
     }
 
     const parsed = JSON.parse(response.text.trim()) as VideoAnalysis;
@@ -434,7 +434,7 @@ export const analyzeNewsLink = async (url: string): Promise<AnalysisResponse> =>
     return { analysis: parsed, usage };
   } catch (e: any) {
     if (e.message?.includes('429')) {
-      throw new Error("Лимитът на вашия API ключ е превишен. Моля, изчакайте малко или проверете квотите в Google AI Studio.");
+      throw new Error("Системата е претоварена. Моля, изчакайте.");
     }
     throw new Error(e.message || "Грешка при разследването.");
   }
