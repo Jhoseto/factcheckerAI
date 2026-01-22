@@ -56,15 +56,22 @@ app.use(createProxyMiddleware({
 app.use(express.static(path.join(__dirname, 'dist')));
 
 // Handle React routing (history API fallback)
-// This is the LAST route, so it only catches what didn't match the proxies or static files
-app.get('*', (req, res) => {
-    // If it's an API call that wasn't caught by the proxy, return 404 instead of HTML
+// Using a basic middleware for the catch-all to avoid path-to-regexp version issues
+app.use((req, res, next) => {
+    // Skip if it's an API call or anything that reached here but shouldn't have
     if (req.url.startsWith('/api')) {
         return res.status(404).json({ error: 'API route not found' });
     }
-    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+    // For anything else, serve index.html
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'), (err) => {
+        if (err) {
+            console.error('[Server] Error sending index.html:', err);
+            res.status(500).send('Error loading application');
+        }
+    });
 });
 
 app.listen(port, '0.0.0.0', () => {
-    console.log(`Server is running on port ${port}`);
+    console.log(`[Server] STARTED: FactChecker AI listening on port ${port}`);
+    console.log(`[Server] Environment: ${process.env.NODE_ENV || 'production'}`);
 });
