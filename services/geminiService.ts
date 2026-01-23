@@ -228,7 +228,7 @@ const analysisSchema = {
  * Renamed from analyzeYouTubeLink for clarity
  */
 export const analyzeYouTubeStandard = async (url: string): Promise<AnalysisResponse> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
   try {
     // Use the video directly as input for the engine
     const response = await ai.models.generateContent({
@@ -286,7 +286,7 @@ export const analyzeYouTubeBatch = async (url: string): Promise<AnalysisResponse
   // For now, using standard API with batch pricing calculation
   // TODO: Implement proper Batch API when available in SDK
 
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -339,7 +339,7 @@ export const analyzeYouTubeBatch = async (url: string): Promise<AnalysisResponse
  * Extracts transcript first, then analyzes only the text
  */
 export const analyzeYouTubeQuick = async (url: string): Promise<AnalysisResponse> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
 
   try {
     // Step 1: Extract transcript
@@ -403,7 +403,7 @@ export const analyzeYouTubeQuick = async (url: string): Promise<AnalysisResponse
 export const analyzeYouTubeLink = analyzeYouTubeStandard;
 
 export const analyzeNewsLink = async (url: string): Promise<AnalysisResponse> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',

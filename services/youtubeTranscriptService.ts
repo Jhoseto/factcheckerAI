@@ -6,7 +6,7 @@ import { GoogleGenAI } from "@google/genai";
  * This is cheaper than full video analysis as we only ask for text extraction
  */
 export const extractYouTubeTranscript = async (url: string): Promise<string> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
 
     try {
         const response = await ai.models.generateContent({
