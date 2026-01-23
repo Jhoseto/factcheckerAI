@@ -53,6 +53,22 @@ app.use(createProxyMiddleware({
     }
 }));
 
+app.use(createProxyMiddleware({
+    pathFilter: '/api/piped',
+    target: 'https://pipedapi.kavin.rocks',
+    changeOrigin: true,
+    secure: false,
+    pathRewrite: {
+        '^/api/piped': '',
+    },
+    onProxyReq: (proxyReq, req, res) => {
+        console.log(`[Proxy] Piped: Forwarding ${req.originalUrl} to Piped API`);
+    },
+    onProxyRes: (proxyRes, req, res) => {
+        console.log(`[Proxy] Piped: Received ${proxyRes.statusCode}`);
+    }
+}));
+
 // Serve static files from the 'dist' directory
 app.use(express.static(path.join(__dirname, 'dist')));
 

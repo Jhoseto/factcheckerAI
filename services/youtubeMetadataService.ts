@@ -22,8 +22,36 @@ export const extractVideoId = (url: string): string | null => {
 };
 
 /**
+ * Fetch duration from Piped API as a fallback for production (Google Cloud)
+ * where direct scraping might be blocked.
+ */
+const fetchDurationFromPiped = async (videoId: string): Promise<number | null> => {
+    try {
+        console.log(`[YouTube Metadata] Fetching duration for ${videoId} via Piped API...`);
+        // Using /api/piped which is proxied by our server in production or Vite in dev
+        const response = await fetch(`/api/piped/streams/${videoId}`);
+
+        if (!response.ok) {
+            console.warn(`[YouTube Metadata] Piped API fetch failed: ${response.status}`);
+            return null;
+        }
+
+        const data = await response.json();
+        if (data && typeof data.duration === 'number') {
+            console.log(`[YouTube Metadata] Found Piped duration: ${data.duration}`);
+            return data.duration;
+        }
+
+        return null;
+    } catch (error) {
+        console.warn('[YouTube Metadata] Piped API error:', error);
+        return null;
+    }
+};
+
+/**
  * Scrape actual duration from YouTube page HTML via local proxy
- * This is the most reliable method as it doesn't depend on 3rd party APIs
+ * This is the most reliable method locally but often blocked in Cloud.
  */
 const scrapeDurationFromYouTubeProxy = async (videoId: string): Promise<number | null> => {
     try {
@@ -39,7 +67,6 @@ const scrapeDurationFromYouTubeProxy = async (videoId: string): Promise<number |
         const html = await response.text();
 
         // Strategy 1: Look for "lengthSeconds" in the client-side configuration
-        // This is usually inside ytInitialPlayerResponse
         const lengthMatch = html.match(/"lengthSeconds":"(\d+)"/);
         if (lengthMatch && lengthMatch[1]) {
             const seconds = parseInt(lengthMatch[1], 10);
@@ -48,7 +75,6 @@ const scrapeDurationFromYouTubeProxy = async (videoId: string): Promise<number |
         }
 
         // Strategy 2: Look for microformat duration (ISO 8601)
-        // Example: "duration":"PT10M1S"
         const isoMatch = html.match(/"duration":"PT(\d+H)?(\d+M)?(\d+S)?"/);
         if (isoMatch) {
             let totalSeconds = 0;
@@ -59,7 +85,6 @@ const scrapeDurationFromYouTubeProxy = async (videoId: string): Promise<number |
             return totalSeconds > 0 ? totalSeconds : null;
         }
 
-        console.warn('[YouTube Metadata] Could not find duration in HTML');
         return null;
     } catch (error) {
         console.warn('[YouTube Metadata] Scraping error:', error);
@@ -90,8 +115,14 @@ export const getYouTubeMetadata = async (url: string): Promise<YouTubeVideoMetad
 
         const data = await response.json();
 
-        // 2. Get accurate duration via HTML scraping (via proxy)
-        const actualDuration = await scrapeDurationFromYouTubeProxy(videoId);
+        // 2. Get accurate duration
+        // Try direct scraping (works best locally)
+        let actualDuration = await scrapeDurationFromYouTubeProxy(videoId);
+
+        // If scraping failed (likely blocked in Cloud), try Piped API fallback
+        if (!actualDuration) {
+            actualDuration = await fetchDurationFromPiped(videoId);
+        }
 
         // Use actual duration if found, otherwise default to 10 mins (600s)
         const duration = actualDuration || 600;
