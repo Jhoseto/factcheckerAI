@@ -1,48 +1,28 @@
-
-import { GoogleGenAI } from "@google/genai";
-
 /**
- * Extract transcript from YouTube video using professional processing engine
+ * Extract YouTube transcript via server-side Gemini API
  * This is cheaper than full video analysis as we only ask for text extraction
  */
 export const extractYouTubeTranscript = async (url: string): Promise<string> => {
-    const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
-
     try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: [{
-                parts: [
-                    {
-                        fileData: {
-                            mimeType: 'video/*',
-                            fileUri: url
-                        }
-                    },
-                    {
-                        text: `Извлечи ПЪЛНАТА транскрипция на това видео.
-            
-            ВАЖНО:
-            - Извлечи ВСИЧКИ изречени думи от началото до края
-            - Запази хронологичния ред
-            - НЕ анализирай, НЕ коментирай - само транскрипция
-            - Форматирай като обикновен текст, разделен на параграфи
-            
-            Върни само транскрипцията, без допълнителни коментари.`
-                    }
-                ]
-            }]
+        const response = await fetch('/api/gemini/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: 'gemini-2.0-flash-exp',
+                videoUrl: url,
+                prompt: 'Extract and return only the transcript/spoken text from this video. Return just the text, no formatting or additional commentary.'
+            })
         });
 
-        if (!response.text) {
-            throw new Error("Не може да се извлече транскрипция от видеото");
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to extract transcript');
         }
 
-        return response.text.trim();
-    } catch (e: any) {
-        if (e.message?.includes('429')) {
-            throw new Error("Лимитът на вашия API ключ е превишен. Моля, изчакайте малко.");
-        }
-        throw new Error(`Грешка при извличане на транскрипция: ${e.message}`);
+        const data = await response.json();
+        return data.text || '';
+    } catch (error: any) {
+        console.error('Transcript extraction error:', error);
+        throw new Error(error.message || 'Грешка при извличане на текста');
     }
 };
