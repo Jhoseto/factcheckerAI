@@ -1,4 +1,5 @@
 // Cloud Run Deployment Sync - v1.0.4
+import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
