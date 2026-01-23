@@ -33,7 +33,7 @@ const PIPED_INSTANCES = [
 const fetchDurationFromLemnos = async (videoId: string): Promise<number | null> => {
     try {
         console.log(`[YouTube Metadata] Trying LemnosLife API for ${videoId}...`);
-        const response = await fetch(`/api/lemnos/no-auth/videos?id=${videoId}&part=contentDetails`);
+        const response = await fetch(`/api/lemnos/videos?id=${videoId}&part=contentDetails`);
 
         if (!response.ok) {
             console.warn(`[YouTube Metadata] Lemnos API failed: ${response.status}`);
