@@ -29,6 +29,12 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
           rewrite: (path) => path.replace(/^\/api\/piped/, '')
+        },
+        '/api/lemnos': {
+          target: 'https://yt.lemnoslife.com',
+          changeOrigin: true,
+          secure: false,
+          rewrite: (path) => path.replace(/^\/api\/lemnos/, '')
         }
       }
     },

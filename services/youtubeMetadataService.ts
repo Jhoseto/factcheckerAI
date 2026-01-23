@@ -28,26 +28,59 @@ const PIPED_INSTANCES = [
 ];
 
 /**
- * Fetch duration from Piped API as a fallback for production (Google Cloud)
- * where direct scraping might be blocked.
+ * Fetch duration from Lemnos API (Highly reliable fallback)
+ */
+const fetchDurationFromLemnos = async (videoId: string): Promise<number | null> => {
+    try {
+        console.log(`[YouTube Metadata] Trying LemnosLife API for ${videoId}...`);
+        const response = await fetch(`/api/lemnos/no-auth/videos?id=${videoId}&part=contentDetails`);
+
+        if (!response.ok) {
+            console.warn(`[YouTube Metadata] Lemnos API failed: ${response.status}`);
+            return null;
+        }
+
+        const data = await response.json();
+        const durationStr = data?.items?.[0]?.contentDetails?.duration;
+
+        if (durationStr) {
+            const seconds = parseISODuration(durationStr);
+            console.log(`[YouTube Metadata] Lemnos Success: ${seconds}s`);
+            return seconds;
+        }
+        return null;
+    } catch (error) {
+        console.error('[YouTube Metadata] Lemnos Error:', error);
+        return null;
+    }
+};
+
+/**
+ * Helper to parse ISO 8601 duration (e.g. PT1H2M30S)
+ */
+const parseISODuration = (iso: string): number => {
+    const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+    if (!match) return 0;
+    const h = parseInt(match[1] || '0', 10);
+    const m = parseInt(match[2] || '0', 10);
+    const s = parseInt(match[3] || '0', 10);
+    return h * 3600 + m * 60 + s;
+};
+
+/**
+ * Fetch duration from Piped API as a fallback
  */
 const fetchDurationFromPiped = async (videoId: string): Promise<number | null> => {
-    // Try each instance until one works
     for (const instance of PIPED_INSTANCES) {
         try {
-            console.log(`[YouTube Metadata] Attempting Piped API (${instance}) for ${videoId}...`);
-
-            // In production we use our server proxy /api/piped 
-            // In local dev we also use Vite proxy /api/piped
-            // We need to tell the proxy which instance to use, or just proxy to one.
-            // Let's simplify and just use the proxy we already have, but maybe the instance is down.
-            // If the user's server.js only proxies to kavin.rocks, we should stick to that or update server.js.
-
-            const response = await fetch(`/api/piped/streams/${videoId}`);
+            console.log(`[YouTube Metadata] Trying Piped (${instance}) for ${videoId}...`);
+            const response = await fetch(`/api/piped/streams/${videoId}`, {
+                headers: { 'x-piped-instance': instance }
+            });
 
             if (!response.ok) {
                 console.warn(`[YouTube Metadata] Piped API fetch failed (${instance}): ${response.status}`);
-                continue; // Try next instance if the proxy is smart enough (it isn't yet)
+                continue;
             }
 
             const data = await response.json();
@@ -129,10 +162,15 @@ export const getYouTubeMetadata = async (url: string): Promise<YouTubeVideoMetad
         const data = await response.json();
 
         // 2. Get accurate duration
-        // Try direct scraping (works best locally)
+        // Step A: Try direct scraping (works best locally)
         let actualDuration = await scrapeDurationFromYouTubeProxy(videoId);
 
-        // If scraping failed (likely blocked in Cloud), try Piped API fallback
+        // Step B: Try LemnosLife (Highly reliable)
+        if (!actualDuration) {
+            actualDuration = await fetchDurationFromLemnos(videoId);
+        }
+
+        // Step C: Try Piped API fallback
         if (!actualDuration) {
             actualDuration = await fetchDurationFromPiped(videoId);
         }

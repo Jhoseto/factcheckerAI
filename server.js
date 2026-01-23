@@ -40,37 +40,44 @@ app.use(createProxyMiddleware({
     changeOrigin: true,
     secure: false,
     headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     },
     pathRewrite: {
         '^/api/youtube': '',
     },
     onProxyReq: (proxyReq, req, res) => {
-        console.log(`[Proxy] YouTube: Forwarding ${req.originalUrl} to YouTube`);
+        console.log(`[Proxy] YouTube: Forwarding to YouTube Direct`);
+    }
+}));
+
+// LemnosLife API Proxy (Highly reliable fallback)
+app.use(createProxyMiddleware({
+    pathFilter: '/api/lemnos',
+    target: 'https://yt.lemnoslife.com',
+    changeOrigin: true,
+    secure: false,
+    pathRewrite: {
+        '^/api/lemnos': '',
     },
-    onProxyRes: (proxyRes, req, res) => {
-        console.log(`[Proxy] YouTube: Received ${proxyRes.statusCode}`);
+    onProxyReq: (proxyReq, req, res) => {
+        console.log(`[Proxy] Lemnos: Forwarding to LemnosLife API`);
     }
 }));
 
 app.use(createProxyMiddleware({
     pathFilter: '/api/piped',
-    target: 'https://pipedapi.kavin.rocks', // Primary instance
+    // Rotate through targets if needed via the router function
+    router: (req) => {
+        const instance = req.headers['x-piped-instance'] || 'https://pipedapi.kavin.rocks';
+        return instance;
+    },
     changeOrigin: true,
     secure: false,
     pathRewrite: {
         '^/api/piped': '',
     },
     onProxyReq: (proxyReq, req, res) => {
-        // Add a specialized User-Agent to avoid Piped blocks
         proxyReq.setHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-        console.log(`[Proxy] Piped: ${req.originalUrl} -> https://pipedapi.kavin.rocks${req.url.replace('/api/piped', '')}`);
-    },
-    onProxyRes: (proxyRes, req, res) => {
-        console.log(`[Proxy] Piped Response: ${proxyRes.statusCode}`);
-    },
-    onError: (err, req, res) => {
-        console.error('[Proxy] Piped Error:', err.message);
     }
 }));
 
