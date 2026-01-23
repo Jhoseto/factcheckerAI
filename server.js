@@ -98,5 +98,4 @@ app.get('*', (req, res) => {
 app.listen(port, '0.0.0.0', () => {
     console.log(`[Server] STARTED: FactChecker AI listening on port ${port}`);
     console.log(`[Server] Environment: ${process.env.NODE_ENV || 'production'}`);
-}
-);
+});
