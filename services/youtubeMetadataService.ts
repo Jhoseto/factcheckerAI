@@ -49,7 +49,7 @@ export const getYouTubeMetadata = async (url: string): Promise<YouTubeVideoMetad
     try {
         // Use official YouTube Data API v3
         // Format: https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id={videoId}&key={apiKey}
-        const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY || 'AIzaSyCmbAtvix1RtSo3GDOrCI0soJsYwkZYrNY';
+        const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY || 'AIzaSyDMGwG0MQsyHiFXYoKiHXYhVWBkaHDKSRQ';
         const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${apiKey}`;
 
         console.log(`[YouTube Metadata] Calling YouTube Data API v3...`);
