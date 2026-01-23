@@ -1,8 +1,9 @@
-// Cloud Run Deployment Sync - v1.0.3
+// Cloud Run Deployment Sync - v1.0.4
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createProxyMiddleware } from 'http-proxy-middleware';
+import { GoogleGenAI } from '@google/genai';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,13 +11,72 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const port = process.env.PORT || 8080;
 
+// Parse JSON bodies for API requests
+app.use(express.json({ limit: '10mb' }));
+
 // Simple request logger
 app.use((req, res, next) => {
     console.log(`[Server] ${req.method} ${req.url}`);
     next();
 });
 
-// === API PROXIES (MUST BE BEFORE STATIC FILES) ===
+// === GEMINI API PROXY (SERVER-SIDE) ===
+// This keeps the API key secure on the server
+app.post('/api/gemini/generate', async (req, res) => {
+    try {
+        const apiKey = process.env.API_KEY || process.env.VITE_API_KEY;
+
+        if (!apiKey) {
+            console.error('[Gemini API] No API key found in environment');
+            return res.status(500).json({ error: 'Server configuration error: Missing API key' });
+        }
+
+        const { model, prompt, systemInstruction, videoUrl } = req.body;
+
+        console.log(`[Gemini API] Generating content with model: ${model}`);
+
+        const ai = new GoogleGenAI({ apiKey });
+
+        const requestPayload = {
+            model: model || 'gemini-2.0-flash-exp',
+            systemInstruction: systemInstruction || undefined,
+            contents: []
+        };
+
+        // Add video if provided
+        if (videoUrl) {
+            requestPayload.contents.push({
+                role: 'user',
+                parts: [
+                    { fileData: { fileUri: videoUrl } },
+                    { text: prompt }
+                ]
+            });
+        } else {
+            requestPayload.contents.push({
+                role: 'user',
+                parts: [{ text: prompt }]
+            });
+        }
+
+        const response = await ai.models.generateContent(requestPayload);
+
+        console.log(`[Gemini API] Success - generated ${response.text?.length || 0} characters`);
+
+        res.json({
+            text: response.text,
+            usageMetadata: response.usageMetadata
+        });
+
+    } catch (error) {
+        console.error('[Gemini API] Error:', error);
+        res.status(500).json({
+            error: error.message || 'Failed to generate content'
+        });
+    }
+});
+
+// === API PROXIES (YOUTUBE) ===
 
 // 1. YouTube oEmbed Proxy
 const oembedProxy = createProxyMiddleware({
@@ -46,38 +106,6 @@ const youtubeProxy = createProxyMiddleware({
     }
 });
 app.use('/api/youtube', youtubeProxy);
-
-// 3. LemnosLife API Proxy
-const lemnosProxy = createProxyMiddleware({
-    target: 'https://yt.lemnoslife.com',
-    changeOrigin: true,
-    pathRewrite: { '^/api/lemnos': '' },
-    onProxyReq: (proxyReq, req) => {
-        console.log(`[Proxy] Lemnos -> LemnosLife`);
-    },
-    onProxyRes: (proxyRes) => {
-        console.log(`[Proxy] Lemnos <- ${proxyRes.statusCode}`);
-    }
-});
-app.use('/api/lemnos', lemnosProxy);
-
-// 4. Piped API Proxy
-app.use('/api/piped', (req, res, next) => {
-    const target = req.headers['x-piped-instance'] || 'https://pipedapi.kavin.rocks';
-    const pipedProxy = createProxyMiddleware({
-        target,
-        changeOrigin: true,
-        pathRewrite: { '^/api/piped': '' },
-        onProxyReq: (proxyReq) => {
-            proxyReq.setHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-            console.log(`[Proxy] Piped -> ${target}`);
-        },
-        onProxyRes: (proxyRes) => {
-            console.log(`[Proxy] Piped <- ${proxyRes.statusCode}`);
-        }
-    });
-    pipedProxy(req, res, next);
-});
 
 // === STATIC FILES & SPA ROUTING ===
 
