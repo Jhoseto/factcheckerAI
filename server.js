@@ -39,12 +39,8 @@ app.post('/api/gemini/generate', async (req, res) => {
 
         const requestPayload = {
             model: model || 'gemini-2.0-flash-exp',
-            systemInstruction: systemInstruction || 'You are a professional fact-checker and media analyst. Respond ONLY with valid JSON.',
-            contents: [],
-            generationConfig: {
-                responseMimeType: 'application/json',
-                temperature: 0.7
-            }
+            systemInstruction: systemInstruction || undefined,
+            contents: []
         };
 
         // Add video if provided
