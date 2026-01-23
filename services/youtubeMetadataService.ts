@@ -21,40 +21,6 @@ export const extractVideoId = (url: string): string | null => {
     return null;
 };
 
-const PIPED_INSTANCES = [
-    'https://pipedapi.kavin.rocks',
-    'https://api-piped.mha.fi',
-    'https://piped-api.lunar.icu'
-];
-
-/**
- * Fetch duration from Lemnos API (Highly reliable fallback)
- */
-const fetchDurationFromLemnos = async (videoId: string): Promise<number | null> => {
-    try {
-        console.log(`[YouTube Metadata] Trying LemnosLife API for ${videoId}...`);
-        const response = await fetch(`/api/lemnos/videos?id=${videoId}&part=contentDetails`);
-
-        if (!response.ok) {
-            console.warn(`[YouTube Metadata] Lemnos API failed: ${response.status}`);
-            return null;
-        }
-
-        const data = await response.json();
-        const durationStr = data?.items?.[0]?.contentDetails?.duration;
-
-        if (durationStr) {
-            const seconds = parseISODuration(durationStr);
-            console.log(`[YouTube Metadata] Lemnos Success: ${seconds}s`);
-            return seconds;
-        }
-        return null;
-    } catch (error) {
-        console.error('[YouTube Metadata] Lemnos Error:', error);
-        return null;
-    }
-};
-
 /**
  * Helper to parse ISO 8601 duration (e.g. PT1H2M30S)
  */
@@ -68,79 +34,8 @@ const parseISODuration = (iso: string): number => {
 };
 
 /**
- * Fetch duration from Piped API as a fallback
- */
-const fetchDurationFromPiped = async (videoId: string): Promise<number | null> => {
-    for (const instance of PIPED_INSTANCES) {
-        try {
-            console.log(`[YouTube Metadata] Trying Piped (${instance}) for ${videoId}...`);
-            const response = await fetch(`/api/piped/streams/${videoId}`, {
-                headers: { 'x-piped-instance': instance }
-            });
-
-            if (!response.ok) {
-                console.warn(`[YouTube Metadata] Piped API fetch failed (${instance}): ${response.status}`);
-                continue;
-            }
-
-            const data = await response.json();
-            if (data && typeof data.duration === 'number') {
-                console.log(`[YouTube Metadata] Success! Found Piped duration: ${data.duration}s`);
-                return data.duration;
-            }
-        } catch (error) {
-            console.warn(`[YouTube Metadata] Piped API error for ${instance}:`, error);
-        }
-    }
-    return null;
-};
-
-/**
- * Scrape actual duration from YouTube page HTML via local proxy
- * This is the most reliable method locally but often blocked in Cloud.
- */
-const scrapeDurationFromYouTubeProxy = async (videoId: string): Promise<number | null> => {
-    try {
-        console.log(`[YouTube Metadata] Scraping duration for ${videoId} via local proxy...`);
-        // Fetch the video page HTML via our proxy to avoid CORS
-        const response = await fetch(`/api/youtube/watch?v=${videoId}`);
-
-        if (!response.ok) {
-            console.warn(`[YouTube Metadata] Proxy fetch failed: ${response.status}`);
-            return null;
-        }
-
-        const html = await response.text();
-
-        // Strategy 1: Look for "lengthSeconds" in the client-side configuration
-        const lengthMatch = html.match(/"lengthSeconds":"(\d+)"/);
-        if (lengthMatch && lengthMatch[1]) {
-            const seconds = parseInt(lengthMatch[1], 10);
-            console.log(`[YouTube Metadata] Found "lengthSeconds": ${seconds}`);
-            return seconds;
-        }
-
-        // Strategy 2: Look for microformat duration (ISO 8601)
-        const isoMatch = html.match(/"duration":"PT(\d+H)?(\d+M)?(\d+S)?"/);
-        if (isoMatch) {
-            let totalSeconds = 0;
-            if (isoMatch[1]) totalSeconds += parseInt(isoMatch[1].replace('H', '')) * 3600;
-            if (isoMatch[2]) totalSeconds += parseInt(isoMatch[2].replace('M', '')) * 60;
-            if (isoMatch[3]) totalSeconds += parseInt(isoMatch[3].replace('S', ''));
-            console.log(`[YouTube Metadata] Found ISO duration: ${totalSeconds}`);
-            return totalSeconds > 0 ? totalSeconds : null;
-        }
-
-        return null;
-    } catch (error) {
-        console.warn('[YouTube Metadata] Scraping error:', error);
-        return null;
-    }
-};
-
-/**
- * Fetch YouTube video metadata using oEmbed API + HTML Scraping for duration
- * This combines official metadata with accurate duration from direct page access
+ * Fetch YouTube video metadata using official YouTube Data API v3
+ * This is the ONLY reliable way to get video data in production
  */
 export const getYouTubeMetadata = async (url: string): Promise<YouTubeVideoMetadata> => {
     const videoId = extractVideoId(url);
@@ -149,44 +44,54 @@ export const getYouTubeMetadata = async (url: string): Promise<YouTubeVideoMetad
         throw new Error('Невалиден YouTube URL');
     }
 
+    console.log(`[YouTube Metadata] Fetching data for video ID: ${videoId}`);
+
     try {
-        // 1. Get basic metadata from official YouTube oEmbed (fast, reliable)
-        // Using local proxy /api/oembed to bypass CORS during development
-        const oembedUrl = `/api/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
-        const response = await fetch(oembedUrl);
+        // Use official YouTube Data API v3
+        // Format: https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id={videoId}&key={apiKey}
+        const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY || 'AIzaSyCmbAtvix1RtSo3GDOrCI0soJsYwkZYrNY';
+        const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${apiKey}`;
+
+        console.log(`[YouTube Metadata] Calling YouTube Data API v3...`);
+        const response = await fetch(apiUrl);
 
         if (!response.ok) {
-            throw new Error('Не може да се извлече информация за видеото');
+            console.error(`[YouTube Metadata] API request failed: ${response.status} ${response.statusText}`);
+            throw new Error(`YouTube API грешка: ${response.status}`);
         }
 
         const data = await response.json();
+        console.log(`[YouTube Metadata] API Response:`, data);
 
-        // 2. Get accurate duration
-        // Step A: Try direct scraping (works best locally)
-        let actualDuration = await scrapeDurationFromYouTubeProxy(videoId);
-
-        // Step B: Try LemnosLife (Highly reliable)
-        if (!actualDuration) {
-            actualDuration = await fetchDurationFromLemnos(videoId);
+        if (!data.items || data.items.length === 0) {
+            throw new Error('Видеото не е намерено');
         }
 
-        // Step C: Try Piped API fallback
-        if (!actualDuration) {
-            actualDuration = await fetchDurationFromPiped(videoId);
-        }
+        const video = data.items[0];
+        const snippet = video.snippet;
+        const contentDetails = video.contentDetails;
 
-        // Use actual duration if found, otherwise default to 10 mins (600s)
-        const duration = actualDuration || 600;
+        // Parse duration from ISO 8601 format (e.g., "PT1M30S" = 90 seconds)
+        const durationISO = contentDetails?.duration || 'PT10M';
+        const duration = parseISODuration(durationISO);
         const durationFormatted = formatDuration(duration);
+
+        console.log(`[YouTube Metadata] Successfully parsed:`, {
+            title: snippet?.title,
+            author: snippet?.channelTitle,
+            duration,
+            durationFormatted
+        });
 
         return {
             videoId,
-            title: data.title || 'Неизвестно заглавие',
-            author: data.author_name || 'Неизвестен автор',
+            title: snippet?.title || 'Неизвестно заглавие',
+            author: snippet?.channelTitle || 'Неизвестен автор',
             duration,
             durationFormatted
         };
     } catch (error: any) {
+        console.error('[YouTube Metadata] Error:', error);
         throw new Error(`Грешка при извличане на метаданни: ${error.message}`);
     }
 };
