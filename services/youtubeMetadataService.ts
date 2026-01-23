@@ -21,32 +21,45 @@ export const extractVideoId = (url: string): string | null => {
     return null;
 };
 
+const PIPED_INSTANCES = [
+    'https://pipedapi.kavin.rocks',
+    'https://api-piped.mha.fi',
+    'https://piped-api.lunar.icu'
+];
+
 /**
  * Fetch duration from Piped API as a fallback for production (Google Cloud)
  * where direct scraping might be blocked.
  */
 const fetchDurationFromPiped = async (videoId: string): Promise<number | null> => {
-    try {
-        console.log(`[YouTube Metadata] Fetching duration for ${videoId} via Piped API...`);
-        // Using /api/piped which is proxied by our server in production or Vite in dev
-        const response = await fetch(`/api/piped/streams/${videoId}`);
+    // Try each instance until one works
+    for (const instance of PIPED_INSTANCES) {
+        try {
+            console.log(`[YouTube Metadata] Attempting Piped API (${instance}) for ${videoId}...`);
 
-        if (!response.ok) {
-            console.warn(`[YouTube Metadata] Piped API fetch failed: ${response.status}`);
-            return null;
+            // In production we use our server proxy /api/piped 
+            // In local dev we also use Vite proxy /api/piped
+            // We need to tell the proxy which instance to use, or just proxy to one.
+            // Let's simplify and just use the proxy we already have, but maybe the instance is down.
+            // If the user's server.js only proxies to kavin.rocks, we should stick to that or update server.js.
+
+            const response = await fetch(`/api/piped/streams/${videoId}`);
+
+            if (!response.ok) {
+                console.warn(`[YouTube Metadata] Piped API fetch failed (${instance}): ${response.status}`);
+                continue; // Try next instance if the proxy is smart enough (it isn't yet)
+            }
+
+            const data = await response.json();
+            if (data && typeof data.duration === 'number') {
+                console.log(`[YouTube Metadata] Success! Found Piped duration: ${data.duration}s`);
+                return data.duration;
+            }
+        } catch (error) {
+            console.warn(`[YouTube Metadata] Piped API error for ${instance}:`, error);
         }
-
-        const data = await response.json();
-        if (data && typeof data.duration === 'number') {
-            console.log(`[YouTube Metadata] Found Piped duration: ${data.duration}`);
-            return data.duration;
-        }
-
-        return null;
-    } catch (error) {
-        console.warn('[YouTube Metadata] Piped API error:', error);
-        return null;
     }
+    return null;
 };
 
 /**

@@ -55,17 +55,22 @@ app.use(createProxyMiddleware({
 
 app.use(createProxyMiddleware({
     pathFilter: '/api/piped',
-    target: 'https://pipedapi.kavin.rocks',
+    target: 'https://pipedapi.kavin.rocks', // Primary instance
     changeOrigin: true,
     secure: false,
     pathRewrite: {
         '^/api/piped': '',
     },
     onProxyReq: (proxyReq, req, res) => {
-        console.log(`[Proxy] Piped: Forwarding ${req.originalUrl} to Piped API`);
+        // Add a specialized User-Agent to avoid Piped blocks
+        proxyReq.setHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        console.log(`[Proxy] Piped: ${req.originalUrl} -> https://pipedapi.kavin.rocks${req.url.replace('/api/piped', '')}`);
     },
     onProxyRes: (proxyRes, req, res) => {
-        console.log(`[Proxy] Piped: Received ${proxyRes.statusCode}`);
+        console.log(`[Proxy] Piped Response: ${proxyRes.statusCode}`);
+    },
+    onError: (err, req, res) => {
+        console.error('[Proxy] Piped Error:', err.message);
     }
 }));
 
