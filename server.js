@@ -86,7 +86,7 @@ app.use(express.static(path.join(__dirname, 'dist')));
 
 // Handle React routing (history API fallback)
 // This MUST be last to avoid catching API routes
-app.get('*', (req, res) => {
+app.use((req, res) => {
     // Safety check: if somehow an API request reaches here, don't serve HTML
     if (req.path.startsWith('/api')) {
         console.error(`[Server] ERROR: Unhandled API request reached catch-all: ${req.path}`);
