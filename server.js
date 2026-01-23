@@ -1,5 +1,4 @@
 // Cloud Run Deployment Sync - v1.0.4
-import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -40,8 +39,12 @@ app.post('/api/gemini/generate', async (req, res) => {
 
         const requestPayload = {
             model: model || 'gemini-2.0-flash-exp',
-            systemInstruction: systemInstruction || undefined,
-            contents: []
+            systemInstruction: systemInstruction || 'You are a professional fact-checker and media analyst. Respond ONLY with valid JSON.',
+            contents: [],
+            generationConfig: {
+                responseMimeType: 'application/json',
+                temperature: 0.7
+            }
         };
 
         // Add video if provided

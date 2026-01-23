@@ -2,23 +2,6 @@
 import { VideoAnalysis, APIUsage, AnalysisResponse, CostEstimate } from '../types';
 
 /**
- * Clean JSON response from markdown code blocks
- */
-const cleanJsonResponse = (text: string): string => {
-  // Remove markdown code blocks if present
-  let cleaned = text.trim();
-
-  // Remove ```json and ``` markers
-  if (cleaned.startsWith('```json')) {
-    cleaned = cleaned.replace(/^```json\s*/, '').replace(/```\s*$/, '');
-  } else if (cleaned.startsWith('```')) {
-    cleaned = cleaned.replace(/^```\s*/, '').replace(/```\s*$/, '');
-  }
-
-  return cleaned.trim();
-};
-
-/**
  * Helper function to call our server-side Gemini API
  */
 const callGeminiAPI = async (payload: {
@@ -38,14 +21,7 @@ const callGeminiAPI = async (payload: {
     throw new Error(error.error || 'Failed to generate content');
   }
 
-  const data = await response.json();
-
-  // Clean the response text from markdown code blocks
-  if (data.text) {
-    data.text = cleanJsonResponse(data.text);
-  }
-
-  return data;
+  return response.json();
 };
 
 const getAnalysisPrompt = (url: string, type: 'video' | 'news') => {
