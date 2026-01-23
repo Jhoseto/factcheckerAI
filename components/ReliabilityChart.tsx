@@ -14,6 +14,7 @@ const ReliabilityChart: React.FC<Props> = ({ data, claims, totalDuration }) => {
   const [hoveredPoint, setHoveredPoint] = useState<any>(null);
 
   const processedData = useMemo(() => {
+    if (!data || !Array.isArray(data)) return [];
     return data.map((p, idx) => ({
       index: idx,
       label: p.time,
@@ -39,6 +40,17 @@ const ReliabilityChart: React.FC<Props> = ({ data, claims, totalDuration }) => {
     return null;
   };
 
+  // If no data, show a placeholder instead of an empty chart
+  if (!processedData || processedData.length === 0) {
+    return (
+      <div className="editorial-card p-6 md:p-12 border-t-8 border-t-slate-900 bg-white">
+        <div className="text-center py-12">
+          <p className="text-slate-400 text-sm font-medium">Няма налични данни за графиката</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 md:space-y-12">
       {/* Главна графика */}
@@ -51,53 +63,53 @@ const ReliabilityChart: React.FC<Props> = ({ data, claims, totalDuration }) => {
             <p className="text-2xl md:text-4xl font-black uppercase tracking-tighter serif italic leading-none">Динамика на надеждността</p>
           </div>
           <div className="text-right hidden md:block">
-             <div className="flex gap-8">
-               <div className="text-center">
-                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Max Stability</p>
-                 <p className="text-xl font-black text-slate-900">{Math.max(...processedData.map(d => d.reliability), 0)}%</p>
-               </div>
-               <div className="text-center">
-                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Рискове</p>
-                 <p className="text-xl font-black text-red-600">{processedData.filter(d => d.reliability < 50).length}</p>
-               </div>
-             </div>
+            <div className="flex gap-8">
+              <div className="text-center">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Max Stability</p>
+                <p className="text-xl font-black text-slate-900">{Math.max(...processedData.map(d => d.reliability), 0)}%</p>
+              </div>
+              <div className="text-center">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Рискове</p>
+                <p className="text-xl font-black text-red-600">{processedData.filter(d => d.reliability < 50).length}</p>
+              </div>
+            </div>
           </div>
         </div>
 
         <div className="w-full h-[250px] md:h-[400px]">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart 
-              data={processedData} 
+            <AreaChart
+              data={processedData}
               onMouseMove={(e) => e.activePayload && setHoveredPoint(e.activePayload[0].payload)}
               onMouseLeave={() => setHoveredPoint(null)}
             >
               <defs>
                 <linearGradient id="colorRel" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#78350f" stopOpacity={0.1}/>
-                  <stop offset="95%" stopColor="#78350f" stopOpacity={0}/>
+                  <stop offset="5%" stopColor="#78350f" stopOpacity={0.1} />
+                  <stop offset="95%" stopColor="#78350f" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="4 4" stroke="#f1f5f9" vertical={false} />
               <XAxis dataKey="label" hide />
-              <YAxis domain={[0, 100]} orientation="right" tick={{fontSize: 8, fontWeight: '800', fill: '#cbd5e1'}} axisLine={false} tickLine={false} />
+              <YAxis domain={[0, 100]} orientation="right" tick={{ fontSize: 8, fontWeight: '800', fill: '#cbd5e1' }} axisLine={false} tickLine={false} />
               <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#0f172a', strokeWidth: 1, strokeDasharray: '5 5' }} />
-              <Area 
-                type="monotone" 
-                dataKey="reliability" 
-                stroke="#0f172a" 
+              <Area
+                type="monotone"
+                dataKey="reliability"
+                stroke="#0f172a"
                 strokeWidth={3}
                 fill="url(#colorRel)"
                 animationDuration={2000}
                 connectNulls
               />
               {processedData.filter(d => d.isAnomaly).map((d, i) => (
-                <ReferenceDot 
-                  key={i} 
-                  x={d.index} 
-                  y={d.reliability} 
-                  r={3} 
-                  fill={d.reliability < 50 ? "#dc2626" : "#059669"} 
-                  stroke="white" 
+                <ReferenceDot
+                  key={i}
+                  x={d.index}
+                  y={d.reliability}
+                  r={3}
+                  fill={d.reliability < 50 ? "#dc2626" : "#059669"}
+                  stroke="white"
                   strokeWidth={1}
                 />
               ))}
@@ -120,11 +132,11 @@ const ReliabilityChart: React.FC<Props> = ({ data, claims, totalDuration }) => {
       {/* Регистър */}
       <div className="editorial-card p-6 md:p-10 bg-slate-900 text-white rounded-sm overflow-hidden relative">
         <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-[0.3em] md:tracking-[0.5em] text-amber-500 mb-6 border-b border-white/10 pb-4">Хронологичен регистър</h4>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 max-h-[300px] md:max-h-[400px] overflow-y-auto pr-2 scroll-custom">
           {processedData.map((point, idx) => (
-            <div 
-              key={idx} 
+            <div
+              key={idx}
               className={`p-4 md:p-6 border border-white/5 transition-all cursor-default group hover:border-amber-500/50 ${hoveredPoint?.label === point.label ? 'bg-white/10 border-amber-500' : 'bg-white/5'}`}
             >
               <div className="flex justify-between items-start mb-2 md:mb-4">

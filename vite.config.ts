@@ -9,6 +9,10 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       host: '0.0.0.0',
       proxy: {
+        '/api/gemini': {
+          target: 'http://localhost:8080',
+          changeOrigin: true
+        },
         '/api/oembed': {
           target: 'https://www.youtube.com',
           changeOrigin: true,

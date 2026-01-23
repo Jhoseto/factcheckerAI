@@ -218,7 +218,7 @@ const App: React.FC = () => {
             </span>
             <span className="bg-amber-900 text-white px-1.5 py-0.5 ml-0.5 rounded-sm text-[0.6em] tracking-normal not-italic font-black flex items-center justify-center self-center h-6 shadow-sm shadow-amber-900/20">AI</span>
           </h1>
-          <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest opacity-80 group-hover:opacity-100 transition-opacity">Deep Context Generative Engine | v4.8.2</p>
+          <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest opacity-80 group-hover:opacity-100 transition-opacity">Deep Context Generative Engine (DCGE)by Serezliev| v4.8.2</p>
         </div>
         <div className="flex flex-col md:flex-row gap-4 md:gap-8 items-center md:items-end">
           {usageData && (
@@ -348,7 +348,7 @@ const App: React.FC = () => {
             </div>
             <div className="p-3 bg-slate-100 rounded-sm">
               <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Data Points</p>
-              <p className="text-lg font-black text-slate-900">{analysis.summary.dataPointsProcessed.toLocaleString()}</p>
+              <p className="text-lg font-black text-slate-900">{(analysis.summary?.dataPointsProcessed ?? 0).toLocaleString()}</p>
             </div>
           </aside>
 
