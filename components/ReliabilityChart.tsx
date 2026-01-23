@@ -15,14 +15,22 @@ const ReliabilityChart: React.FC<Props> = ({ data, claims, totalDuration }) => {
 
   const processedData = useMemo(() => {
     if (!data || !Array.isArray(data)) return [];
-    return data.map((p, idx) => ({
-      index: idx,
-      label: p.time,
-      reliability: Math.round(p.reliability > 1 ? p.reliability : p.reliability * 100),
-      event: p.event || 'Няма данни за събитие',
-      isAnomaly: (p.reliability < 0.4 || p.reliability > 0.9)
-    }));
-  }, [data]);
+    // Използвай пълните цитати от claims вместо скъсените събития
+    return data.map((p, idx) => {
+      // Намери съответния claim за този timestamp
+      const matchingClaim = claims.find((c, cIdx) => cIdx === idx);
+      const fullQuote = matchingClaim ? matchingClaim.quote : (p.event || 'Няма данни за събитие');
+      
+      return {
+        index: idx,
+        label: p.time,
+        reliability: Math.round(p.reliability > 1 ? p.reliability : p.reliability * 100),
+        event: fullQuote, // Използвай пълния цитат
+        isAnomaly: (p.reliability < 0.4 || p.reliability > 0.9),
+        claim: matchingClaim
+      };
+    });
+  }, [data, claims]);
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
@@ -144,8 +152,11 @@ const ReliabilityChart: React.FC<Props> = ({ data, claims, totalDuration }) => {
                 <span className={`text-[10px] md:text-xs font-black ${point.reliability < 50 ? 'text-red-500' : 'text-emerald-500'}`}>{point.reliability}%</span>
               </div>
               <p className="text-[11px] md:text-[12px] leading-relaxed font-medium text-slate-300 group-hover:text-white transition-colors">
-                {point.event}
+                {point.event && point.event.length > 100 ? point.event.substring(0, 100) + '...' : point.event}
               </p>
+              {point.event && point.event.length > 100 && (
+                <p className="text-[9px] text-amber-400 mt-1 italic">(Пълен цитат в таб "Твърдения")</p>
+              )}
             </div>
           ))}
         </div>

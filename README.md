@@ -6,6 +6,7 @@
 
 ### Предварителни изисквания
 - Node.js (версия 18 или по-нова)
+- YouTube Data API v3 ключ от [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
 - Gemini API ключ от [Google AI Studio](https://aistudio.google.com/app/apikey)
 
 ### Стъпки
@@ -15,11 +16,34 @@
 npm install
 ```
 
-2. **Конфигурирай API ключа:**
-Редактирай `.env.local` и добави твоя Gemini API ключ:
-```
-GEMINI_API_KEY=your_actual_api_key_here
-```
+2. **Конфигурирай API ключовете:**
+   
+   Копирай `.env.example` като `.env`:
+   ```bash
+   cp .env.example .env
+   ```
+   
+   Редактирай `.env` и добави твоите API ключове:
+   ```env
+   VITE_YOUTUBE_API_KEY=your_youtube_api_key_here
+   GEMINI_API_KEY=your_gemini_api_key_here
+   ```
+   
+   **Как да получиш YouTube API ключ:**
+   1. Отиди на [Google Cloud Console](https://console.cloud.google.com/)
+   2. Създай нов проект или избери съществуващ
+   3. Активирай [YouTube Data API v3](https://console.cloud.google.com/apis/library/youtube.googleapis.com)
+   4. Отиди на [Credentials](https://console.cloud.google.com/apis/credentials)
+   5. Създай нов API ключ
+   6. Копирай ключа в `.env` файла
+   
+   **Как да получиш Gemini API ключ:**
+   1. Отиди на [Google AI Studio](https://aistudio.google.com/app/apikey)
+   2. Влез с Google акаунт
+   3. Създай нов API ключ
+   4. Копирай ключа в `.env` файла
+   
+   ⚠️ **ВАЖНО**: Никога не комитирай `.env` файла в git! Той съдържа чувствителни данни.
 
 3. **Стартирай приложението:**
 ```bash

@@ -1,50 +1,52 @@
 
 import { CostEstimate, AnalysisMode } from '../types';
-
-// Pricing per 1M tokens (as of 2026)
-const PRICING = {
-    'gemini-3-flash-preview': {
-        input: 1.25,
-        output: 5.00
-    },
-    'gemini-3-flash-preview-batch': {
-        input: 0.625, // 50% discount
-        output: 2.50  // 50% discount
-    }
-};
+import { GEMINI_PRICING, calculateCost } from './pricing';
 
 /**
  * Estimate tokens for video analysis based on duration
+ * Based on Gemini API documentation and real-world usage:
+ * - Video processing: ~2,500 tokens/minute (sampling frames)
+ * - Audio processing: ~1,920 tokens/minute (32 tokens/second)
+ * - Prompt overhead: ~3,000 tokens (detailed analysis prompt)
+ * - Output tokens: ~5,000-8,000 tokens (detailed JSON response)
  */
-export const estimateVideoTokens = (durationSeconds: number): number => {
-    // Based on research:
-    // - Audio: 32 tokens/second = 1,920 tokens/minute
-    // - Video frames: ~2,500 tokens/minute (sampling)
-    // Total: ~4,420 tokens/minute for full video analysis
-
+export const estimateVideoTokens = (durationSeconds: number): { input: number; output: number } => {
     const minutes = durationSeconds / 60;
-    const audioTokens = minutes * 1920;
-    const videoTokens = minutes * 2500;
-    const totalTokens = audioTokens + videoTokens;
-
-    return Math.round(totalTokens);
+    
+    // Input tokens: video + audio + prompt
+    const videoTokens = minutes * 2500; // Video frames sampling
+    const audioTokens = minutes * 1920;  // Audio processing
+    const promptOverhead = 3000; // Detailed analysis prompt
+    const inputTokens = Math.round(videoTokens + audioTokens + promptOverhead);
+    
+    // Output tokens: detailed JSON response with all metrics
+    // More detailed prompt = more detailed output
+    const outputTokens = Math.round(5000 + (minutes * 100)); // Base 5k + ~100 per minute
+    
+    return { input: inputTokens, output: outputTokens };
 };
 
 /**
- * Estimate tokens for transcript-only analysis
+ * Estimate tokens for transcript-only analysis (Quick mode)
+ * Based on real-world usage:
+ * - Average speaking rate: ~150 words/minute
+ * - Average tokens per word: ~1.3
+ * - Prompt overhead: ~3,000 tokens (detailed prompt)
+ * - Output tokens: ~4,000-6,000 tokens (detailed JSON response)
  */
-export const estimateTranscriptTokens = (durationSeconds: number): number => {
-    // Average speaking rate: ~150 words/minute
-    // Average tokens per word: ~1.3
-    // Plus prompt overhead: ~2,000 tokens
-
+export const estimateTranscriptTokens = (durationSeconds: number): { input: number; output: number } => {
     const minutes = durationSeconds / 60;
-    const words = minutes * 150;
-    const textTokens = words * 1.3;
-    const promptTokens = 2000;
-    const outputTokens = 3000; // Estimated analysis output
-
-    return Math.round(textTokens + promptTokens + outputTokens);
+    
+    // Input tokens: transcript text + prompt
+    const words = minutes * 150; // Average speaking rate
+    const textTokens = words * 1.3; // Average tokens per word
+    const promptOverhead = 3000; // Detailed analysis prompt
+    const inputTokens = Math.round(textTokens + promptOverhead);
+    
+    // Output tokens: detailed JSON response
+    const outputTokens = Math.round(4000 + (minutes * 50)); // Base 4k + ~50 per minute
+    
+    return { input: inputTokens, output: outputTokens };
 };
 
 /**
@@ -61,9 +63,10 @@ export const calculateCostEstimate = (
 
     switch (mode) {
         case 'quick':
-            estimatedTokens = estimateTranscriptTokens(durationSeconds);
-            // Calculate actual cost based on tokens
-            estimatedCostUSD = (estimatedTokens / 1_000_000) * PRICING['gemini-3-flash-preview'].input;
+            // Quick mode: transcript-only analysis
+            const quickTokens = estimateTranscriptTokens(durationSeconds);
+            estimatedTokens = quickTokens.input + quickTokens.output;
+            estimatedCostUSD = calculateCost('gemini-3-flash-preview', quickTokens.input, quickTokens.output, false);
             estimatedTime = '5-10 секунди';
             features = [
                 'Анализ само на текст/транскрипция',
@@ -74,10 +77,10 @@ export const calculateCostEstimate = (
             break;
 
         case 'batch':
-            estimatedTokens = estimateVideoTokens(durationSeconds);
-            const batchInputCost = (estimatedTokens / 1_000_000) * PRICING['gemini-3-flash-preview-batch'].input;
-            const batchOutputCost = (5000 / 1_000_000) * PRICING['gemini-3-flash-preview-batch'].output;
-            estimatedCostUSD = batchInputCost + batchOutputCost;
+            // Batch mode: full video analysis with batch pricing (50% discount)
+            const batchTokens = estimateVideoTokens(durationSeconds);
+            estimatedTokens = batchTokens.input + batchTokens.output;
+            estimatedCostUSD = calculateCost('gemini-3-flash-preview', batchTokens.input, batchTokens.output, true);
             estimatedTime = '2-5 минути';
             features = [
                 'Пълен анализ на видео + аудио',
@@ -88,10 +91,10 @@ export const calculateCostEstimate = (
             break;
 
         case 'standard':
-            estimatedTokens = estimateVideoTokens(durationSeconds);
-            const standardInputCost = (estimatedTokens / 1_000_000) * PRICING['gemini-3-flash-preview'].input;
-            const standardOutputCost = (5000 / 1_000_000) * PRICING['gemini-3-flash-preview'].output;
-            estimatedCostUSD = standardInputCost + standardOutputCost;
+            // Standard mode: full video analysis
+            const standardTokens = estimateVideoTokens(durationSeconds);
+            estimatedTokens = standardTokens.input + standardTokens.output;
+            estimatedCostUSD = calculateCost('gemini-3-flash-preview', standardTokens.input, standardTokens.output, false);
             estimatedTime = '30-60 секунди';
             features = [
                 'Пълен анализ на видео + аудио',

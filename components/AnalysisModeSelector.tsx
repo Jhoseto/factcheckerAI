@@ -91,17 +91,17 @@ const AnalysisModeSelector: React.FC<AnalysisModeSelectorProps> = ({
                         {estimate && (
                             <div className="space-y-1 mb-2">
                                 <div className="flex items-baseline gap-2">
-                                    <span className="text-xs font-bold text-slate-500">Цена:</span>
+                                    <span className="text-xs font-bold text-slate-500">Приблизителна цена:</span>
                                     <span className={`text-base md:text-lg font-black ${config.textColor}`}>
-                                        {`~$${estimate.estimatedCostUSD.toFixed(3)}`}
+                                        {estimate.estimatedCostUSD < 0.001 
+                                          ? '< $0.001' 
+                                          : estimate.estimatedCostUSD < 0.01
+                                          ? `$${estimate.estimatedCostUSD.toFixed(4)}`
+                                          : `$${estimate.estimatedCostUSD.toFixed(3)}`}
                                     </span>
                                 </div>
                                 <div className="flex items-baseline gap-2">
-                                    <span className="text-xs font-bold text-slate-500">Време:</span>
-                                    <span className="text-xs font-bold text-slate-700">{estimate.estimatedTime}</span>
-                                </div>
-                                <div className="flex items-baseline gap-2">
-                                    <span className="text-xs font-bold text-slate-500">Токени:</span>
+                                    <span className="text-xs font-bold text-slate-500">Приблизителни токени:</span>
                                     <span className="text-xs font-bold text-slate-700">~{estimate.estimatedTokens.toLocaleString()}</span>
                                 </div>
                             </div>

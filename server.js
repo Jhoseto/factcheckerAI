@@ -15,11 +15,6 @@ const port = process.env.PORT || 8080;
 // Parse JSON bodies for API requests
 app.use(express.json({ limit: '10mb' }));
 
-// Simple request logger
-app.use((req, res, next) => {
-    console.log(`[Server] ${req.method} ${req.url}`);
-    next();
-});
 
 // === GEMINI API PROXY (SERVER-SIDE) ===
 // This keeps the API key secure on the server
@@ -34,39 +29,60 @@ app.post('/api/gemini/generate', async (req, res) => {
 
         const { model, prompt, systemInstruction, videoUrl } = req.body;
 
-        console.log(`[Gemini API] Generating content with model: ${model}`);
-
         const ai = new GoogleGenAI({ apiKey });
 
         const requestPayload = {
-            model: model || 'gemini-2.0-flash-exp',
+            model: model || 'gemini-3-flash-preview',
             systemInstruction: systemInstruction || 'You are a professional fact-checker and media analyst. Respond ONLY with valid JSON.',
             contents: [],
             generationConfig: {
                 responseMimeType: 'application/json',
                 temperature: 0.7
-            }
+            },
+            tools: []
         };
 
-        // Add video if provided
+        // Check if videoUrl is provided and determine how to handle it
         if (videoUrl) {
-            requestPayload.contents.push({
-                role: 'user',
-                parts: [
-                    { fileData: { fileUri: videoUrl } },
-                    { text: prompt }
-                ]
-            });
+            // Check if it's a YouTube URL
+            const isYouTubeUrl = /(?:youtube\.com|youtu\.be)/.test(videoUrl);
+            
+            if (isYouTubeUrl) {
+                // For YouTube URLs, use fileData with fileUri (official method from Gemini docs)
+                // This is exactly how Google AI Studio does it
+                requestPayload.contents = [{
+                    role: 'user',
+                    parts: [
+                        { 
+                            fileData: { 
+                                fileUri: videoUrl 
+                            }
+                        },
+                        { 
+                            text: prompt 
+                        }
+                    ]
+                }];
+            } else {
+                // For other URLs (GCS, GDrive files), use fileUri
+                // This is for files uploaded to Google Cloud Storage or Google Drive
+                requestPayload.contents = [{
+                    role: 'user',
+                    parts: [
+                        { fileData: { fileUri: videoUrl } },
+                        { text: prompt }
+                    ]
+                }];
+            }
         } else {
-            requestPayload.contents.push({
+            // No video URL, just text prompt
+            requestPayload.contents = [{
                 role: 'user',
                 parts: [{ text: prompt }]
-            });
+            }];
         }
 
         const response = await ai.models.generateContent(requestPayload);
-
-        console.log(`[Gemini API] Success - generated ${response.text?.length || 0} characters`);
 
         res.json({
             text: response.text,
@@ -75,8 +91,47 @@ app.post('/api/gemini/generate', async (req, res) => {
 
     } catch (error) {
         console.error('[Gemini API] Error:', error);
+        
+        // Check for API key errors
+        const errorMessage = error.message || error.toString() || '';
+        const isApiKeyError = 
+            errorMessage.includes('API key') ||
+            errorMessage.includes('api key') ||
+            errorMessage.includes('API_KEY') ||
+            errorMessage.includes('authentication') ||
+            errorMessage.includes('401') ||
+            errorMessage.includes('Unauthorized') ||
+            errorMessage.includes('invalid') && errorMessage.includes('key') ||
+            error.status === 401 ||
+            error.statusCode === 401;
+        
+        // Check for rate limit errors
+        const isRateLimitError = 
+            errorMessage.includes('429') ||
+            errorMessage.includes('rate limit') ||
+            errorMessage.includes('quota') ||
+            error.status === 429 ||
+            error.statusCode === 429;
+        
+        // Return appropriate status code
+        if (isApiKeyError) {
+            return res.status(401).json({
+                error: 'API key error: Invalid or missing API key. Please check your .env file configuration.',
+                code: 'API_KEY_ERROR'
+            });
+        }
+        
+        if (isRateLimitError) {
+            return res.status(429).json({
+                error: 'Rate limit exceeded. Please wait 1-2 minutes before trying again.',
+                code: 'RATE_LIMIT'
+            });
+        }
+        
+        // Default error
         res.status(500).json({
-            error: error.message || 'Failed to generate content'
+            error: error.message || 'Failed to generate content',
+            code: 'UNKNOWN_ERROR'
         });
     }
 });
@@ -89,10 +144,8 @@ const oembedProxy = createProxyMiddleware({
     changeOrigin: true,
     pathRewrite: { '^/api/oembed': '/oembed' },
     onProxyReq: (proxyReq, req) => {
-        console.log(`[Proxy] oEmbed -> YouTube`);
     },
     onProxyRes: (proxyRes) => {
-        console.log(`[Proxy] oEmbed <- ${proxyRes.statusCode}`);
     }
 });
 app.use('/api/oembed', oembedProxy);
@@ -104,10 +157,8 @@ const youtubeProxy = createProxyMiddleware({
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
     pathRewrite: { '^/api/youtube': '' },
     onProxyReq: (proxyReq, req) => {
-        console.log(`[Proxy] Scrape -> YouTube`);
     },
     onProxyRes: (proxyRes) => {
-        console.log(`[Proxy] Scrape <- ${proxyRes.statusCode}`);
     }
 });
 app.use('/api/youtube', youtubeProxy);
@@ -129,6 +180,4 @@ app.use((req, res) => {
 });
 
 app.listen(port, '0.0.0.0', () => {
-    console.log(`[Server] STARTED: FactChecker AI listening on port ${port}`);
-    console.log(`[Server] Environment: ${process.env.NODE_ENV || 'production'}`);
 });

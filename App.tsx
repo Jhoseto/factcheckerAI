@@ -7,6 +7,7 @@ import ReliabilityChart from './components/ReliabilityChart';
 import AnalysisModeSelector from './components/AnalysisModeSelector';
 import { getYouTubeMetadata } from './services/youtubeMetadataService';
 import { getAllCostEstimates } from './services/costEstimationService';
+import { validateYouTubeUrl, validateNewsUrl } from './services/validation';
 
 const LOADING_PHASES = [
   "Инициализиране на защитена връзка с аналитичните възли...",
@@ -124,7 +125,17 @@ const App: React.FC = () => {
 
   const handleStartAnalysis = async (type: 'video' | 'news') => {
     const url = type === 'video' ? youtubeUrl : newsUrl;
-    if (!url.trim()) return;
+    
+    // Validate URL before proceeding
+    const validation = type === 'video' 
+      ? validateYouTubeUrl(url)
+      : validateNewsUrl(url);
+    
+    if (!validation.valid) {
+      setError(validation.error || 'Невалиден URL');
+      return;
+    }
+    
     setLoading(true);
     setError(null);
     setAnalysis(null);
@@ -141,10 +152,10 @@ const App: React.FC = () => {
             response = await analyzeYouTubeBatch(url);
             break;
           case 'standard':
-            response = await analyzeYouTubeStandard(url);
+            response = await analyzeYouTubeStandard(url, videoMetadata || undefined);
             break;
           default:
-            response = await analyzeYouTubeStandard(url);
+            response = await analyzeYouTubeStandard(url, videoMetadata || undefined);
         }
       } else {
         response = await analyzeNewsLink(url);
@@ -291,7 +302,7 @@ const App: React.FC = () => {
               )}
 
               {videoMetadata && !fetchingMetadata && (
-                <div className="bg-slate-50 p-4 rounded-sm border border-slate-200">
+                <div className="bg-slate-50 p-4 rounded-sm border border-slate-200 space-y-3">
                   <div className="flex items-start gap-3">
                     <span className="text-2xl">📹</span>
                     <div className="flex-1 min-w-0">
@@ -302,6 +313,48 @@ const App: React.FC = () => {
                       </div>
                     </div>
                   </div>
+                  
+                  {/* Cost summary - показва се преди избора на режим */}
+                  {costEstimates && (
+                    <div className="pt-3 border-t border-slate-200">
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Приблизителни разходи:</p>
+                      <div className="grid grid-cols-3 gap-2 text-xs">
+                        <div className="text-center p-2 bg-emerald-50 rounded border border-emerald-100">
+                          <p className="text-[9px] font-bold text-emerald-700 mb-0.5">Quick</p>
+                          <p className="text-sm font-black text-emerald-700">
+                            {costEstimates.quick.estimatedCostUSD < 0.001 
+                              ? '< $0.001' 
+                              : costEstimates.quick.estimatedCostUSD < 0.01
+                              ? `$${costEstimates.quick.estimatedCostUSD.toFixed(4)}`
+                              : `$${costEstimates.quick.estimatedCostUSD.toFixed(3)}`}
+                          </p>
+                        </div>
+                        <div className="text-center p-2 bg-amber-50 rounded border border-amber-100">
+                          <p className="text-[9px] font-bold text-amber-700 mb-0.5">Batch</p>
+                          <p className="text-sm font-black text-amber-700">
+                            {costEstimates.batch.estimatedCostUSD < 0.001 
+                              ? '< $0.001' 
+                              : costEstimates.batch.estimatedCostUSD < 0.01
+                              ? `$${costEstimates.batch.estimatedCostUSD.toFixed(4)}`
+                              : `$${costEstimates.batch.estimatedCostUSD.toFixed(3)}`}
+                          </p>
+                        </div>
+                        <div className="text-center p-2 bg-slate-50 rounded border border-slate-100">
+                          <p className="text-[9px] font-bold text-slate-700 mb-0.5">Standard</p>
+                          <p className="text-sm font-black text-slate-700">
+                            {costEstimates.standard.estimatedCostUSD < 0.001 
+                              ? '< $0.001' 
+                              : costEstimates.standard.estimatedCostUSD < 0.01
+                              ? `$${costEstimates.standard.estimatedCostUSD.toFixed(4)}`
+                              : `$${costEstimates.standard.estimatedCostUSD.toFixed(3)}`}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-[7px] text-slate-400 italic mt-2 text-center">
+                        * Цените са приблизителни. Реалните разходи могат да варират в зависимост от дължината на транскрипцията и сложността на анализа.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -409,43 +462,78 @@ const App: React.FC = () => {
 
               {activeTab === 'manipulation' && (
                 <div className="space-y-8 animate-fadeIn">
-                  <h3 className="text-lg md:text-xl font-black uppercase serif italic border-b border-slate-900 pb-1">Деконструкция на Манипулациите</h3>
+                  <div className="border-b border-slate-900 pb-4 mb-6">
+                    <h3 className="text-lg md:text-xl font-black uppercase serif italic mb-2">Деконструкция на Манипулациите</h3>
+                    <p className="text-xs text-slate-600 italic">Всички идентифицирани манипулативни техники с конкретни примери от видеото и анализ на въздействието им.</p>
+                  </div>
                   <div className="grid grid-cols-1 gap-6">
-                    {analysis.manipulations.map((m, idx) => (
-                      <div key={idx} className="editorial-card p-5 md:p-7 border-l-4 border-l-orange-600">
-                        <div className="flex justify-between items-start mb-4">
-                          <div className="space-y-0.5">
-                            <h4 className="text-base md:text-lg font-black text-slate-900 uppercase tracking-tight">{m.technique}</h4>
-                            <span className="text-[8px] font-black text-orange-600 uppercase tracking-widest">{m.timestamp}</span>
+                    {analysis.manipulations.map((m, idx) => {
+                      const severity = Math.round((m.severity > 1 ? m.severity / 100 : m.severity) * 100);
+                      const getSeverityBorderColor = () => {
+                        if (severity >= 70) return 'border-l-red-600';
+                        if (severity >= 50) return 'border-l-orange-600';
+                        return 'border-l-yellow-600';
+                      };
+                      const getSeverityTextColor = () => {
+                        if (severity >= 70) return 'text-red-600';
+                        if (severity >= 50) return 'text-orange-600';
+                        return 'text-yellow-600';
+                      };
+                      return (
+                        <div key={idx} className={`editorial-card p-5 md:p-7 border-l-4 ${getSeverityBorderColor()} hover:shadow-lg transition-shadow`}>
+                          <div className="flex justify-between items-start mb-4">
+                            <div className="space-y-0.5 flex-1">
+                              <h4 className="text-base md:text-lg font-black text-slate-900 uppercase tracking-tight">{m.technique}</h4>
+                              <span className="text-[8px] font-black text-orange-600 uppercase tracking-widest">{m.timestamp}</span>
+                            </div>
+                            <div className="text-right ml-4">
+                              <p className="text-[7px] font-black text-slate-400 uppercase mb-0.5">Интензитет</p>
+                              <span className={`text-lg md:text-xl font-black ${getSeverityTextColor()}`}>{severity}%</span>
+                            </div>
                           </div>
-                          <div className="text-right">
-                            <p className="text-[7px] font-black text-slate-400 uppercase mb-0.5">Интензитет</p>
-                            <span className="text-lg md:text-xl font-black text-orange-600">{Math.round((m.severity > 1 ? m.severity / 100 : m.severity) * 100)}%</span>
+                          <div className="bg-slate-50 p-4 mb-4 border border-slate-200">
+                            <p className="text-xs font-bold text-slate-800 leading-relaxed whitespace-pre-wrap">{m.logic}</p>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-[11px]">
+                            <div>
+                              <p className="font-black uppercase text-slate-400 text-[8px] mb-1 tracking-widest">Въздействие върху аудиторията:</p>
+                              <p className="text-slate-700 font-medium leading-relaxed">{m.effect}</p>
+                            </div>
+                            <div>
+                              <p className="font-black uppercase text-emerald-800 text-[8px] mb-1 tracking-widest">Как да се защитим:</p>
+                              <p className="text-slate-700 italic leading-relaxed">{m.counterArgument || 'Проверка на първоизточници и критично мислене.'}</p>
+                            </div>
                           </div>
                         </div>
-                        <p className="text-xs font-bold text-slate-800 leading-relaxed italic bg-slate-50 p-3 mb-4">{m.logic}</p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-[11px]">
-                          <div><p className="font-black uppercase text-slate-400 text-[8px] mb-1 tracking-widest">Въздействие:</p><p className="text-slate-700 font-medium">{m.effect}</p></div>
-                          <div><p className="font-black uppercase text-emerald-800 text-[8px] mb-1 tracking-widest">Противодействие:</p><p className="text-slate-700 italic">{m.counterArgument || 'Проверка на първоизточници.'}</p></div>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
               {activeTab === 'transcript' && (
                 <div className="editorial-card p-6 md:p-10 animate-fadeIn bg-white border-t-2 border-t-slate-900">
+                  <div className="mb-6 pb-4 border-b border-slate-200">
+                    <h3 className="text-[9px] font-black text-slate-900 uppercase tracking-widest mb-2">Пълна транскрипция</h3>
+                    <p className="text-xs text-slate-600 italic">Реалните имена на участниците са извлечени от видеото. Ако името не е споменато, се използва 'Speaker 1', 'Speaker 2' и т.н.</p>
+                  </div>
                   <div className="max-w-2xl mx-auto space-y-8 text-sm">
-                    {analysis.transcription.map((line, idx) => (
-                      <div key={idx} className="flex gap-6 group">
-                        <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest w-12 pt-1 shrink-0">{line.timestamp}</span>
-                        <div className="space-y-1">
-                          <span className="text-[8px] font-black text-amber-900 uppercase tracking-widest">{line.speaker}</span>
-                          <p className="text-base text-slate-800 leading-relaxed serif font-medium">{line.text}</p>
+                    {analysis.transcription.map((line, idx) => {
+                      // Проверка дали speaker е реално име или номер
+                      const isRealName = line.speaker && !line.speaker.match(/^Speaker\s*\d+$/i) && !line.speaker.includes('Система');
+                      return (
+                        <div key={idx} className="flex gap-6 group hover:bg-slate-50 p-3 -m-3 rounded transition-colors">
+                          <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest w-12 pt-1 shrink-0">{line.timestamp}</span>
+                          <div className="space-y-1 flex-1">
+                            <span className={`text-[8px] font-black uppercase tracking-widest ${isRealName ? 'text-emerald-700' : 'text-amber-900'}`}>
+                              {line.speaker}
+                              {isRealName && <span className="ml-2 text-[7px] text-emerald-600">(Реално име)</span>}
+                            </span>
+                            <p className="text-base text-slate-800 leading-relaxed serif font-medium">{line.text}</p>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -509,8 +597,38 @@ const ReportView: React.FC<{ analysis: VideoAnalysis, reportRef?: React.RefObjec
         <div className="md:col-span-8 space-y-12">
           <section>
             <h4 className="text-[9px] font-black text-amber-900 uppercase tracking-[0.4em] border-b border-amber-100 pb-1 mb-4">I. ГЛАВНО СЛЕДСТВЕНО ЗАКЛЮЧЕНИЕ</h4>
-            <div className="text-slate-900 text-sm md:text-[15px] leading-relaxed serif whitespace-pre-wrap first-letter:text-5xl first-letter:font-black first-letter:mr-3 first-letter:float-left first-letter:leading-none">
-              {analysis.summary.finalInvestigativeReport}
+            <div className="text-slate-900 text-sm md:text-[15px] leading-relaxed serif first-letter:text-5xl first-letter:font-black first-letter:mr-3 first-letter:float-left first-letter:leading-none">
+              {analysis.summary.finalInvestigativeReport.split('\n\n').map((section, idx) => {
+                const lines = section.split('\n');
+                const firstLine = lines[0] || '';
+                
+                if (firstLine.startsWith('#')) {
+                  return (
+                    <div key={idx} className="mb-8">
+                      <h5 className="text-base md:text-lg font-black text-slate-900 uppercase mt-6 mb-4 border-b border-slate-200 pb-2">
+                        {firstLine.replace(/^#+\s*/, '')}
+                      </h5>
+                      <div className="space-y-3">
+                        {lines.slice(1).filter(l => l.trim()).map((line, lineIdx) => {
+                          if (line.startsWith('###')) {
+                            return <h6 key={lineIdx} className="text-sm md:text-base font-black text-slate-800 uppercase mt-4 mb-2">{line.replace(/^###\s*/, '')}</h6>;
+                          } else if (line.trim() === '---') {
+                            return <hr key={lineIdx} className="my-4 border-slate-200" />;
+                          } else if (line.trim().startsWith('**') && line.trim().endsWith('**')) {
+                            return <p key={lineIdx} className="font-black text-slate-900 mb-2">{line.replace(/\*\*/g, '')}</p>;
+                          } else if (line.trim()) {
+                            return <p key={lineIdx} className="mb-3 leading-relaxed">{line.trim()}</p>;
+                          }
+                          return null;
+                        })}
+                      </div>
+                    </div>
+                  );
+                } else if (section.trim()) {
+                  return <p key={idx} className="mb-4 leading-relaxed">{section.trim()}</p>;
+                }
+                return null;
+              })}
             </div>
           </section>
 

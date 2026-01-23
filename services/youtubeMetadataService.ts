@@ -44,15 +44,17 @@ export const getYouTubeMetadata = async (url: string): Promise<YouTubeVideoMetad
         throw new Error('Невалиден YouTube URL');
     }
 
-    console.log(`[YouTube Metadata] Fetching data for video ID: ${videoId}`);
-
     try {
         // Use official YouTube Data API v3
         // Format: https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id={videoId}&key={apiKey}
-        const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY || 'AIzaSyDMGwG0MQsyHiFXYoKiHXYhVWBkaHDKSRQ';
+        const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY;
+        
+        if (!apiKey) {
+            throw new Error('VITE_YOUTUBE_API_KEY не е конфигуриран. Моля, добавете го в .env файла. Вижте README.md за инструкции.');
+        }
+        
         const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${apiKey}`;
 
-        console.log(`[YouTube Metadata] Calling YouTube Data API v3...`);
         const response = await fetch(apiUrl);
 
         if (!response.ok) {
@@ -61,7 +63,6 @@ export const getYouTubeMetadata = async (url: string): Promise<YouTubeVideoMetad
         }
 
         const data = await response.json();
-        console.log(`[YouTube Metadata] API Response:`, data);
 
         if (!data.items || data.items.length === 0) {
             throw new Error('Видеото не е намерено');
@@ -75,13 +76,6 @@ export const getYouTubeMetadata = async (url: string): Promise<YouTubeVideoMetad
         const durationISO = contentDetails?.duration || 'PT10M';
         const duration = parseISODuration(durationISO);
         const durationFormatted = formatDuration(duration);
-
-        console.log(`[YouTube Metadata] Successfully parsed:`, {
-            title: snippet?.title,
-            author: snippet?.channelTitle,
-            duration,
-            durationFormatted
-        });
 
         return {
             videoId,
