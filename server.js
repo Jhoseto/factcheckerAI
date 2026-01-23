@@ -1,3 +1,4 @@
+// Cloud Run Deployment Sync - v1.0.1
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
