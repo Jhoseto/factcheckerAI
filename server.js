@@ -24,7 +24,7 @@ app.use((req, res, next) => {
 // This keeps the API key secure on the server
 app.post('/api/gemini/generate', async (req, res) => {
     try {
-        const apiKey = process.env.API_KEY || process.env.VITE_API_KEY;
+        const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.VITE_API_KEY;
 
         if (!apiKey) {
             console.error('[Gemini API] No API key found in environment');
