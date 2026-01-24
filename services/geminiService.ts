@@ -675,7 +675,14 @@ export const analyzeYouTubeQuick = async (url: string): Promise<AnalysisResponse
       throw new Error('Бързият анализ изисква транскрипция. Видеото може да няма налична транскрипция. Моля, опитайте със Standard режим.');
     }
 
-    if (transcription.length === 0 || (transcription.length === 1 && transcription[0].text.includes('Грешка'))) {
+    // Check for transcript extraction errors more precisely
+    // Error messages from extractYouTubeTranscript start with "Грешка при извличане на транскрипция:"
+    // We check for this specific pattern, not just the word "Грешка" which could appear in legitimate content
+    const isErrorTranscript = transcription.length === 1 && 
+      transcription[0].speaker === 'Система' && 
+      transcription[0].text.startsWith('Грешка при извличане на транскрипция:');
+    
+    if (transcription.length === 0 || isErrorTranscript) {
       throw new Error('Транскрипцията не е налична за това видео. Моля, опитайте със Standard режим за пълен видео анализ.');
     }
 

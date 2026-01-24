@@ -13,11 +13,13 @@ export const validateYouTubeUrl = (url: string): { valid: boolean; error?: strin
   }
 
   const youtubePatterns = [
-    /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\/.+/,
+    /^https?:\/\/(www\.|m\.)?(youtube\.com|youtu\.be)\/.+/,
     /^https?:\/\/youtube\.com\/watch\?v=[\w-]+/,
     /^https?:\/\/youtu\.be\/[\w-]+/,
     /^https?:\/\/youtube\.com\/embed\/[\w-]+/,
-    /^https?:\/\/m\.youtube\.com\/watch\?v=[\w-]+/
+    /^https?:\/\/m\.youtube\.com\/watch\?v=[\w-]+/,
+    /^https?:\/\/youtube\.com\/shorts\/[\w-]+/,
+    /^https?:\/\/m\.youtube\.com\/shorts\/[\w-]+/
   ];
 
   const isValid = youtubePatterns.some(pattern => pattern.test(url.trim()));
@@ -25,7 +27,7 @@ export const validateYouTubeUrl = (url: string): { valid: boolean; error?: strin
   if (!isValid) {
     return { 
       valid: false, 
-      error: 'Невалиден YouTube URL. Моля, използвайте формат: https://www.youtube.com/watch?v=... или https://youtu.be/...' 
+      error: 'Невалиден YouTube URL. Моля, използвайте формат: https://www.youtube.com/watch?v=... или https://youtu.be/... или https://m.youtube.com/watch?v=...' 
     };
   }
 

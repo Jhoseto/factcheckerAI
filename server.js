@@ -44,8 +44,8 @@ app.post('/api/gemini/generate', async (req, res) => {
 
         // Check if videoUrl is provided and determine how to handle it
         if (videoUrl) {
-            // Check if it's a YouTube URL
-            const isYouTubeUrl = /(?:youtube\.com|youtu\.be)/.test(videoUrl);
+            // Check if it's a YouTube URL (including mobile formats: m.youtube.com, youtu.be, etc.)
+            const isYouTubeUrl = /(?:youtube\.com|youtu\.be|m\.youtube\.com)/.test(videoUrl);
             
             if (isYouTubeUrl) {
                 // For YouTube URLs, use fileData with fileUri (official method from Gemini docs)

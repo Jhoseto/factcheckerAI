@@ -5,14 +5,22 @@ import { YouTubeVideoMetadata } from '../types';
  * Extract video ID from YouTube URL
  */
 export const extractVideoId = (url: string): string | null => {
+    // Normalize URL - remove any trailing slashes and whitespace
+    const normalizedUrl = url.trim();
+    
     const patterns = [
+        // Standard formats
         /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/,
         /youtube\.com\/embed\/([^&\n?#]+)/,
-        /youtube\.com\/v\/([^&\n?#]+)/
+        /youtube\.com\/v\/([^&\n?#]+)/,
+        // Mobile formats
+        /(?:m\.youtube\.com\/watch\?v=|m\.youtube\.com\/shorts\/)([^&\n?#]+)/,
+        // Shorts format
+        /youtube\.com\/shorts\/([^&\n?#]+)/
     ];
 
     for (const pattern of patterns) {
-        const match = url.match(pattern);
+        const match = normalizedUrl.match(pattern);
         if (match && match[1]) {
             return match[1];
         }
