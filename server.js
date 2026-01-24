@@ -136,6 +136,98 @@ app.post('/api/gemini/generate', async (req, res) => {
     }
 });
 
+// === YOUTUBE METADATA API (SERVER-SIDE) ===
+// This keeps the YouTube API key secure on the server
+app.get('/api/youtube/metadata', async (req, res) => {
+    try {
+        const videoUrl = req.query.url;
+        
+        if (!videoUrl || typeof videoUrl !== 'string') {
+            return res.status(400).json({ error: 'Missing or invalid video URL parameter' });
+        }
+
+        // Extract video ID from URL
+        const extractVideoId = (url) => {
+            const patterns = [
+                /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/,
+                /youtube\.com\/embed\/([^&\n?#]+)/,
+                /youtube\.com\/v\/([^&\n?#]+)/,
+                /(?:m\.youtube\.com\/watch\?v=|m\.youtube\.com\/shorts\/)([^&\n?#]+)/,
+                /youtube\.com\/shorts\/([^&\n?#]+)/
+            ];
+            for (const pattern of patterns) {
+                const match = url.match(pattern);
+                if (match && match[1]) return match[1];
+            }
+            return null;
+        };
+
+        const videoId = extractVideoId(videoUrl);
+        if (!videoId) {
+            return res.status(400).json({ error: 'Invalid YouTube URL' });
+        }
+
+        // Get YouTube API key from environment
+        const apiKey = process.env.VITE_YOUTUBE_API_KEY || process.env.YOUTUBE_API_KEY;
+        if (!apiKey) {
+            return res.status(500).json({ error: 'YouTube API key not configured' });
+        }
+
+        // Call YouTube Data API v3
+        const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${apiKey}`;
+        const response = await fetch(apiUrl);
+
+        if (!response.ok) {
+            console.error(`[YouTube Metadata] API request failed: ${response.status} ${response.statusText}`);
+            return res.status(response.status).json({ error: `YouTube API error: ${response.status}` });
+        }
+
+        const data = await response.json();
+        if (!data.items || data.items.length === 0) {
+            return res.status(404).json({ error: 'Video not found' });
+        }
+
+        const video = data.items[0];
+        const snippet = video.snippet;
+        const contentDetails = video.contentDetails;
+
+        // Parse ISO 8601 duration
+        const parseISODuration = (iso) => {
+            const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+            if (!match) return 0;
+            const h = parseInt(match[1] || '0', 10);
+            const m = parseInt(match[2] || '0', 10);
+            const s = parseInt(match[3] || '0', 10);
+            return h * 3600 + m * 60 + s;
+        };
+
+        const formatDuration = (seconds) => {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+            if (hours > 0) {
+                return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            }
+            return `${minutes}:${secs.toString().padStart(2, '0')}`;
+        };
+
+        const durationISO = contentDetails?.duration || 'PT10M';
+        const duration = parseISODuration(durationISO);
+        const durationFormatted = formatDuration(duration);
+
+        res.json({
+            videoId,
+            title: snippet?.title || 'Неизвестно заглавие',
+            author: snippet?.channelTitle || 'Неизвестен автор',
+            duration,
+            durationFormatted
+        });
+    } catch (error) {
+        console.error('[YouTube Metadata] Error:', error);
+        res.status(500).json({ error: `Error fetching metadata: ${error.message}` });
+    }
+});
+
 // === API PROXIES (YOUTUBE) ===
 
 // 1. YouTube oEmbed Proxy

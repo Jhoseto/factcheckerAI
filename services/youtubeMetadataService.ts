@@ -42,56 +42,22 @@ const parseISODuration = (iso: string): number => {
 };
 
 /**
- * Fetch YouTube video metadata using official YouTube Data API v3
- * This is the ONLY reliable way to get video data in production
+ * Fetch YouTube video metadata using server-side API endpoint
+ * This keeps the API key secure on the server and works in Cloud Run
  */
 export const getYouTubeMetadata = async (url: string): Promise<YouTubeVideoMetadata> => {
-    const videoId = extractVideoId(url);
-
-    if (!videoId) {
-        throw new Error('Невалиден YouTube URL');
-    }
-
     try {
-        // Use official YouTube Data API v3
-        // Format: https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id={videoId}&key={apiKey}
-        const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY;
-        
-        if (!apiKey) {
-            throw new Error('VITE_YOUTUBE_API_KEY не е конфигуриран. Моля, добавете го в .env файла. Вижте README.md за инструкции.');
-        }
-        
-        const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${apiKey}`;
-
-        const response = await fetch(apiUrl);
+        // Use server-side endpoint instead of direct API call
+        // This allows the API key to be stored securely on the server
+        const response = await fetch(`/api/youtube/metadata?url=${encodeURIComponent(url)}`);
 
         if (!response.ok) {
-            console.error(`[YouTube Metadata] API request failed: ${response.status} ${response.statusText}`);
-            throw new Error(`YouTube API грешка: ${response.status}`);
+            const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+            throw new Error(errorData.error || `HTTP ${response.status}`);
         }
 
         const data = await response.json();
-
-        if (!data.items || data.items.length === 0) {
-            throw new Error('Видеото не е намерено');
-        }
-
-        const video = data.items[0];
-        const snippet = video.snippet;
-        const contentDetails = video.contentDetails;
-
-        // Parse duration from ISO 8601 format (e.g., "PT1M30S" = 90 seconds)
-        const durationISO = contentDetails?.duration || 'PT10M';
-        const duration = parseISODuration(durationISO);
-        const durationFormatted = formatDuration(duration);
-
-        return {
-            videoId,
-            title: snippet?.title || 'Неизвестно заглавие',
-            author: snippet?.channelTitle || 'Неизвестен автор',
-            duration,
-            durationFormatted
-        };
+        return data;
     } catch (error: any) {
         console.error('[YouTube Metadata] Error:', error);
         throw new Error(`Грешка при извличане на метаданни: ${error.message}`);
