@@ -243,6 +243,7 @@ const oembedProxy = createProxyMiddleware({
 app.use('/api/oembed', oembedProxy);
 
 // 2. YouTube Direct Scrape Proxy
+// IMPORTANT: This must NOT catch /api/youtube/metadata - that route is handled above
 const youtubeProxy = createProxyMiddleware({
     target: 'https://www.youtube.com',
     changeOrigin: true,
@@ -253,7 +254,14 @@ const youtubeProxy = createProxyMiddleware({
     onProxyRes: (proxyRes) => {
     }
 });
-app.use('/api/youtube', youtubeProxy);
+// Only apply proxy to /api/youtube paths that are NOT /api/youtube/metadata
+app.use('/api/youtube', (req, res, next) => {
+    // Skip /metadata route - it's handled by the specific route above
+    if (req.path.startsWith('/metadata')) {
+        return next();
+    }
+    youtubeProxy(req, res, next);
+});
 
 // === STATIC FILES & SPA ROUTING ===
 

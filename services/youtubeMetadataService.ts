@@ -49,17 +49,26 @@ export const getYouTubeMetadata = async (url: string): Promise<YouTubeVideoMetad
     try {
         // Use server-side endpoint instead of direct API call
         // This allows the API key to be stored securely on the server
-        const response = await fetch(`/api/youtube/metadata?url=${encodeURIComponent(url)}`);
+        const apiUrl = `/api/youtube/metadata?url=${encodeURIComponent(url)}`;
+        console.log('[YouTube Metadata] Fetching from:', apiUrl);
+        
+        const response = await fetch(apiUrl);
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+            console.error('[YouTube Metadata] Response error:', response.status, errorData);
             throw new Error(errorData.error || `HTTP ${response.status}`);
         }
 
         const data = await response.json();
+        console.log('[YouTube Metadata] Success:', data);
         return data;
     } catch (error: any) {
-        console.error('[YouTube Metadata] Error:', error);
+        console.error('[YouTube Metadata] Fetch error:', error);
+        // Check if it's a network error
+        if (error.message === 'Failed to fetch' || error.name === 'TypeError') {
+            throw new Error('Грешка при извличане на метаданни: Не може да се свърже със сървъра. Моля, проверете дали сървърът работи на порт 8080.');
+        }
         throw new Error(`Грешка при извличане на метаданни: ${error.message}`);
     }
 };
