@@ -1,8 +1,3 @@
-/**
- * Firebase Admin SDK Service
- * Server-side Firebase operations for secure points management
- */
-
 import admin from 'firebase-admin';
 import { readFileSync } from 'fs';
 import path from 'path';
@@ -20,34 +15,32 @@ export function initializeFirebaseAdmin() {
     }
 
     try {
-        // Try to load service account from environment variable first (for Cloud Run)
-        if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-            const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
-            admin.initializeApp({
-                credential: admin.credential.cert(serviceAccount)
-            });
-            adminInitialized = true;
-            console.log('[Firebase Admin] ✅ Initialized from environment variable');
-            return true;
-        }
-
-        // Try to load service account from file (for local development)
+        // Try to load service account from file
         const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './firebase-service-account.json';
         const absolutePath = path.resolve(__dirname, '..', serviceAccountPath);
 
-        const serviceAccount = JSON.parse(readFileSync(absolutePath, 'utf8'));
-
-        admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount)
-        });
+        let serviceAccount;
+        try {
+            serviceAccount = JSON.parse(readFileSync(absolutePath, 'utf8'));
+            admin.initializeApp({
+                credential: admin.credential.cert(serviceAccount)
+            });
+        } catch (fileError) {
+            // File not found. Check if default credentials work (Cloud Run).
+            if (process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.K_SERVICE) {
+                console.log('[Firebase Admin] File not found, trying default credentials...');
+                admin.initializeApp(); // Use Default Application Credentials
+            } else {
+                throw fileError;
+            }
+        }
 
         adminInitialized = true;
-        console.log('[Firebase Admin] ✅ Initialized from file');
+        console.log('[Firebase Admin] ✅ Initialized successfully');
         return true;
     } catch (error) {
         console.warn('[Firebase Admin] ⚠️  Not initialized:', error.message);
-        console.warn('[Firebase Admin] Points crediting will NOT work');
-        console.warn('[Firebase Admin] Set FIREBASE_SERVICE_ACCOUNT_JSON env var or add firebase-service-account.json file');
+        console.warn('[Firebase Admin] Points crediting will NOT work until service account is configured');
         return false;
     }
 }
@@ -63,9 +56,31 @@ function getFirestore() {
 }
 
 /**
+ * Verify Firebase ID Token
+ * @param idToken - Firebase ID Token
+ * @returns User UID or null
+ */
+export async function verifyToken(idToken) {
+    if (!adminInitialized) {
+        const success = initializeFirebaseAdmin();
+        if (!success) {
+            console.error('[Firebase Admin] Cannot verify token: Admin not initialized');
+            return null;
+        }
+    }
+    try {
+        const decodedToken = await admin.auth().verifyIdToken(idToken);
+        return decodedToken.uid;
+    } catch (error) {
+        console.error('[Firebase Admin] Token verification failed:', error);
+        return null; // This causes 401 in server.js
+    }
+}
+
+/**
  * Add points to user account
- * @param {string} userId - Firebase user UID
- * @param {number} points - Number of points to add
+ * @param userId - Firebase user UID
+ * @param points - Number of points to add
  */
 export async function addPointsToUser(userId, points) {
     if (!adminInitialized) {
@@ -84,11 +99,11 @@ export async function addPointsToUser(userId, points) {
                 throw new Error(`User ${userId} not found in Firestore`);
             }
 
-            const currentPoints = userDoc.data()?.pointsBalance || 0;
+            const currentPoints = userDoc.data()?.points || 0;
             const newPoints = currentPoints + points;
 
             transaction.update(userRef, {
-                pointsBalance: newPoints,
+                points: newPoints,
                 lastPointsUpdate: admin.firestore.FieldValue.serverTimestamp()
             });
         });
@@ -102,16 +117,11 @@ export async function addPointsToUser(userId, points) {
 
 /**
  * Deduct points from user account
- * @param {string} userId - Firebase user UID
- * @param {number} points - Number of points to deduct
- * @returns {Promise<boolean>} True if successful, false if insufficient points
+ * @param userId - Firebase user UID
+ * @param points - Number of points to deduct
+ * @returns True if successful, false if insufficient points
  */
 export async function deductPointsFromUser(userId, points) {
-    if (!adminInitialized) {
-        console.warn('[Firebase Admin] ⚠️  Cannot deduct points - not initialized');
-        return false;
-    }
-
     try {
         const db = getFirestore();
         const userRef = db.collection('users').doc(userId);
@@ -123,7 +133,7 @@ export async function deductPointsFromUser(userId, points) {
                 throw new Error(`User ${userId} not found in Firestore`);
             }
 
-            const currentPoints = userDoc.data()?.pointsBalance || 0;
+            const currentPoints = userDoc.data()?.points || 0;
 
             if (currentPoints < points) {
                 console.log(`[Firebase Admin] ❌ Insufficient points for user ${userId}: has ${currentPoints}, needs ${points}`);
@@ -133,7 +143,7 @@ export async function deductPointsFromUser(userId, points) {
             const newPoints = currentPoints - points;
 
             transaction.update(userRef, {
-                pointsBalance: newPoints,
+                points: newPoints,
                 lastPointsUpdate: admin.firestore.FieldValue.serverTimestamp()
             });
 
@@ -153,15 +163,10 @@ export async function deductPointsFromUser(userId, points) {
 
 /**
  * Get user points balance
- * @param {string} userId - Firebase user UID
- * @returns {Promise<number>} Current points balance
+ * @param userId - Firebase user UID
+ * @returns Current points balance
  */
 export async function getUserPoints(userId) {
-    if (!adminInitialized) {
-        console.warn('[Firebase Admin] ⚠️  Cannot get points - not initialized');
-        return 0;
-    }
-
     try {
         const db = getFirestore();
         const userDoc = await db.collection('users').doc(userId).get();
@@ -170,29 +175,9 @@ export async function getUserPoints(userId) {
             return 0;
         }
 
-        return userDoc.data()?.pointsBalance || 0;
+        return userDoc.data()?.points || 0;
     } catch (error) {
         console.error(`[Firebase Admin] ❌ Failed to get user points:`, error);
         return 0;
-    }
-}
-
-/**
- * Verify Firebase ID Token
- * @param {string} token - Firebase ID Token
- * @returns {Promise<string|null>} User UID if valid, null otherwise
- */
-export async function verifyToken(token) {
-    if (!adminInitialized) {
-        console.warn('[Firebase Admin] ⚠️  Cannot verify token - not initialized');
-        return null;
-    }
-
-    try {
-        const decodedToken = await admin.auth().verifyIdToken(token);
-        return decodedToken.uid;
-    } catch (error) {
-        console.error('[Firebase Admin] ❌ Token verification failed:', error.message);
-        return null;
     }
 }

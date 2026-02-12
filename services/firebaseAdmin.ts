@@ -24,11 +24,24 @@ export function initializeFirebaseAdmin() {
         const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './firebase-service-account.json';
         const absolutePath = path.resolve(__dirname, '..', serviceAccountPath);
 
-        const serviceAccount = JSON.parse(readFileSync(absolutePath, 'utf8'));
-
-        admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount)
-        });
+        // If GOOGLE_APPLICATION_CREDENTIALS is set (Cloud Run), let Firebase Admin usage default auth
+        // BUT we need to call initializeApp() anyway.
+        // Check if file exists first.
+        let serviceAccount;
+        try {
+            serviceAccount = JSON.parse(readFileSync(absolutePath, 'utf8'));
+            admin.initializeApp({
+                credential: admin.credential.cert(serviceAccount)
+            });
+        } catch (fileError) {
+            // File not found. Check if default credentials work (Cloud Run).
+            if (process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.K_SERVICE) {
+                console.log('[Firebase Admin] File not found, trying default credentials...');
+                admin.initializeApp(); // Use Default Application Credentials
+            } else {
+                throw fileError;
+            }
+        }
 
         adminInitialized = true;
         console.log('[Firebase Admin] ✅ Initialized successfully');
@@ -49,6 +62,28 @@ function getFirestore() {
         initializeFirebaseAdmin();
     }
     return admin.firestore();
+}
+
+/**
+ * Verify Firebase ID Token
+ * @param idToken - Firebase ID Token
+ * @returns User UID or null
+ */
+export async function verifyToken(idToken: string): Promise<string | null> {
+    if (!adminInitialized) {
+        const success = initializeFirebaseAdmin();
+        if (!success) {
+            console.error('[Firebase Admin] Cannot verify token: Admin not initialized');
+            return null;
+        }
+    }
+    try {
+        const decodedToken = await admin.auth().verifyIdToken(idToken);
+        return decodedToken.uid;
+    } catch (error) {
+        console.error('[Firebase Admin] Token verification failed:', error);
+        return null; // This causes 401 in server.js
+    }
 }
 
 /**
