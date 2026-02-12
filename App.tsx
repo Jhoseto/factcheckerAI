@@ -158,7 +158,14 @@ const App: React.FC = () => {
     }
 
     // Check if user has enough points
-    const estimatedCost = 10; // Base cost in points (can be dynamic based on mode)
+    let estimatedCost = 10; // Default base cost
+
+    if (type === 'video' && costEstimates && costEstimates[analysisMode]) {
+      estimatedCost = costEstimates[analysisMode].pointsCost;
+    } else if (type === 'news') {
+      estimatedCost = 10; // Fixed cost for news analysis
+    }
+
     if (userProfile && userProfile.pointsBalance < estimatedCost) {
       setError(`Недостатъчно точки! Нужни са ${estimatedCost} точки. Моля, купете точки от Pricing страницата.`);
       return;
