@@ -46,20 +46,20 @@ app.post('/api/gemini/generate', async (req, res) => {
         if (videoUrl) {
             // Check if it's a YouTube URL (including mobile formats: m.youtube.com, youtu.be, etc.)
             const isYouTubeUrl = /(?:youtube\.com|youtu\.be|m\.youtube\.com)/.test(videoUrl);
-            
+
             if (isYouTubeUrl) {
                 // For YouTube URLs, use fileData with fileUri (official method from Gemini docs)
                 // This is exactly how Google AI Studio does it
                 requestPayload.contents = [{
                     role: 'user',
                     parts: [
-                        { 
-                            fileData: { 
-                                fileUri: videoUrl 
+                        {
+                            fileData: {
+                                fileUri: videoUrl
                             }
                         },
-                        { 
-                            text: prompt 
+                        {
+                            text: prompt
                         }
                     ]
                 }];
@@ -91,10 +91,10 @@ app.post('/api/gemini/generate', async (req, res) => {
 
     } catch (error) {
         console.error('[Gemini API] Error:', error);
-        
+
         // Check for API key errors
         const errorMessage = error.message || error.toString() || '';
-        const isApiKeyError = 
+        const isApiKeyError =
             errorMessage.includes('API key') ||
             errorMessage.includes('api key') ||
             errorMessage.includes('API_KEY') ||
@@ -104,15 +104,15 @@ app.post('/api/gemini/generate', async (req, res) => {
             errorMessage.includes('invalid') && errorMessage.includes('key') ||
             error.status === 401 ||
             error.statusCode === 401;
-        
+
         // Check for rate limit errors
-        const isRateLimitError = 
+        const isRateLimitError =
             errorMessage.includes('429') ||
             errorMessage.includes('rate limit') ||
             errorMessage.includes('quota') ||
             error.status === 429 ||
             error.statusCode === 429;
-        
+
         // Return appropriate status code
         if (isApiKeyError) {
             return res.status(401).json({
@@ -120,14 +120,14 @@ app.post('/api/gemini/generate', async (req, res) => {
                 code: 'API_KEY_ERROR'
             });
         }
-        
+
         if (isRateLimitError) {
             return res.status(429).json({
                 error: 'Rate limit exceeded. Please wait 1-2 minutes before trying again.',
                 code: 'RATE_LIMIT'
             });
         }
-        
+
         // Default error
         res.status(500).json({
             error: error.message || 'Failed to generate content',
@@ -141,7 +141,7 @@ app.post('/api/gemini/generate', async (req, res) => {
 app.get('/api/youtube/metadata', async (req, res) => {
     try {
         const videoUrl = req.query.url;
-        
+
         if (!videoUrl || typeof videoUrl !== 'string') {
             return res.status(400).json({ error: 'Missing or invalid video URL parameter' });
         }
@@ -267,6 +267,109 @@ app.use('/api/youtube', (req, res, next) => {
 
 // Serve static files from the 'dist' directory
 app.use(express.static(path.join(__dirname, 'dist')));
+
+
+// === LEMON SQUEEZY CHECKOUT API ===
+app.post('/api/lemonsqueezy/checkout', async (req, res) => {
+    try {
+        const { variantId, userId, userEmail, productName, points } = req.body;
+
+        if (!variantId) {
+            return res.status(400).json({ error: 'Variant ID is required' });
+        }
+
+        const apiKey = process.env.LEMON_SQUEEZY_API_KEY;
+        const storeId = process.env.LEMON_SQUEEZY_STORE_ID;
+
+        if (!apiKey || !storeId) {
+            return res.status(500).json({ error: 'Lemon Squeezy not configured' });
+        }
+
+        // Create checkout session
+        const checkout = await fetch('https://api.lemonsqueezy.com/v1/checkouts', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/vnd.api+json',
+                'Content-Type': 'application/vnd.api+json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                data: {
+                    type: 'checkouts',
+                    attributes: {
+                        checkout_data: {
+                            email: userEmail,
+                            custom: {
+                                user_id: userId,
+                                points: points.toString()
+                            }
+                        }
+                    },
+                    relationships: {
+                        store: {
+                            data: {
+                                type: 'stores',
+                                id: storeId
+                            }
+                        },
+                        variant: {
+                            data: {
+                                type: 'variants',
+                                id: variantId
+                            }
+                        }
+                    }
+                }
+            })
+        });
+
+        const checkoutData = await checkout.json();
+
+        if (checkoutData.data && checkoutData.data.attributes) {
+            res.json({
+                checkoutUrl: checkoutData.data.attributes.url
+            });
+        } else {
+            throw new Error('Failed to create checkout');
+        }
+
+    } catch (error) {
+        console.error('[Lemon Squeezy] Checkout error:', error);
+        res.status(500).json({ error: 'Failed to create checkout' });
+    }
+});
+
+// === LEMON SQUEEZY WEBHOOK ===
+app.post('/api/lemonsqueezy/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+    try {
+        const webhookSecret = process.env.LEMON_SQUEEZY_WEBHOOK_SECRET;
+        const signature = req.headers['x-signature'];
+
+        // TODO: Verify webhook signature in production
+
+        const event = JSON.parse(req.body.toString());
+
+        console.log('[Lemon Squeezy] Webhook received:', event.meta.event_name);
+
+        // Handle successful purchase
+        if (event.meta.event_name === 'order_created' && event.data.attributes.status === 'paid') {
+            const customData = event.data.attributes.first_order_item.custom_data || {};
+            const userId = customData.user_id;
+            const points = parseInt(customData.points) || 0;
+
+            if (userId && points > 0) {
+                console.log(`[Lemon Squeezy] Order completed: +${points} points for user ${userId}`);
+                // Points will be credited via Firebase on client side after redirect
+            }
+        }
+
+        res.json({ received: true });
+
+    } catch (error) {
+        console.error('[Lemon Squeezy] Webhook error:', error);
+        res.status(400).json({ error: 'Webhook processing failed' });
+    }
+});
 
 // Handle React routing (history API fallback)
 // This MUST be last to avoid catching API routes

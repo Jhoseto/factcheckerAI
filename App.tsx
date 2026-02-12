@@ -8,6 +8,10 @@ import AnalysisModeSelector from './components/AnalysisModeSelector';
 import { getYouTubeMetadata } from './services/youtubeMetadataService';
 import { getAllCostEstimates } from './services/costEstimationService';
 import { validateYouTubeUrl, validateNewsUrl } from './services/validation';
+import { useAuth } from './contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import PointsWidget from './components/user/PointsWidget';
+
 
 const LOADING_PHASES = [
   "Инициализиране на защитена връзка с аналитичните възли...",
@@ -70,6 +74,11 @@ const App: React.FC = () => {
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [newsUrl, setNewsUrl] = useState('');
   const [isExporting, setIsExporting] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+
+  // Auth context
+  const { currentUser, userProfile, logout, deductPoints } = useAuth();
+  const navigate = useNavigate();
 
   // New state for analysis mode selection
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('quick');
@@ -125,17 +134,34 @@ const App: React.FC = () => {
 
   const handleStartAnalysis = async (type: 'video' | 'news') => {
     const url = type === 'video' ? youtubeUrl : newsUrl;
-    
+
     // Validate URL before proceeding
-    const validation = type === 'video' 
+    const validation = type === 'video'
       ? validateYouTubeUrl(url)
       : validateNewsUrl(url);
-    
+
     if (!validation.valid) {
       setError(validation.error || 'Невалиден URL');
       return;
     }
-    
+
+    // Check if user is authenticated
+    if (!currentUser) {
+      setError('Моля, влезте в профила си за да използвате анализ функциите.');
+      // Redirect to login after 2 seconds
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
+      return;
+    }
+
+    // Check if user has enough points
+    const estimatedCost = 10; // Base cost in points (can be dynamic based on mode)
+    if (userProfile && userProfile.pointsBalance < estimatedCost) {
+      setError(`Недостатъчно точки! Нужни са ${estimatedCost} точки. Моля, купете точки от Pricing страницата.`);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setAnalysis(null);
@@ -159,6 +185,11 @@ const App: React.FC = () => {
         }
       } else {
         response = await analyzeNewsLink(url);
+      }
+
+      // Deduct points after successful analysis
+      if (userProfile) {
+        await deductPoints(estimatedCost, response.analysis.id);
       }
 
       setAnalysis(response.analysis);
@@ -238,7 +269,96 @@ const App: React.FC = () => {
               <p className="text-[10px] font-black text-slate-900 uppercase">{usageData.totalTokens.toLocaleString()} tokens • <span className="text-amber-900">${usageData.estimatedCostUSD.toFixed(4)}</span></p>
             </div>
           )}
-          <div className="flex gap-4 items-center">
+
+          {/* User Menu & Points */}
+          <div className="flex gap-4 items-center relative">
+            {/* Points Widget (Hidden on mobile when no analysis) */}
+            {userProfile && !analysis && (
+              <div className="hidden md:block">
+                <PointsWidget />
+              </div>
+            )}
+
+            {/* User Avatar & Menu */}
+            {userProfile && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="flex items-center gap-3 p-2 hover:bg-slate-100 rounded-sm transition-all group"
+                >
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-900 to-amber-700 flex items-center justify-center text-white font-black text-sm uppercase overflow-hidden border-2 border-slate-200 group-hover:border-amber-900 transition-all">
+                    {userProfile.photoURL ? (
+                      <img src={userProfile.photoURL} alt={userProfile.displayName} className="w-full h-full object-cover" />
+                    ) : (
+                      userProfile.displayName?.charAt(0) || 'U'
+                    )}
+                  </div>
+                  <div className="hidden md:block text-left">
+                    <p className="text-xs font-black text-slate-900 uppercase tracking-tight">{userProfile.displayName}</p>
+                    <p className="text-[9px] font-bold text-amber-900 uppercase tracking-wider">{userProfile.pointsBalance || 0} pts</p>
+                  </div>
+                  <svg className={`w-4 h-4 text-slate-400 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {/* Dropdown Menu */}
+                {showUserMenu && (
+                  <div className="absolute right-0 top-full mt-2 w-64 editorial-card p-4 shadow-2xl border-2 border-slate-200 z-50 animate-fadeIn">
+                    <div className="space-y-4">
+                      {/* User Info */}
+                      <div className="pb-3 border-b border-slate-100">
+                        <p className="text-sm font-black text-slate-900">{userProfile.displayName}</p>
+                        <p className="text-xs text-slate-500">{userProfile.email}</p>
+                      </div>
+
+                      {/* Points Display (Mobile) */}
+                      <div className="md:hidden">
+                        <PointsWidget />
+                      </div>
+
+                      {/* Menu Actions */}
+                      <button
+                        onClick={() => {
+                          navigate('/pricing');
+                          setShowUserMenu(false);
+                        }}
+                        className="w-full p-3 bg-amber-900 text-white text-xs font-black uppercase tracking-wider hover:bg-amber-950 transition-all flex items-center justify-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        Купи Точки
+                      </button>
+
+                      <button
+                        onClick={async () => {
+                          await logout();
+                          setShowUserMenu(false);
+                        }}
+                        className="w-full p-3 bg-slate-100 text-slate-900 text-xs font-black uppercase tracking-wider hover:bg-slate-200 transition-all"
+                      >
+                        Изход
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Login/Register Button for unauthenticated users */}
+            {!currentUser && (
+              <button
+                onClick={() => navigate('/login')}
+                className="flex items-center gap-2 px-4 py-2 bg-amber-900 text-white text-[9px] font-black uppercase tracking-[0.2em] hover:bg-amber-950 transition-all"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                </svg>
+                Вход
+              </button>
+            )}
+
             <button onClick={resetAnalysis} className="bg-slate-900 text-white px-5 py-2 text-[9px] font-black uppercase tracking-[0.2em] hover:bg-black transition-all">НОВ ОДИТ</button>
           </div>
         </div>
@@ -313,7 +433,7 @@ const App: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  
+
                   {/* Cost summary - показва се преди избора на режим */}
                   {costEstimates && (
                     <div className="pt-3 border-t border-slate-200">
@@ -322,31 +442,31 @@ const App: React.FC = () => {
                         <div className="text-center p-2 bg-emerald-50 rounded border border-emerald-100">
                           <p className="text-[9px] font-bold text-emerald-700 mb-0.5">Quick</p>
                           <p className="text-sm font-black text-emerald-700">
-                            {costEstimates.quick.estimatedCostUSD < 0.001 
-                              ? '< $0.001' 
+                            {costEstimates.quick.estimatedCostUSD < 0.001
+                              ? '< $0.001'
                               : costEstimates.quick.estimatedCostUSD < 0.01
-                              ? `$${costEstimates.quick.estimatedCostUSD.toFixed(4)}`
-                              : `$${costEstimates.quick.estimatedCostUSD.toFixed(3)}`}
+                                ? `$${costEstimates.quick.estimatedCostUSD.toFixed(4)}`
+                                : `$${costEstimates.quick.estimatedCostUSD.toFixed(3)}`}
                           </p>
                         </div>
                         <div className="text-center p-2 bg-amber-50 rounded border border-amber-100">
                           <p className="text-[9px] font-bold text-amber-700 mb-0.5">Batch</p>
                           <p className="text-sm font-black text-amber-700">
-                            {costEstimates.batch.estimatedCostUSD < 0.001 
-                              ? '< $0.001' 
+                            {costEstimates.batch.estimatedCostUSD < 0.001
+                              ? '< $0.001'
                               : costEstimates.batch.estimatedCostUSD < 0.01
-                              ? `$${costEstimates.batch.estimatedCostUSD.toFixed(4)}`
-                              : `$${costEstimates.batch.estimatedCostUSD.toFixed(3)}`}
+                                ? `$${costEstimates.batch.estimatedCostUSD.toFixed(4)}`
+                                : `$${costEstimates.batch.estimatedCostUSD.toFixed(3)}`}
                           </p>
                         </div>
                         <div className="text-center p-2 bg-slate-50 rounded border border-slate-100">
                           <p className="text-[9px] font-bold text-slate-700 mb-0.5">Standard</p>
                           <p className="text-sm font-black text-slate-700">
-                            {costEstimates.standard.estimatedCostUSD < 0.001 
-                              ? '< $0.001' 
+                            {costEstimates.standard.estimatedCostUSD < 0.001
+                              ? '< $0.001'
                               : costEstimates.standard.estimatedCostUSD < 0.01
-                              ? `$${costEstimates.standard.estimatedCostUSD.toFixed(4)}`
-                              : `$${costEstimates.standard.estimatedCostUSD.toFixed(3)}`}
+                                ? `$${costEstimates.standard.estimatedCostUSD.toFixed(4)}`
+                                : `$${costEstimates.standard.estimatedCostUSD.toFixed(3)}`}
                           </p>
                         </div>
                       </div>
@@ -601,7 +721,7 @@ const ReportView: React.FC<{ analysis: VideoAnalysis, reportRef?: React.RefObjec
               {analysis.summary.finalInvestigativeReport.split('\n\n').map((section, idx) => {
                 const lines = section.split('\n');
                 const firstLine = lines[0] || '';
-                
+
                 if (firstLine.startsWith('#')) {
                   return (
                     <div key={idx} className="mb-8">
