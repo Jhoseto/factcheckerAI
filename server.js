@@ -15,11 +15,10 @@ const port = process.env.PORT || 8080;
 // Parse JSON bodies for API requests
 app.use(express.json({ limit: '10mb' }));
 
-// Set security headers to prevent Firebase Auth warnings
+// Set security headers - relaxed for Firebase Auth compatibility
 app.use((req, res, next) => {
-    // Allow Firebase Auth popups to work properly
-    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
-    res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
+    // Allow Firebase Auth popups to work - use unsafe-none to prevent blocking
+    res.setHeader('Cross-Origin-Opener-Policy', 'unsafe-none');
     next();
 });
 
