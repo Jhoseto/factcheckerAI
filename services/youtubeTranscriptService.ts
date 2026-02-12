@@ -45,26 +45,26 @@ const cleanJsonResponse = (text: string): string => {
             let jsonEnd = -1;
             let inString = false;
             let escapeNext = false;
-            
+
             // Properly track depth considering strings (which can contain { } [ ])
             for (let i = jsonStart; i < cleaned.length; i++) {
                 const char = cleaned[i];
-                
+
                 if (escapeNext) {
                     escapeNext = false;
                     continue;
                 }
-                
+
                 if (char === '\\') {
                     escapeNext = true;
                     continue;
                 }
-                
+
                 if (char === '"' && !escapeNext) {
                     inString = !inString;
                     continue;
                 }
-                
+
                 if (!inString) {
                     if (char === startChar) depth++;
                     else if (char === endChar) {
@@ -76,7 +76,7 @@ const cleanJsonResponse = (text: string): string => {
                     }
                 }
             }
-            
+
             if (jsonEnd !== -1) {
                 cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
             } else {
@@ -96,7 +96,7 @@ const cleanJsonResponse = (text: string): string => {
 
     // Remove trailing commas before } or ]
     cleaned = cleaned.replace(/,(\s*[}\]])/g, '$1');
-    
+
     // Remove any trailing text after the JSON
     const lastBrace = cleaned.lastIndexOf('}');
     const lastBracket = cleaned.lastIndexOf(']');
@@ -119,8 +119,8 @@ export const extractYouTubeTranscript = async (url: string): Promise<Transcripti
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 model: 'gemini-3-flash-preview',
-                // НЕ изпращай videoUrl - използвай само URL в текста
-                prompt: `Извлечи пълната транскрипция от това YouTube видео: ${url}
+                videoUrl: url, // ВАЖНО: Изпращаме videoUrl за да анализира правилното видео
+                prompt: `Извлечи пълната транскрипция от това YouTube видео.
 
 ВАЖНО: Върни резултата като JSON масив в следния формат:
 [
@@ -154,7 +154,7 @@ export const extractYouTubeTranscript = async (url: string): Promise<Transcripti
             } catch {
                 errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
             }
-            
+
             // Create error object with status code for proper error handling
             const error = new Error(errorData.error || 'Failed to extract transcript');
             (error as any).status = response.status;
@@ -164,7 +164,7 @@ export const extractYouTubeTranscript = async (url: string): Promise<Transcripti
         }
 
         const data = await response.json();
-        
+
         if (!data.text) {
             throw new Error('Gemini API не върна транскрипция');
         }
@@ -207,7 +207,7 @@ export const extractYouTubeTranscript = async (url: string): Promise<Transcripti
         return formattedTranscript;
     } catch (error: any) {
         console.error('Transcript extraction error:', error);
-        
+
         // Return error message as transcript entry instead of throwing
         // This allows the analysis to continue even if transcript extraction fails
         return [{
