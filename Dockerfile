@@ -4,35 +4,15 @@ FROM node:20-slim
 # Set working directory
 WORKDIR /app
 
-# Copy package files
+# Copy package files  
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+# Install ONLY production dependencies
+RUN npm install --production
 
-# Copy source files
-COPY . .
-
-# Accept build arguments for Vite environment variables
-ARG VITE_YOUTUBE_API_KEY
-ARG VITE_FIREBASE_API_KEY
-ARG VITE_FIREBASE_AUTH_DOMAIN
-ARG VITE_FIREBASE_PROJECT_ID
-ARG VITE_FIREBASE_STORAGE_BUCKET
-ARG VITE_FIREBASE_MESSAGING_SENDER_ID
-ARG VITE_FIREBASE_APP_ID
-
-# Set them as environment variables for the build
-ENV VITE_YOUTUBE_API_KEY=$VITE_YOUTUBE_API_KEY
-ENV VITE_FIREBASE_API_KEY=$VITE_FIREBASE_API_KEY
-ENV VITE_FIREBASE_AUTH_DOMAIN=$VITE_FIREBASE_AUTH_DOMAIN
-ENV VITE_FIREBASE_PROJECT_ID=$VITE_FIREBASE_PROJECT_ID
-ENV VITE_FIREBASE_STORAGE_BUCKET=$VITE_FIREBASE_STORAGE_BUCKET
-ENV VITE_FIREBASE_MESSAGING_SENDER_ID=$VITE_FIREBASE_MESSAGING_SENDER_ID
-ENV VITE_FIREBASE_APP_ID=$VITE_FIREBASE_APP_ID
-
-# Build the application with environment variables
-RUN npm run build
+# Copy pre-built dist folder and server
+COPY dist ./dist
+COPY server.js ./
 
 # Expose the port
 EXPOSE 8080
