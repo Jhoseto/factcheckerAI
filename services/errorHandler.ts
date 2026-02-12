@@ -47,8 +47,6 @@ export const handleApiError = (error: any): AppError => {
     error.message?.includes('API_KEY') ||
     error.message?.includes('Invalid or missing API key') ||
     error.message?.includes('authentication') ||
-    error.message?.includes('401') ||
-    error.status === 401 ||
     error.statusCode === 401 ||
     error.code === 'API_KEY_ERROR' ||
     error.response?.status === 401) {
@@ -57,6 +55,20 @@ export const handleApiError = (error: any): AppError => {
       'Възникна техническа грешка при връзката със сървъра. Моля, свържете се с поддръжката.',
       'API_KEY_ERROR',
       401,
+      false
+    );
+  }
+
+  // Insufficient Points (403)
+  if (error.status === 403 ||
+    error.statusCode === 403 ||
+    error.response?.status === 403 ||
+    error.message?.includes('Insufficient points') ||
+    error.code === 'INSUFFICIENT_POINTS') {
+    return new AppError(
+      'Недостатъчно точки за анализ.',
+      'INSUFFICIENT_POINTS',
+      403,
       false
     );
   }
