@@ -270,12 +270,6 @@ app.use('/api/youtube', (req, res, next) => {
     youtubeProxy(req, res, next);
 });
 
-// === STATIC FILES & SPA ROUTING ===
-
-// Serve static files from the 'dist' directory
-app.use(express.static(path.join(__dirname, 'dist')));
-
-
 // === LEMON SQUEEZY CHECKOUT API ===
 app.post('/api/lemonsqueezy/checkout', async (req, res) => {
     try {
@@ -337,6 +331,7 @@ app.post('/api/lemonsqueezy/checkout', async (req, res) => {
                 checkoutUrl: checkoutData.data.attributes.url
             });
         } else {
+            console.error('[Lemon Squeezy] Invalid response:', checkoutData);
             throw new Error('Failed to create checkout');
         }
 
@@ -377,6 +372,11 @@ app.post('/api/lemonsqueezy/webhook', express.raw({ type: 'application/json' }),
         res.status(400).json({ error: 'Webhook processing failed' });
     }
 });
+
+// === STATIC FILES & SPA ROUTING ===
+
+// Serve static files from the 'dist' directory
+app.use(express.static(path.join(__dirname, 'dist')));
 
 // Handle React routing (history API fallback)
 // This MUST be last to avoid catching API routes

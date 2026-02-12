@@ -50,6 +50,10 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
           rewrite: (path) => path.replace(/^\/api\/lemnos/, '')
+        },
+        '/api/lemonsqueezy': {
+          target: 'http://localhost:8080',
+          changeOrigin: true
         }
       }
     },
