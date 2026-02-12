@@ -11,7 +11,7 @@ const pricingTiers = [
         points: 500,
         bonus: 0,
         popular: false,
-        variantId: '', // TODO: Add your Lemon Squeezy variant ID
+        variantId: '1302428', // Lemon Squeezy variant ID
         features: ['500 точки', 'Базов анализ', 'Email поддръжка']
     },
     {
@@ -21,7 +21,7 @@ const pricingTiers = [
         points: 1700,
         bonus: 200,
         popular: true,
-        variantId: '', // TODO: Add your Lemon Squeezy variant ID
+        variantId: '1302435', // Lemon Squeezy variant ID
         features: ['1500 + 200 bonus точки', 'Разширен анализ', 'Приоритетна поддръжка', 'История на анализи']
     },
     {
@@ -31,7 +31,7 @@ const pricingTiers = [
         points: 5500,
         bonus: 1000,
         popular: false,
-        variantId: '', // TODO: Add your Lemon Squeezy variant ID
+        variantId: '1302443', // Lemon Squeezy variant ID
         features: ['4500 + 1000 bonus точки', 'Пълен анализ', 'VIP поддръжка', 'API достъп', 'Експорт на доклади']
     },
     {
@@ -41,7 +41,7 @@ const pricingTiers = [
         points: 13000,
         bonus: 3000,
         popular: false,
-        variantId: '', // TODO: Add your Lemon Squeezy variant ID
+        variantId: '1302446', // Lemon Squeezy variant ID
         features: ['10000 + 3000 bonus точки', 'Неограничен анализ', 'Dedicated поддръжка', 'Custom интеграции', 'Бял етикет']
     }
 ];
