@@ -13,8 +13,13 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const port = process.env.PORT || 8080;
 
-// Parse JSON bodies for API requests
-app.use(express.json({ limit: '10mb' }));
+// Parse JSON bodies for API requests - EXCEPT webhook which needs raw body
+app.use((req, res, next) => {
+    if (req.path === '/api/lemonsqueezy/webhook') {
+        return next(); // Skip JSON parsing for webhook - it needs raw body
+    }
+    express.json({ limit: '10mb' })(req, res, next);
+});
 
 // Set security headers - relaxed for Firebase Auth compatibility
 app.use((req, res, next) => {
