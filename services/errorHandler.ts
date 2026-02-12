@@ -29,10 +29,10 @@ export const handleApiError = (error: any): AppError => {
   }
 
   // Network error
-  if (error.message?.includes('fetch') || 
-      error.message?.includes('network') || 
-      error.message?.includes('Failed to fetch') ||
-      error.name === 'TypeError') {
+  if (error.message?.includes('fetch') ||
+    error.message?.includes('network') ||
+    error.message?.includes('Failed to fetch') ||
+    error.name === 'TypeError') {
     return new AppError(
       'Проблем с мрежовата връзка. Моля, проверете интернет връзката си и опитайте отново.',
       'NETWORK_ERROR',
@@ -42,18 +42,19 @@ export const handleApiError = (error: any): AppError => {
   }
 
   // API key error (401)
-  if (error.message?.includes('API key') || 
-      error.message?.includes('api key') ||
-      error.message?.includes('API_KEY') ||
-      error.message?.includes('Invalid or missing API key') ||
-      error.message?.includes('authentication') ||
-      error.message?.includes('401') || 
-      error.status === 401 ||
-      error.statusCode === 401 ||
-      error.code === 'API_KEY_ERROR' ||
-      error.response?.status === 401) {
+  if (error.message?.includes('API key') ||
+    error.message?.includes('api key') ||
+    error.message?.includes('API_KEY') ||
+    error.message?.includes('Invalid or missing API key') ||
+    error.message?.includes('authentication') ||
+    error.message?.includes('401') ||
+    error.status === 401 ||
+    error.statusCode === 401 ||
+    error.code === 'API_KEY_ERROR' ||
+    error.response?.status === 401) {
+    console.error('[API Error] Authentication/API Key issue:', error);
     return new AppError(
-      'Грешка с API ключа. Моля, проверете конфигурацията в .env файла.',
+      'Възникна техническа грешка при връзката със сървъра. Моля, свържете се с поддръжката.',
       'API_KEY_ERROR',
       401,
       false
@@ -63,7 +64,7 @@ export const handleApiError = (error: any): AppError => {
   // Invalid JSON
   if (error.message?.includes('JSON') || error.message?.includes('parse')) {
     return new AppError(
-      'Грешка при обработка на отговора от API. Моля, опитайте отново.',
+      'Възникна техническа грешка при обработка на данните. Моля, опитайте отново.',
       'PARSE_ERROR',
       undefined,
       true
@@ -71,8 +72,9 @@ export const handleApiError = (error: any): AppError => {
   }
 
   // Default - return original error message
+  console.error('[App Error] Unknown error:', error);
   return new AppError(
-    error.message || 'Възникна неочаквана грешка. Моля, опитайте отново.',
+    'Възникна неочаквана грешка. Моля, опитайте отново по-късно.',
     'UNKNOWN_ERROR',
     error.status || error.response?.status,
     false
