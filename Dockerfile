@@ -14,7 +14,6 @@ RUN npm install --production
 COPY dist ./dist
 COPY server.js ./
 COPY services ./services
-COPY firebase-service-account.json ./
 
 # Expose the port
 EXPOSE 8080

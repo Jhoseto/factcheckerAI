@@ -15,23 +15,33 @@ export function initializeFirebaseAdmin() {
     }
 
     try {
-        // Try to load service account from file
-        const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './firebase-service-account.json';
-        const absolutePath = path.resolve(__dirname, '..', serviceAccountPath);
-
-        let serviceAccount;
-        try {
-            serviceAccount = JSON.parse(readFileSync(absolutePath, 'utf8'));
+        // Priority 1: Check for JSON in environment variable (Cloud Run best practice)
+        if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+            console.log('[Firebase Admin] Using service account from FIREBASE_SERVICE_ACCOUNT_JSON env variable');
+            const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
             admin.initializeApp({
                 credential: admin.credential.cert(serviceAccount)
             });
-        } catch (fileError) {
-            // File not found. Check if default credentials work (Cloud Run).
-            if (process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.K_SERVICE) {
-                console.log('[Firebase Admin] File not found, trying default credentials...');
-                admin.initializeApp(); // Use Default Application Credentials
-            } else {
-                throw fileError;
+        }
+        // Priority 2: Try to load service account from file
+        else {
+            const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './firebase-service-account.json';
+            const absolutePath = path.resolve(__dirname, '..', serviceAccountPath);
+
+            let serviceAccount;
+            try {
+                serviceAccount = JSON.parse(readFileSync(absolutePath, 'utf8'));
+                admin.initializeApp({
+                    credential: admin.credential.cert(serviceAccount)
+                });
+            } catch (fileError) {
+                // File not found. Check if default credentials work (Cloud Run).
+                if (process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.K_SERVICE) {
+                    console.log('[Firebase Admin] File not found, trying default credentials...');
+                    admin.initializeApp(); // Use Default Application Credentials
+                } else {
+                    throw fileError;
+                }
             }
         }
 
