@@ -10,9 +10,10 @@ COPY package*.json ./
 # Install ONLY production dependencies
 RUN npm install --production
 
-# Copy pre-built dist folder and server
+# Copy pre-built dist folder, server, and services
 COPY dist ./dist
 COPY server.js ./
+COPY services ./services
 
 # Expose the port
 EXPOSE 8080
