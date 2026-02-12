@@ -1,5 +1,5 @@
 node_modules
-dist
+# dist - REMOVED because we're copying pre-built dist
 .env
 .env.local
 .git
