@@ -311,7 +311,8 @@ app.post('/api/lemonsqueezy/checkout', async (req, res) => {
                                 user_id: userId,
                                 points: points.toString()
                             }
-                        }
+                        },
+                        redirect_url: `${req.protocol}://${req.get('host')}/`
                     },
                     relationships: {
                         store: {
