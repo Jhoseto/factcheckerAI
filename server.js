@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { GoogleGenAI } from '@google/genai';
+import { initializeFirebaseAdmin, addPointsToUser } from './services/firebaseAdmin.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,6 +23,12 @@ app.use((req, res, next) => {
     next();
 });
 
+// Initialize Firebase Admin SDK
+try {
+    initializeFirebaseAdmin();
+} catch (error) {
+    console.error('[Server] Failed to initialize Firebase Admin - points crediting will not work');
+}
 
 // === GEMINI API PROXY (SERVER-SIDE) ===
 // This keeps the API key secure on the server
@@ -352,16 +359,30 @@ app.post('/api/lemonsqueezy/webhook', express.raw({ type: 'application/json' }),
         const event = JSON.parse(req.body.toString());
 
         console.log('[Lemon Squeezy] Webhook received:', event.meta.event_name);
+        console.log('[Lemon Squeezy] Order status:', event.data.attributes.status);
 
         // Handle successful purchase
         if (event.meta.event_name === 'order_created' && event.data.attributes.status === 'paid') {
-            const customData = event.data.attributes.first_order_item.custom_data || {};
+            // Extract custom data from checkout_data.custom
+            const checkoutData = event.data.attributes.checkout_data || {};
+            const customData = checkoutData.custom || {};
+
+            console.log('[Lemon Squeezy] Custom data:', customData);
+
             const userId = customData.user_id;
             const points = parseInt(customData.points) || 0;
 
+            console.log(`[Lemon Squeezy] Extracted - userId: ${userId}, points: ${points}`);
+
             if (userId && points > 0) {
-                console.log(`[Lemon Squeezy] Order completed: +${points} points for user ${userId}`);
-                // Points will be credited via Firebase on client side after redirect
+                try {
+                    await addPointsToUser(userId, points);
+                    console.log(`[Lemon Squeezy] ✅ Added ${points} points to user ${userId}`);
+                } catch (error) {
+                    console.error(`[Lemon Squeezy] ❌ Failed to add points for user ${userId}:`, error);
+                }
+            } else {
+                console.warn('[Lemon Squeezy] ⚠️  Missing userId or points in webhook data');
             }
         }
 

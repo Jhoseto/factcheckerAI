@@ -93,7 +93,8 @@ export interface APIUsage {
   promptTokens: number;
   candidatesTokens: number;
   totalTokens: number;
-  estimatedCostUSD: number;
+  estimatedCostUSD: number; // Internal tracking only
+  pointsCost: number; // User-facing cost in points
 }
 
 export interface AnalysisResponse {
@@ -115,7 +116,8 @@ export interface YouTubeVideoMetadata {
 export interface CostEstimate {
   mode: AnalysisMode;
   estimatedTokens: number;
-  estimatedCostUSD: number;
+  estimatedCostUSD: number; // Internal tracking only
+  pointsCost: number; // User-facing cost in points
   estimatedTime: string;
   features: string[];
 }

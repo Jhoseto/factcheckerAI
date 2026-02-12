@@ -52,15 +52,42 @@ export const calculateCost = (
   candidatesTokens: number,
   isBatch: boolean = false
 ): number => {
-  const modelKey = isBatch 
-    ? `${model}-batch` 
+  const modelKey = isBatch
+    ? `${model}-batch`
     : model;
-  
-  const pricing = GEMINI_PRICING[modelKey as keyof typeof GEMINI_PRICING] 
+
+  const pricing = GEMINI_PRICING[modelKey as keyof typeof GEMINI_PRICING]
     || GEMINI_PRICING['gemini-3-flash-preview'];
-  
+
   const inputCost = (promptTokens / 1_000_000) * pricing.input;
   const outputCost = (candidatesTokens / 1_000_000) * pricing.output;
-  
+
   return Math.max(0, inputCost + outputCost); // Ensure non-negative
 };
+
+/**
+ * Calculate cost in points for user-facing display
+ * Applies 2x markup on Gemini API cost
+ * @param model - The model name
+ * @param promptTokens - Number of input tokens
+ * @param candidatesTokens - Number of output tokens
+ * @param isBatch - Whether using batch pricing
+ * @returns Cost in points (2x markup applied)
+ */
+export const calculateCostInPoints = (
+  model: string = 'gemini-3-flash-preview',
+  promptTokens: number,
+  candidatesTokens: number,
+  isBatch: boolean = false
+): number => {
+  const costUSD = calculateCost(model, promptTokens, candidatesTokens, isBatch);
+
+  // Convert USD to EUR (approximate 1 USD = 0.93 EUR)
+  const costEUR = costUSD * 0.93;
+
+  // Convert to points: €1 = 100 points, with 2x markup
+  const points = Math.ceil(costEUR * 100 * 2);
+
+  return points;
+};
+

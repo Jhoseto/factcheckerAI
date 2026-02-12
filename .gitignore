@@ -34,3 +34,7 @@ pnpm-debug.log*
 *.njsproj
 *.sln
 *.sw?
+
+# Firebase Service Account (contains sensitive credentials)
+firebase-service-account.json
+factcheckerai-d376d-firebase-adminsdk-*.json

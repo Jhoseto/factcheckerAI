@@ -87,22 +87,17 @@ const AnalysisModeSelector: React.FC<AnalysisModeSelectorProps> = ({
                             </h4>
                         </div>
 
-                        {/* Cost and time info */}
+                        {/* Cost info */}
                         {estimate && (
-                            <div className="space-y-1 mb-2">
+                            <div className="mb-2">
                                 <div className="flex items-baseline gap-2">
-                                    <span className="text-xs font-bold text-slate-500">Приблизителна цена:</span>
+                                    <span className="text-xs font-bold text-slate-500">Цена:</span>
                                     <span className={`text-base md:text-lg font-black ${config.textColor}`}>
-                                        {estimate.estimatedCostUSD < 0.001 
-                                          ? '< $0.001' 
-                                          : estimate.estimatedCostUSD < 0.01
-                                          ? `$${estimate.estimatedCostUSD.toFixed(4)}`
-                                          : `$${estimate.estimatedCostUSD.toFixed(3)}`}
+                                        {estimate.pointsCost} точки
                                     </span>
                                 </div>
-                                <div className="flex items-baseline gap-2">
-                                    <span className="text-xs font-bold text-slate-500">Приблизителни токени:</span>
-                                    <span className="text-xs font-bold text-slate-700">~{estimate.estimatedTokens.toLocaleString()}</span>
+                                <div className="text-[10px] text-slate-500 mt-0.5">
+                                    Време за анализ: {estimate.estimatedTime}
                                 </div>
                             </div>
                         )}

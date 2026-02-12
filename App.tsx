@@ -263,12 +263,6 @@ const App: React.FC = () => {
           <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest opacity-80 group-hover:opacity-100 transition-opacity">Deep Context Generative Engine (DCGE)by Serezliev| v4.8.2</p>
         </div>
         <div className="flex flex-col md:flex-row gap-4 md:gap-8 items-center md:items-end">
-          {usageData && (
-            <div className="text-center md:text-right">
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Load</p>
-              <p className="text-[10px] font-black text-slate-900 uppercase">{usageData.totalTokens.toLocaleString()} tokens • <span className="text-amber-900">${usageData.estimatedCostUSD.toFixed(4)}</span></p>
-            </div>
-          )}
 
           {/* User Menu & Points */}
           <div className="flex gap-4 items-center relative">
@@ -442,36 +436,24 @@ const App: React.FC = () => {
                         <div className="text-center p-2 bg-emerald-50 rounded border border-emerald-100">
                           <p className="text-[9px] font-bold text-emerald-700 mb-0.5">Quick</p>
                           <p className="text-sm font-black text-emerald-700">
-                            {costEstimates.quick.estimatedCostUSD < 0.001
-                              ? '< $0.001'
-                              : costEstimates.quick.estimatedCostUSD < 0.01
-                                ? `$${costEstimates.quick.estimatedCostUSD.toFixed(4)}`
-                                : `$${costEstimates.quick.estimatedCostUSD.toFixed(3)}`}
+                            {costEstimates.quick.pointsCost} точки
                           </p>
                         </div>
                         <div className="text-center p-2 bg-amber-50 rounded border border-amber-100">
                           <p className="text-[9px] font-bold text-amber-700 mb-0.5">Batch</p>
                           <p className="text-sm font-black text-amber-700">
-                            {costEstimates.batch.estimatedCostUSD < 0.001
-                              ? '< $0.001'
-                              : costEstimates.batch.estimatedCostUSD < 0.01
-                                ? `$${costEstimates.batch.estimatedCostUSD.toFixed(4)}`
-                                : `$${costEstimates.batch.estimatedCostUSD.toFixed(3)}`}
+                            {costEstimates.batch.pointsCost} точки
                           </p>
                         </div>
                         <div className="text-center p-2 bg-slate-50 rounded border border-slate-100">
                           <p className="text-[9px] font-bold text-slate-700 mb-0.5">Standard</p>
                           <p className="text-sm font-black text-slate-700">
-                            {costEstimates.standard.estimatedCostUSD < 0.001
-                              ? '< $0.001'
-                              : costEstimates.standard.estimatedCostUSD < 0.01
-                                ? `$${costEstimates.standard.estimatedCostUSD.toFixed(4)}`
-                                : `$${costEstimates.standard.estimatedCostUSD.toFixed(3)}`}
+                            {costEstimates.standard.pointsCost} точки
                           </p>
                         </div>
                       </div>
                       <p className="text-[7px] text-slate-400 italic mt-2 text-center">
-                        * Цените са приблизителни. Реалните разходи могат да варират в зависимост от дължината на транскрипцията и сложността на анализа.
+                        * Цените са приблизителни и могат да варират в зависимост от дължината и сложността.
                       </p>
                     </div>
                   )}

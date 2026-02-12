@@ -49,17 +49,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (userDoc.exists()) {
                 setUserProfile(userDoc.data() as UserProfile);
             } else {
-                // Create new user profile
+                // Create new user profile with welcome bonus
                 const newProfile: UserProfile = {
                     uid: user.uid,
                     email: user.email || '',
                     displayName: user.displayName || 'User',
                     photoURL: user.photoURL || undefined,
-                    pointsBalance: 0, // Start with 0 points
+                    pointsBalance: 100, // Welcome bonus: 100 points
                     createdAt: new Date().toISOString()
                 };
                 await setDoc(doc(db, 'users', user.uid), newProfile);
                 setUserProfile(newProfile);
+                console.log(`[Auth] ✅ New user created with 100 points welcome bonus: ${user.uid}`);
             }
         } catch (error) {
             console.error('Error loading user profile:', error);

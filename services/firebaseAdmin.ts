@@ -1,0 +1,157 @@
+/**
+ * Firebase Admin SDK Service
+ * Server-side Firebase operations for secure points management
+ */
+
+import admin from 'firebase-admin';
+import { readFileSync } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Initialize Firebase Admin SDK
+let adminInitialized = false;
+
+export function initializeFirebaseAdmin() {
+    if (adminInitialized) {
+        return true;
+    }
+
+    try {
+        // Try to load service account from file
+        const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './firebase-service-account.json';
+        const absolutePath = path.resolve(__dirname, '..', serviceAccountPath);
+
+        const serviceAccount = JSON.parse(readFileSync(absolutePath, 'utf8'));
+
+        admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount)
+        });
+
+        adminInitialized = true;
+        console.log('[Firebase Admin] ✅ Initialized successfully');
+        return true;
+    } catch (error) {
+        console.warn('[Firebase Admin] ⚠️  Not initialized:', error.message);
+        console.warn('[Firebase Admin] Points crediting will NOT work until service account is configured');
+        console.warn('[Firebase Admin] See FIREBASE_SETUP.md for instructions');
+        return false;
+    }
+}
+
+/**
+ * Get Firestore instance
+ */
+function getFirestore() {
+    if (!adminInitialized) {
+        initializeFirebaseAdmin();
+    }
+    return admin.firestore();
+}
+
+/**
+ * Add points to user account
+ * @param userId - Firebase user UID
+ * @param points - Number of points to add
+ */
+export async function addPointsToUser(userId: string, points: number): Promise<void> {
+    if (!adminInitialized) {
+        console.warn('[Firebase Admin] ⚠️  Cannot add points - not initialized');
+        return;
+    }
+
+    try {
+        const db = getFirestore();
+        const userRef = db.collection('users').doc(userId);
+
+        await db.runTransaction(async (transaction) => {
+            const userDoc = await transaction.get(userRef);
+
+            if (!userDoc.exists) {
+                throw new Error(`User ${userId} not found in Firestore`);
+            }
+
+            const currentPoints = userDoc.data()?.points || 0;
+            const newPoints = currentPoints + points;
+
+            transaction.update(userRef, {
+                points: newPoints,
+                lastPointsUpdate: admin.firestore.FieldValue.serverTimestamp()
+            });
+        });
+
+        console.log(`[Firebase Admin] ✅ Added ${points} points to user ${userId}`);
+    } catch (error) {
+        console.error(`[Firebase Admin] ❌ Failed to add points:`, error);
+        throw error;
+    }
+}
+
+/**
+ * Deduct points from user account
+ * @param userId - Firebase user UID
+ * @param points - Number of points to deduct
+ * @returns True if successful, false if insufficient points
+ */
+export async function deductPointsFromUser(userId: string, points: number): Promise<boolean> {
+    try {
+        const db = getFirestore();
+        const userRef = db.collection('users').doc(userId);
+
+        const result = await db.runTransaction(async (transaction) => {
+            const userDoc = await transaction.get(userRef);
+
+            if (!userDoc.exists) {
+                throw new Error(`User ${userId} not found in Firestore`);
+            }
+
+            const currentPoints = userDoc.data()?.points || 0;
+
+            if (currentPoints < points) {
+                console.log(`[Firebase Admin] ❌ Insufficient points for user ${userId}: has ${currentPoints}, needs ${points}`);
+                return false;
+            }
+
+            const newPoints = currentPoints - points;
+
+            transaction.update(userRef, {
+                points: newPoints,
+                lastPointsUpdate: admin.firestore.FieldValue.serverTimestamp()
+            });
+
+            return true;
+        });
+
+        if (result) {
+            console.log(`[Firebase Admin] ✅ Deducted ${points} points from user ${userId}`);
+        }
+
+        return result;
+    } catch (error) {
+        console.error(`[Firebase Admin] ❌ Failed to deduct points:`, error);
+        throw error;
+    }
+}
+
+/**
+ * Get user points balance
+ * @param userId - Firebase user UID
+ * @returns Current points balance
+ */
+export async function getUserPoints(userId: string): Promise<number> {
+    try {
+        const db = getFirestore();
+        const userDoc = await db.collection('users').doc(userId).get();
+
+        if (!userDoc.exists) {
+            return 0;
+        }
+
+        return userDoc.data()?.points || 0;
+    } catch (error) {
+        console.error(`[Firebase Admin] ❌ Failed to get user points:`, error);
+        return 0;
+    }
+}
