@@ -20,7 +20,18 @@ export function initializeFirebaseAdmin() {
     }
 
     try {
-        // Try to load service account from file
+        // Try to load service account from environment variable first (for Cloud Run)
+        if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+            const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+            admin.initializeApp({
+                credential: admin.credential.cert(serviceAccount)
+            });
+            adminInitialized = true;
+            console.log('[Firebase Admin] ✅ Initialized from environment variable');
+            return true;
+        }
+
+        // Try to load service account from file (for local development)
         const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './firebase-service-account.json';
         const absolutePath = path.resolve(__dirname, '..', serviceAccountPath);
 
@@ -31,12 +42,12 @@ export function initializeFirebaseAdmin() {
         });
 
         adminInitialized = true;
-        console.log('[Firebase Admin] ✅ Initialized successfully');
+        console.log('[Firebase Admin] ✅ Initialized from file');
         return true;
     } catch (error) {
         console.warn('[Firebase Admin] ⚠️  Not initialized:', error.message);
-        console.warn('[Firebase Admin] Points crediting will NOT work until service account is configured');
-        console.warn('[Firebase Admin] See FIREBASE_SETUP.md for instructions');
+        console.warn('[Firebase Admin] Points crediting will NOT work');
+        console.warn('[Firebase Admin] Set FIREBASE_SERVICE_ACCOUNT_JSON env var or add firebase-service-account.json file');
         return false;
     }
 }
