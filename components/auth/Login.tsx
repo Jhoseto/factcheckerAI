@@ -25,7 +25,8 @@ const Login: React.FC = () => {
             await login(email, password);
             navigate('/');
         } catch (err: any) {
-            setError(err.message || 'Грешка при вход');
+            console.error('[Login Error]', err);
+            setError('Невалиден имейл или парола. Моля, опитайте отново.');
         } finally {
             setLoading(false);
         }
@@ -39,7 +40,8 @@ const Login: React.FC = () => {
             await loginWithGoogle();
             navigate('/');
         } catch (err: any) {
-            setError(err.message || 'Грешка при вход с Google');
+            console.error('[Google Login Error]', err);
+            setError('Грешка при вход с Google. Моля, опитайте отново.');
         } finally {
             setLoading(false);
         }
@@ -98,8 +100,8 @@ const Login: React.FC = () => {
                             type="submit"
                             disabled={loading}
                             className={`w-full p-4 text-xs font-black uppercase tracking-widest transition-all shadow-lg ${loading
-                                    ? 'bg-slate-400 text-slate-200 cursor-not-allowed'
-                                    : 'bg-slate-900 text-white hover:bg-black active:scale-[0.98] hover:shadow-xl'
+                                ? 'bg-slate-400 text-slate-200 cursor-not-allowed'
+                                : 'bg-slate-900 text-white hover:bg-black active:scale-[0.98] hover:shadow-xl'
                                 }`}
                         >
                             {loading ? 'ЗАРЕЖДАНЕ...' : 'ВХОД'}

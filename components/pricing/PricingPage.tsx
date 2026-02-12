@@ -82,8 +82,8 @@ const PricingPage: React.FC = () => {
                 throw new Error('Failed to create checkout');
             }
         } catch (error) {
-            console.error('Purchase error:', error);
-            alert('Грешка при създаване на поръчка. Моля, опитайте отново.');
+            console.error('[Purchase Error]', error);
+            alert('Възникна грешка при плащането. Моля, опитайте отново или се свържете с поддръжката.');
         } finally {
             setLoading(null);
         }

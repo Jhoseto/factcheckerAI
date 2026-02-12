@@ -119,7 +119,8 @@ const App: React.FC = () => {
         const estimates = getAllCostEstimates(metadata.duration);
         setCostEstimates(estimates);
       } catch (e: any) {
-        setError(e.message);
+        console.error('[Metadata Error]', e);
+        setError('Грешка при зареждане на информацията за видеото. Моля, проверете URL-а.');
         setVideoMetadata(null);
         setCostEstimates(null);
       } finally {
@@ -141,7 +142,8 @@ const App: React.FC = () => {
       : validateNewsUrl(url);
 
     if (!validation.valid) {
-      setError(validation.error || 'Невалиден URL');
+      console.error('[URL Validation Error]', validation.error);
+      setError('Моля, въведете валиден YouTube URL адрес.');
       return;
     }
 
@@ -195,7 +197,19 @@ const App: React.FC = () => {
       setAnalysis(response.analysis);
       setUsageData(response.usage);
     } catch (e: any) {
-      setError(e.message);
+      console.error('[Analysis Error]', e);
+      // Покажи user-friendly съобщение според типа грешка
+      if (e.code === 'INSUFFICIENT_POINTS') {
+        setError('Недостатъчно точки за анализ. Моля, закупете точки от Pricing страницата.');
+      } else if (e.statusCode === 401 || e.code === 'API_KEY_ERROR') {
+        setError('Грешка при свързване със сървъра. Моля, опитайте по-късно.');
+      } else if (e.code === 'RATE_LIMIT') {
+        setError('Много заявки за кратко време. Моля, изчакайте 1-2 минути и опитайте отново.');
+      } else if (e.code === 'NETWORK_ERROR') {
+        setError('Проблем с интернет връзката. Моля, проверете връзката си и опитайте отново.');
+      } else {
+        setError('Възникна неочаквана грешка при анализа. Моля, опитайте отново след малко.');
+      }
     } finally {
       setLoading(false);
     }
@@ -216,7 +230,8 @@ const App: React.FC = () => {
   const handleSaveFullReport = async () => {
     const element = document.getElementById('full-report-article') || fullReportRef.current;
     if (!element) {
-      alert("Грешка: Елементът за доклад не е готов.");
+      console.error('[Export Error] Report element not ready');
+      alert("Грешка при подготовка на доклада. Моля, опитайте отново.");
       return;
     }
 
@@ -241,8 +256,8 @@ const App: React.FC = () => {
       link.click();
       document.body.removeChild(link);
     } catch (e) {
-      console.error(e);
-      alert("Грешка при генериране на PNG.");
+      console.error('[PNG Export Error]', e);
+      alert("Грешка при създаване на PNG файла. Моля, опитайте отново.");
     } finally {
       window.scrollTo(0, originalScroll);
       setIsExporting(false);

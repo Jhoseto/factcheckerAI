@@ -52,10 +52,11 @@ const Register: React.FC = () => {
             await signup(email, password, displayName);
             navigate('/');
         } catch (err: any) {
+            console.error('[Register Error]', err);
             if (err.code === 'auth/email-already-in-use') {
-                setError('Този имейл вече е регистриран');
+                setError('Този имейл вече е регистриран. Моля, използвайте друг или влезте в съществуващ акаунт.');
             } else {
-                setError(err.message || 'Грешка при регистрация');
+                setError('Грешка при регистрация. Моля, опитайте отново.');
             }
         } finally {
             setLoading(false);
@@ -70,7 +71,8 @@ const Register: React.FC = () => {
             await loginWithGoogle();
             navigate('/');
         } catch (err: any) {
-            setError(err.message || 'Грешка при регистрация с Google');
+            console.error('[Google Register Error]', err);
+            setError('Грешка при регистрация с Google. Моля, опитайте отново.');
         } finally {
             setLoading(false);
         }
@@ -212,8 +214,8 @@ const Register: React.FC = () => {
                             type="submit"
                             disabled={loading}
                             className={`w-full p-4 text-xs font-black uppercase tracking-widest transition-all shadow-lg ${loading
-                                    ? 'bg-slate-400 text-slate-200 cursor-not-allowed'
-                                    : 'bg-amber-900 text-white hover:bg-amber-950 active:scale-[0.98] hover:shadow-xl'
+                                ? 'bg-slate-400 text-slate-200 cursor-not-allowed'
+                                : 'bg-amber-900 text-white hover:bg-amber-950 active:scale-[0.98] hover:shadow-xl'
                                 }`}
                         >
                             {loading ? 'ЗАРЕЖДАНЕ...' : 'РЕГИСТРАЦИЯ'}
