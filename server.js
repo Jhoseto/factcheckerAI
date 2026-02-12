@@ -290,10 +290,18 @@ app.post('/api/lemonsqueezy/checkout', async (req, res) => {
         const storeId = process.env.LEMON_SQUEEZY_STORE_ID;
 
         if (!apiKey || !storeId) {
+            console.error('[Lemon Squeezy] Missing API_KEY or STORE_ID');
             return res.status(500).json({ error: 'Lemon Squeezy not configured' });
         }
 
-        // Create checkout session
+        // Build the redirect URL dynamically based on the request origin
+        const origin = req.headers.origin || req.headers.referer || `${req.protocol}://${req.get('host')}`;
+        const redirectUrl = origin.replace(/\/$/, '') + '/';
+
+        console.log(`[Lemon Squeezy] Creating checkout: variant=${variantId}, user=${userId}, points=${points}, redirect=${redirectUrl}`);
+
+        // Create checkout session - exact format from Lemon Squeezy API docs:
+        // https://docs.lemonsqueezy.com/api/checkouts/create-checkout
         const checkout = await fetch('https://api.lemonsqueezy.com/v1/checkouts', {
             method: 'POST',
             headers: {
@@ -305,6 +313,9 @@ app.post('/api/lemonsqueezy/checkout', async (req, res) => {
                 data: {
                     type: 'checkouts',
                     attributes: {
+                        product_options: {
+                            redirect_url: redirectUrl
+                        },
                         checkout_data: {
                             email: userEmail,
                             custom: {
@@ -333,17 +344,18 @@ app.post('/api/lemonsqueezy/checkout', async (req, res) => {
 
         const checkoutData = await checkout.json();
 
-        if (checkoutData.data && checkoutData.data.attributes) {
+        if (checkoutData.data && checkoutData.data.attributes && checkoutData.data.attributes.url) {
+            console.log(`[Lemon Squeezy] ✅ Checkout created: ${checkoutData.data.attributes.url}`);
             res.json({
                 checkoutUrl: checkoutData.data.attributes.url
             });
         } else {
-            console.error('[Lemon Squeezy] Invalid response:', checkoutData);
-            throw new Error('Failed to create checkout');
+            console.error('[Lemon Squeezy] ❌ API error:', JSON.stringify(checkoutData, null, 2));
+            res.status(500).json({ error: 'Failed to create checkout', details: checkoutData.errors });
         }
 
     } catch (error) {
-        console.error('[Lemon Squeezy] Checkout error:', error);
+        console.error('[Lemon Squeezy] ❌ Checkout error:', error.message);
         res.status(500).json({ error: 'Failed to create checkout' });
     }
 });
