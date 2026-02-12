@@ -15,12 +15,16 @@ const app = express();
 const port = process.env.PORT || 8080;
 
 // Set security headers - relaxed for Firebase Auth compatibility
-// We apply JSON parsing conditionally below to allow raw body for webhooks
 app.use((req, res, next) => {
     // Allow Firebase Auth popups to work - use unsafe-none to prevent blocking
     res.setHeader('Cross-Origin-Opener-Policy', 'unsafe-none');
     next();
 });
+
+// JSON parsing middleware for API routes (except webhooks which need raw body)
+app.use('/api/gemini', express.json());
+app.use('/api/lemonsqueezy/checkout', express.json());
+app.use('/api/youtube/metadata', express.json());
 
 // Initialize Firebase Admin SDK
 try {
@@ -38,22 +42,6 @@ app.post('/api/gemini/generate', async (req, res) => {
         if (!apiKey) {
             console.error('[Gemini API] No API key found in environment');
             return res.status(500).json({ error: 'Server configuration error: Missing API key' });
-        }
-        const secret = process.env.LEMON_SQUEEZY_WEBHOOK_SECRET;
-        if (secret) {
-            const hmac = crypto.createHmac('sha256', secret);
-            // Process the raw body to compute signature
-            // Note: req.rawBody is populated by the express.json middleware's verify function
-            const digest = hmac.update(req.rawBody || '').digest('hex');
-            const signature = req.headers['x-signature'];
-
-            if (!signature || !crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(signature))) {
-                console.error('[Lemon Squeezy] Invalid signature');
-                return res.status(401).json({ error: 'Invalid signature' });
-            }
-            console.log('[Lemon Squeezy] ✅ Signature verified');
-        } else {
-            console.warn('[Lemon Squeezy] ⚠️  Skipping signature verification (LEMON_SQUEEZY_WEBHOOK_SECRET not set)');
         }
 
         // 1. Verify Authentication
