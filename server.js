@@ -13,13 +13,8 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const port = process.env.PORT || 8080;
 
-// Parse JSON bodies for API requests - EXCEPT webhook which needs raw body
-app.use((req, res, next) => {
-    if (req.path === '/api/lemonsqueezy/webhook') {
-        return next(); // Skip JSON parsing for webhook - it needs raw body
-    }
-    express.json({ limit: '10mb' })(req, res, next);
-});
+// Parse JSON bodies for API requests
+app.use(express.json({ limit: '10mb' }));
 
 // Set security headers - relaxed for Firebase Auth compatibility
 app.use((req, res, next) => {
@@ -34,6 +29,50 @@ try {
 } catch (error) {
     console.error('[Server] Failed to initialize Firebase Admin - points crediting will not work');
 }
+
+// === DEBUG ENDPOINT ===
+app.get('/api/debug/firebase', async (req, res) => {
+    try {
+        const envVarPresent = !!process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+        const envVarLength = process.env.FIREBASE_SERVICE_ACCOUNT_JSON ? process.env.FIREBASE_SERVICE_ACCOUNT_JSON.length : 0;
+
+        let serviceAccountData = null;
+        let parseError = null;
+
+        if (envVarPresent) {
+            try {
+                serviceAccountData = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+            } catch (e) {
+                parseError = e.message;
+            }
+        }
+
+        const adminStatus = {
+            initialized: true, // we'll update this
+            envVar: {
+                present: envVarPresent,
+                length: envVarLength,
+                parseError: parseError,
+                projectId: serviceAccountData ? serviceAccountData.project_id : 'N/A',
+                clientEmail: serviceAccountData ? serviceAccountData.client_email : 'N/A'
+            }
+        };
+
+        // Test Firestore connection
+        try {
+            const { getUserPoints } = await import('./services/firebaseAdmin.js');
+            // Try to read a non-existent user just to test connection
+            await getUserPoints('test-connection');
+            adminStatus.firestoreConnection = 'OK';
+        } catch (e) {
+            adminStatus.firestoreConnection = `FAILED: ${e.message}`;
+        }
+
+        res.json(adminStatus);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
 
 // === GEMINI API PROXY (SERVER-SIDE) ===
 // This keeps the API key secure on the server
@@ -366,30 +405,56 @@ app.post('/api/lemonsqueezy/checkout', async (req, res) => {
 });
 
 // === LEMON SQUEEZY WEBHOOK ===
+// We use express.raw to try to get the raw body, but if global middleware ran first, we handle that too
 app.post('/api/lemonsqueezy/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
     try {
         const webhookSecret = process.env.LEMON_SQUEEZY_WEBHOOK_SECRET;
         const signature = req.headers['x-signature'];
 
-        // TODO: Verify webhook signature in production
+        // TODO: Verify webhook signature in production (needs raw body)
 
-        const event = JSON.parse(req.body.toString());
+        let event;
+        try {
+            if (Buffer.isBuffer(req.body)) {
+                event = JSON.parse(req.body.toString());
+            } else if (typeof req.body === 'string') {
+                event = JSON.parse(req.body);
+            } else {
+                // It's already a parsed object (middleware ran before us)
+                event = req.body;
+            }
+        } catch (parseError) {
+            console.error('[Lemon Squeezy] JSON Parse Error:', parseError);
+            console.error('[Lemon Squeezy] Body type:', typeof req.body);
+            console.error('[Lemon Squeezy] Body value:', req.body);
+            return res.status(400).json({ error: 'Invalid JSON body' });
+        }
 
-        console.log('[Lemon Squeezy] Webhook received:', event.meta.event_name);
-        console.log('[Lemon Squeezy] Order status:', event.data.attributes.status);
+        console.log('[Lemon Squeezy] Webhook received:', event?.meta?.event_name);
+        console.log('[Lemon Squeezy] Full Event payload:', JSON.stringify(event, null, 2));
 
         // Handle successful purchase
-        if (event.meta.event_name === 'order_created' && event.data.attributes.status === 'paid') {
-            // Extract custom data from checkout_data.custom
-            const checkoutData = event.data.attributes.checkout_data || {};
-            const customData = checkoutData.custom || {};
+        if (event && (event.meta.event_name === 'order_created' || event.meta.event_name === 'order_paid') && event.data.attributes.status === 'paid') {
 
-            console.log('[Lemon Squeezy] Custom data:', customData);
+            // Try to find custom data in multiple places
+            const attributes = event.data.attributes;
+            let customData = {};
+
+            // 1. Check in checkout_data (standard location)
+            if (attributes.checkout_data && attributes.checkout_data.custom) {
+                console.log('[Lemon Squeezy] Found data in checkout_data.custom');
+                customData = attributes.checkout_data.custom;
+            }
+            // 2. Check in meta (sometimes legacy)
+            else if (event.meta && event.meta.custom_data) {
+                console.log('[Lemon Squeezy] Found data in meta.custom_data');
+                customData = event.meta.custom_data;
+            }
+
+            console.log('[Lemon Squeezy] Extracted custom data:', customData);
 
             const userId = customData.user_id;
             const points = parseInt(customData.points) || 0;
-
-            console.log(`[Lemon Squeezy] Extracted - userId: ${userId}, points: ${points}`);
 
             if (userId && points > 0) {
                 try {
@@ -400,7 +465,10 @@ app.post('/api/lemonsqueezy/webhook', express.raw({ type: 'application/json' }),
                 }
             } else {
                 console.warn('[Lemon Squeezy] ⚠️  Missing userId or points in webhook data');
+                console.warn(`userId: ${userId}, points: ${points}`);
             }
+        } else {
+            console.log(`[Lemon Squeezy] Ignoring event: ${event?.meta?.event_name} status: ${event?.data?.attributes?.status}`);
         }
 
         res.json({ received: true });
