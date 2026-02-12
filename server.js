@@ -89,7 +89,7 @@ app.post('/api/gemini/generate', async (req, res) => {
         const ai = new GoogleGenAI({ apiKey });
 
         const requestPayload = {
-            model: model || 'gemini-1.5-flash', // Default to 1.5 Flash for cost efficiency
+            model: model || 'gemini-3-flash-preview', // Default to 3 Flash Preview as requested
             systemInstruction: systemInstruction || 'You are a professional fact-checker and media analyst. Respond ONLY with valid JSON.',
             contents: [],
             generationConfig: {
