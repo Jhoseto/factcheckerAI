@@ -17,24 +17,27 @@
  */
 
 export const GEMINI_PRICING = {
+  // Using Gemini 1.5 Flash pricing constants (approximate)
+  // Input: $0.075 per 1M
+  // Output: $0.30 per 1M
   'gemini-3-flash-preview': {
-    input: 0.50,   // $0.50 per 1M input tokens (text/image/video)
-    output: 3.00,  // $3.00 per 1M output tokens
-    audio: 1.00,   // $1.00 per 1M audio input tokens
+    input: 0.075,
+    output: 0.30,
+    audio: 0.10, // Approx
   },
   'gemini-3-flash-preview-batch': {
-    input: 0.25,   // $0.25 per 1M input tokens (50% discount for batch)
-    output: 1.50, // $1.50 per 1M output tokens (50% discount for batch)
-    audio: 0.50,  // $0.50 per 1M audio input tokens (50% discount for batch)
+    input: 0.0375, // 50% discount
+    output: 0.15,
+    audio: 0.05,
   },
   // Keep 3 Pro for critical analyses (optional)
   'gemini-3-pro-preview': {
-    input: 2.00,   // $2.00 per 1M input tokens
-    output: 12.00, // $12.00 per 1M output tokens
+    input: 2.00,
+    output: 12.00,
   },
   'gemini-3-pro-preview-batch': {
-    input: 1.00,   // $1.00 per 1M input tokens (50% discount for batch)
-    output: 6.00,  // $6.00 per 1M output tokens (50% discount for batch)
+    input: 1.00,
+    output: 6.00,
   }
 } as const;
 

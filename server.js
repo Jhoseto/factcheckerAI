@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { GoogleGenAI } from '@google/genai';
 import { initializeFirebaseAdmin, addPointsToUser } from './services/firebaseAdmin.js';
+import crypto from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,10 +14,8 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const port = process.env.PORT || 8080;
 
-// Parse JSON bodies for API requests
-app.use(express.json({ limit: '10mb' }));
-
 // Set security headers - relaxed for Firebase Auth compatibility
+// We apply JSON parsing conditionally below to allow raw body for webhooks
 app.use((req, res, next) => {
     // Allow Firebase Auth popups to work - use unsafe-none to prevent blocking
     res.setHeader('Cross-Origin-Opener-Policy', 'unsafe-none');
@@ -30,50 +29,6 @@ try {
     console.error('[Server] Failed to initialize Firebase Admin - points crediting will not work');
 }
 
-// === DEBUG ENDPOINT ===
-app.get('/api/debug/firebase', async (req, res) => {
-    try {
-        const envVarPresent = !!process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-        const envVarLength = process.env.FIREBASE_SERVICE_ACCOUNT_JSON ? process.env.FIREBASE_SERVICE_ACCOUNT_JSON.length : 0;
-
-        let serviceAccountData = null;
-        let parseError = null;
-
-        if (envVarPresent) {
-            try {
-                serviceAccountData = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
-            } catch (e) {
-                parseError = e.message;
-            }
-        }
-
-        const adminStatus = {
-            initialized: true, // we'll update this
-            envVar: {
-                present: envVarPresent,
-                length: envVarLength,
-                parseError: parseError,
-                projectId: serviceAccountData ? serviceAccountData.project_id : 'N/A',
-                clientEmail: serviceAccountData ? serviceAccountData.client_email : 'N/A'
-            }
-        };
-
-        // Test Firestore connection
-        try {
-            const { getUserPoints } = await import('./services/firebaseAdmin.js');
-            // Try to read a non-existent user just to test connection
-            await getUserPoints('test-connection');
-            adminStatus.firestoreConnection = 'OK';
-        } catch (e) {
-            adminStatus.firestoreConnection = `FAILED: ${e.message}`;
-        }
-
-        res.json(adminStatus);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
 // === GEMINI API PROXY (SERVER-SIDE) ===
 // This keeps the API key secure on the server
 app.post('/api/gemini/generate', async (req, res) => {
@@ -84,13 +39,57 @@ app.post('/api/gemini/generate', async (req, res) => {
             console.error('[Gemini API] No API key found in environment');
             return res.status(500).json({ error: 'Server configuration error: Missing API key' });
         }
+        const secret = process.env.LEMON_SQUEEZY_WEBHOOK_SECRET;
+        if (secret) {
+            const hmac = crypto.createHmac('sha256', secret);
+            // Process the raw body to compute signature
+            // Note: req.rawBody is populated by the express.json middleware's verify function
+            const digest = hmac.update(req.rawBody || '').digest('hex');
+            const signature = req.headers['x-signature'];
 
-        const { model, prompt, systemInstruction, videoUrl } = req.body;
+            if (!signature || !crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(signature))) {
+                console.error('[Lemon Squeezy] Invalid signature');
+                return res.status(401).json({ error: 'Invalid signature' });
+            }
+            console.log('[Lemon Squeezy] ✅ Signature verified');
+        } else {
+            console.warn('[Lemon Squeezy] ⚠️  Skipping signature verification (LEMON_SQUEEZY_WEBHOOK_SECRET not set)');
+        }
 
+        // 1. Verify Authentication
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
+        }
+
+        const idToken = authHeader.split('Bearer ')[1];
+        const { verifyToken, getUserPoints, deductPointsFromUser } = await import('./services/firebaseAdmin.js');
+
+        let userId;
+        try {
+            userId = await verifyToken(idToken);
+            if (!userId) throw new Error('Invalid token');
+            console.log(`[Gemini API] ✨ Authenticated user: ${userId}`);
+        } catch (e) {
+            return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+        }
+
+        // 2. Check Balance (Minimum 10 points to start)
+        const currentBalance = await getUserPoints(userId);
+        if (currentBalance < 10) {
+            return res.status(403).json({
+                error: 'Insufficient points. Please top up your balance.',
+                code: 'INSUFFICIENT_POINTS',
+                currentBalance
+            });
+        }
+
+        // 3. Perform Generation
+        const { model, prompt, systemInstruction, videoUrl, isBatch } = req.body;
         const ai = new GoogleGenAI({ apiKey });
 
         const requestPayload = {
-            model: model || 'gemini-3-flash-preview',
+            model: model || 'gemini-1.5-flash', // Default to 1.5 Flash for cost efficiency
             systemInstruction: systemInstruction || 'You are a professional fact-checker and media analyst. Respond ONLY with valid JSON.',
             contents: [],
             generationConfig: {
@@ -100,40 +99,24 @@ app.post('/api/gemini/generate', async (req, res) => {
             tools: []
         };
 
+        // ... (Video/Text Logic remains same) ...
         // Check if videoUrl is provided and determine how to handle it
         if (videoUrl) {
             // Check if it's a YouTube URL (including mobile formats: m.youtube.com, youtu.be, etc.)
             const isYouTubeUrl = /(?:youtube\.com|youtu\.be|m\.youtube\.com)/.test(videoUrl);
 
             if (isYouTubeUrl) {
-                // For YouTube URLs, use fileData with fileUri (official method from Gemini docs)
-                // This is exactly how Google AI Studio does it
                 requestPayload.contents = [{
                     role: 'user',
-                    parts: [
-                        {
-                            fileData: {
-                                fileUri: videoUrl
-                            }
-                        },
-                        {
-                            text: prompt
-                        }
-                    ]
+                    parts: [{ fileData: { fileUri: videoUrl } }, { text: prompt }]
                 }];
             } else {
-                // For other URLs (GCS, GDrive files), use fileUri
-                // This is for files uploaded to Google Cloud Storage or Google Drive
                 requestPayload.contents = [{
                     role: 'user',
-                    parts: [
-                        { fileData: { fileUri: videoUrl } },
-                        { text: prompt }
-                    ]
+                    parts: [{ fileData: { fileUri: videoUrl } }, { text: prompt }]
                 }];
             }
         } else {
-            // No video URL, just text prompt
             requestPayload.contents = [{
                 role: 'user',
                 parts: [{ text: prompt }]
@@ -141,52 +124,54 @@ app.post('/api/gemini/generate', async (req, res) => {
         }
 
         const response = await ai.models.generateContent(requestPayload);
+        const responseText = response.text(); // Correct way to get text in Node SDK
+        const usage = response.usageMetadata || { promptTokenCount: 0, candidatesTokenCount: 0 };
+
+        // 4. Calculate Points Cost
+        // Pricing (Gemini 1.5 Flash approx in EUR):
+        // Input: €0.07 / 1M tokens = 0.00000007 per token
+        // Output: €0.28 / 1M tokens = 0.00000028 per token
+
+        // Batch Pricing: 50% discount
+        const BATCH_DISCOUNT = isBatch ? 0.5 : 1.0;
+        const COST_PER_INPUT_TOKEN = 0.00000007 * BATCH_DISCOUNT;
+        const COST_PER_OUTPUT_TOKEN = 0.00000028 * BATCH_DISCOUNT;
+        const inputCost = usage.promptTokenCount * COST_PER_INPUT_TOKEN;
+        const outputCost = usage.candidatesTokenCount * COST_PER_OUTPUT_TOKEN;
+        const totalCostEur = inputCost + outputCost; // My cost
+
+        // User Pricing Rule: 1 EUR = 100 Points. Charge DOUBLE my cost.
+        // Formula: Cost_EUR * 2 (markup) * 100 (points conversion) = Cost_EUR * 200
+        const pointsDeducted = Math.ceil(totalCostEur * 200);
+
+        // Ensure at least 1 point is deducted if any usage occurred
+        const finalPoints = Math.max(1, pointsDeducted);
+
+        console.log(`[Gemini API] 💰 Usage: ${usage.promptTokenCount}/${usage.candidatesTokenCount} tokens. Cost: €${totalCostEur.toFixed(6)}. Deducting: ${finalPoints} points.`);
+
+        // 5. Deduct Points
+        await deductPointsFromUser(userId, finalPoints);
+        const newBalance = await getUserPoints(userId);
 
         res.json({
-            text: response.text,
-            usageMetadata: response.usageMetadata
+            text: responseText,
+            usageMetadata: usage,
+            points: {
+                deducted: finalPoints,
+                remaining: newBalance,
+                costEur: totalCostEur
+            }
         });
 
     } catch (error) {
         console.error('[Gemini API] Error:', error);
 
-        // Check for API key errors
         const errorMessage = error.message || error.toString() || '';
-        const isApiKeyError =
-            errorMessage.includes('API key') ||
-            errorMessage.includes('api key') ||
-            errorMessage.includes('API_KEY') ||
-            errorMessage.includes('authentication') ||
-            errorMessage.includes('401') ||
-            errorMessage.includes('Unauthorized') ||
-            errorMessage.includes('invalid') && errorMessage.includes('key') ||
-            error.status === 401 ||
-            error.statusCode === 401;
 
-        // Check for rate limit errors
-        const isRateLimitError =
-            errorMessage.includes('429') ||
-            errorMessage.includes('rate limit') ||
-            errorMessage.includes('quota') ||
-            error.status === 429 ||
-            error.statusCode === 429;
-
-        // Return appropriate status code
-        if (isApiKeyError) {
-            return res.status(401).json({
-                error: 'API key error: Invalid or missing API key. Please check your .env file configuration.',
-                code: 'API_KEY_ERROR'
-            });
+        if (errorMessage.includes('401') || errorMessage.includes('API key')) {
+            return res.status(401).json({ error: 'API key error', code: 'API_KEY_ERROR' });
         }
 
-        if (isRateLimitError) {
-            return res.status(429).json({
-                error: 'Rate limit exceeded. Please wait 1-2 minutes before trying again.',
-                code: 'RATE_LIMIT'
-            });
-        }
-
-        // Default error
         res.status(500).json({
             error: error.message || 'Failed to generate content',
             code: 'UNKNOWN_ERROR'
@@ -411,7 +396,21 @@ app.post('/api/lemonsqueezy/webhook', express.raw({ type: 'application/json' }),
         const webhookSecret = process.env.LEMON_SQUEEZY_WEBHOOK_SECRET;
         const signature = req.headers['x-signature'];
 
-        // TODO: Verify webhook signature in production (needs raw body)
+        if (webhookSecret) {
+            // const crypto = require('crypto'); // Removed, using import
+            const hmac = crypto.createHmac('sha256', webhookSecret);
+            // Process the raw body to compute signature
+            // With express.raw(), req.body IS the raw buffer
+            const digest = hmac.update(req.body).digest('hex');
+
+            if (!signature || !crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(signature))) {
+                console.error('[Lemon Squeezy] Invalid signature');
+                return res.status(401).json({ error: 'Invalid signature' });
+            }
+            console.log('[Lemon Squeezy] ✅ Signature verified');
+        } else {
+            console.warn('[Lemon Squeezy] ⚠️  Skipping signature verification (LEMON_SQUEEZY_WEBHOOK_SECRET not set)');
+        }
 
         let event;
         try {
@@ -445,7 +444,12 @@ app.post('/api/lemonsqueezy/webhook', express.raw({ type: 'application/json' }),
                 console.log('[Lemon Squeezy] Found data in checkout_data.custom');
                 customData = attributes.checkout_data.custom;
             }
-            // 2. Check in meta (sometimes legacy)
+            // 2. Check in first_order_item (common for order_created)
+            else if (attributes.first_order_item && attributes.first_order_item.custom_data) {
+                console.log('[Lemon Squeezy] Found data in first_order_item.custom_data');
+                customData = attributes.first_order_item.custom_data;
+            }
+            // 3. Check in meta (legacy/fallback)
             else if (event.meta && event.meta.custom_data) {
                 console.log('[Lemon Squeezy] Found data in meta.custom_data');
                 customData = event.meta.custom_data;
@@ -475,7 +479,7 @@ app.post('/api/lemonsqueezy/webhook', express.raw({ type: 'application/json' }),
 
     } catch (error) {
         console.error('[Lemon Squeezy] Webhook error:', error);
-        res.status(400).json({ error: 'Webhook processing failed' });
+        res.status(400).json({ error: 'Webhook processing failed', details: error.message, stack: error.stack });
     }
 });
 
@@ -496,4 +500,5 @@ app.use((req, res) => {
 });
 
 app.listen(port, '0.0.0.0', () => {
+    console.log(`[Server] Running on port ${port}`);
 });

@@ -1,0 +1,6 @@
+
+> factcheck-ai-media-analyzer@0.0.0 start
+> node server.js
+
+[Firebase Admin] ✅ Initialized from file
+[Server] Running on port 8080

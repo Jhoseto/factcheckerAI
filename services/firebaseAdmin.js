@@ -176,3 +176,23 @@ export async function getUserPoints(userId) {
         return 0;
     }
 }
+
+/**
+ * Verify Firebase ID Token
+ * @param {string} token - Firebase ID Token
+ * @returns {Promise<string|null>} User UID if valid, null otherwise
+ */
+export async function verifyToken(token) {
+    if (!adminInitialized) {
+        console.warn('[Firebase Admin] ⚠️  Cannot verify token - not initialized');
+        return null;
+    }
+
+    try {
+        const decodedToken = await admin.auth().verifyIdToken(token);
+        return decodedToken.uid;
+    } catch (error) {
+        console.error('[Firebase Admin] ❌ Token verification failed:', error.message);
+        return null;
+    }
+}

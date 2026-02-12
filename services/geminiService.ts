@@ -1,7 +1,8 @@
-
 import { VideoAnalysis, APIUsage, AnalysisResponse, CostEstimate, YouTubeVideoMetadata, TranscriptionLine } from '../types';
 import { extractYouTubeTranscript } from './youtubeTranscriptService';
 import { handleApiError } from './errorHandler';
+import { auth } from './firebase';
+import { calculateCost as calculateCostFromPricing, calculateCostInPoints } from './pricing';
 
 /**
  * Helper function to call our server-side Gemini API
@@ -11,10 +12,22 @@ const callGeminiAPI = async (payload: {
   prompt: string;
   systemInstruction?: string;
   videoUrl?: string;
-}): Promise<{ text: string; usageMetadata: any }> => {
+  isBatch?: boolean;
+}): Promise<{ text: string; usageMetadata: any; points?: { deducted: number; remaining: number } }> => {
+
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error('User must be logged in to perform analysis');
+  }
+
+  const token = await user.getIdToken();
+
   const response = await fetch('/api/gemini/generate', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
     body: JSON.stringify(payload)
   });
 
@@ -25,12 +38,18 @@ const callGeminiAPI = async (payload: {
     } catch {
       errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
     }
-    
+
     // Create error object with status code for proper error handling
     const error = new Error(errorData.error || 'Failed to generate content');
     (error as any).status = response.status;
     (error as any).statusCode = response.status;
     (error as any).code = errorData.code;
+
+    // Pass strictly typed error data if available
+    if (errorData.currentBalance !== undefined) {
+      (error as any).currentBalance = errorData.currentBalance;
+    }
+
     throw error;
   }
 
@@ -216,8 +235,8 @@ const getAnalysisPrompt = (url: string, type: 'video' | 'news', transcript?: str
   return getDetailedAnalysisPrompt(url, type, transcript);
 };
 
-// Import unified pricing
-import { calculateCost as calculateCostFromPricing } from './pricing';
+// Import unified pricing - already imported at top
+// import { calculateCost as calculateCostFromPricing } from './pricing';
 
 /**
  * Clean JSON response from markdown code blocks and fix common issues
@@ -252,26 +271,26 @@ const cleanJsonResponse = (text: string): string => {
       let jsonEnd = -1;
       let inString = false;
       let escapeNext = false;
-      
+
       // Properly track depth considering strings (which can contain { } [ ])
       for (let i = jsonStart; i < cleaned.length; i++) {
         const char = cleaned[i];
-        
+
         if (escapeNext) {
           escapeNext = false;
           continue;
         }
-        
+
         if (char === '\\') {
           escapeNext = true;
           continue;
         }
-        
+
         if (char === '"' && !escapeNext) {
           inString = !inString;
           continue;
         }
-        
+
         if (!inString) {
           if (char === startChar) depth++;
           else if (char === endChar) {
@@ -283,7 +302,7 @@ const cleanJsonResponse = (text: string): string => {
           }
         }
       }
-      
+
       if (jsonEnd !== -1) {
         cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
       } else {
@@ -303,13 +322,13 @@ const cleanJsonResponse = (text: string): string => {
 
   // Remove trailing commas before } or ]
   cleaned = cleaned.replace(/,(\s*[}\]])/g, '$1');
-  
+
   // Remove single-line comments (// ...) - be careful not to remove URLs
   cleaned = cleaned.replace(/([^:])\/\/[^\n]*/g, '$1');
-  
+
   // Remove multi-line comments
   cleaned = cleaned.replace(/\/\*[\s\S]*?\*\//g, '');
-  
+
   // Remove any trailing text after the JSON (common when Gemini adds explanations)
   // Find the last } or ] and remove everything after it
   const lastBrace = cleaned.lastIndexOf('}');
@@ -355,7 +374,7 @@ const transformGeminiResponse = (
 
   const manipulations = rawResponse.manipulationTechniques || [];
   const manipulationIndex = Math.min(manipulations.length * 0.15, 1);
-  
+
   // Добавяме цитатите към claims ако не са вече там
   const allClaims = [...claims];
   quotes.forEach((q: any) => {
@@ -373,21 +392,21 @@ const transformGeminiResponse = (
   });
 
   const transformedClaims = allClaims.map((c: any) => ({
-    quote: c.claim || '', 
-    formulation: c.claim || '', 
-    category: 'Факт', 
+    quote: c.claim || '',
+    formulation: c.claim || '',
+    category: 'Факт',
     weight: 'средна' as 'ниска' | 'средна' | 'висока',
-    confidence: c.confidence || (c.verdict === 'TRUE' ? 0.9 : c.verdict === 'FALSE' ? 0.1 : 0.5), 
+    confidence: c.confidence || (c.verdict === 'TRUE' ? 0.9 : c.verdict === 'FALSE' ? 0.1 : 0.5),
     veracity: mapVerdict(c.verdict) as 'вярно' | 'предимно вярно' | 'частично вярно' | 'подвеждащо' | 'невярно' | 'непроверимо',
-    explanation: (c.logicalAnalysis || '') + (c.factualVerification ? '\n\nФактическа проверка: ' + c.factualVerification : '') + (c.comparison ? '\n\nСравнение: ' + c.comparison : '') || c.evidence || 'Няма налична информация', 
+    explanation: (c.logicalAnalysis || '') + (c.factualVerification ? '\n\nФактическа проверка: ' + c.factualVerification : '') + (c.comparison ? '\n\nСравнение: ' + c.comparison : '') || c.evidence || 'Няма налична информация',
     missingContext: (c.context || '') + (Array.isArray(c.sources) && c.sources.length > 0 ? '\n\nИзточници: ' + c.sources.join(', ') : '') || ''
   }));
 
   const transformedManipulations = manipulations.map((m: any, idx: number) => ({
-    technique: m.technique || 'Неизвестна', 
+    technique: m.technique || 'Неизвестна',
     timestamp: m.timestamp || '00:00',
-    logic: (m.description || '') + (m.example ? '\n\nПример: ' + m.example : '') + (m.impact ? '\n\nВъздействие: ' + m.impact : ''), 
-    effect: m.impact || 'Въздействие върху аудиторията', 
+    logic: (m.description || '') + (m.example ? '\n\nПример: ' + m.example : '') + (m.impact ? '\n\nВъздействие: ' + m.impact : ''),
+    effect: m.impact || 'Въздействие върху аудиторията',
     severity: m.severity || (0.5 + (idx * 0.1)),
     counterArgument: m.counterArgument || 'Проверка на първоизточници.'
   }));
@@ -484,7 +503,7 @@ ${metadataSection}
       credibilityIndex, manipulationIndex, unverifiablePercent: 0.1,
       finalClassification: mapAssessment(rawResponse.overallAssessment),
       overallSummary: (rawResponse.summary || 'Анализът е завършен.') + metadataSection,
-      totalDuration: fullMetadata?.durationFormatted || 'N/A', 
+      totalDuration: fullMetadata?.durationFormatted || 'N/A',
       detailedStats: rawResponse.detailedMetrics ? {
         // Use REAL metrics from Gemini, not hardcoded values!
         factualAccuracy: rawResponse.detailedMetrics.factualAccuracy ?? credibilityIndex,
@@ -555,7 +574,7 @@ export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTub
     }
 
     const cleanedText = cleanJsonResponse(data.text);
-    
+
     if (!cleanedText) {
       throw new Error('Не може да се извлече JSON от отговора на Gemini API');
     }
@@ -575,6 +594,12 @@ export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTub
       candidatesTokens: data.usageMetadata?.candidatesTokenCount || 0,
       totalTokens: data.usageMetadata?.totalTokenCount || 0,
       estimatedCostUSD: calculateCostFromPricing(
+        'gemini-3-flash-preview',
+        data.usageMetadata?.promptTokenCount || 0,
+        data.usageMetadata?.candidatesTokenCount || 0,
+        false
+      ),
+      pointsCost: data.points?.deducted || calculateCostInPoints(
         'gemini-3-flash-preview',
         data.usageMetadata?.promptTokenCount || 0,
         data.usageMetadata?.candidatesTokenCount || 0,
@@ -603,11 +628,11 @@ export const analyzeYouTubeBatch = async (url: string): Promise<AnalysisResponse
     }
 
     // Build prompt with transcript if available
-    const transcriptText = transcription.length > 0 
+    const transcriptText = transcription.length > 0
       ? transcription.map(t => `[${t.timestamp}] ${t.speaker}: ${t.text}`).join('\n')
       : '';
-    
-    const transcriptSection = transcriptText 
+
+    const transcriptSection = transcriptText
       ? `\n\nТранскрипция на видеото:\n${transcriptText}`
       : '';
 
@@ -616,7 +641,8 @@ export const analyzeYouTubeBatch = async (url: string): Promise<AnalysisResponse
       model: 'gemini-3-flash-preview',
       prompt: getAnalysisPrompt(url, 'video', transcriptText),
       systemInstruction: "You are an expert FactChecker AI. Your task is to analyze content and produce a detailed report. CRITICAL INSTRUCTION: You MUST output all free-form text (summaries, explanations, recommendations, reasoning) in BULGARIAN language. However, you MUST keep specific JSON Enum values in English as strict constants: 'TRUE', 'MOSTLY_TRUE', 'PARTLY_TRUE', 'MISLEADING', 'FALSE', 'UNVERIFIABLE', 'ACCURATE', 'MOSTLY_ACCURATE', 'MIXED', 'INACCURATE', 'FABRICATED', 'LEFT', 'CENTER_LEFT', 'CENTER', 'CENTER_RIGHT', 'RIGHT'. Do not translate these Enum values. Everything else must be in Bulgarian. Ensure the analysis is thorough and detailed.",
-      videoUrl: url // Still analyze video, but use batch pricing
+      videoUrl: url, // Still analyze video, but use batch pricing
+      isBatch: true // Activate batch pricing logic
     });
 
     // Validate response before parsing
@@ -625,7 +651,7 @@ export const analyzeYouTubeBatch = async (url: string): Promise<AnalysisResponse
     }
 
     const cleanedText = cleanJsonResponse(data.text);
-    
+
     if (!cleanedText) {
       throw new Error('Не може да се извлече JSON от отговора на Gemini API');
     }
@@ -646,6 +672,12 @@ export const analyzeYouTubeBatch = async (url: string): Promise<AnalysisResponse
       candidatesTokens: data.usageMetadata?.candidatesTokenCount || 0,
       totalTokens: data.usageMetadata?.totalTokenCount || 0,
       estimatedCostUSD: calculateCostFromPricing(
+        'gemini-3-flash-preview',
+        data.usageMetadata?.promptTokenCount || 0,
+        data.usageMetadata?.candidatesTokenCount || 0,
+        true // Use batch pricing (50% discount)
+      ),
+      pointsCost: data.points?.deducted || calculateCostInPoints(
         'gemini-3-flash-preview',
         data.usageMetadata?.promptTokenCount || 0,
         data.usageMetadata?.candidatesTokenCount || 0,
@@ -678,10 +710,10 @@ export const analyzeYouTubeQuick = async (url: string): Promise<AnalysisResponse
     // Check for transcript extraction errors more precisely
     // Error messages from extractYouTubeTranscript start with "Грешка при извличане на транскрипция:"
     // We check for this specific pattern, not just the word "Грешка" which could appear in legitimate content
-    const isErrorTranscript = transcription.length === 1 && 
-      transcription[0].speaker === 'Система' && 
+    const isErrorTranscript = transcription.length === 1 &&
+      transcription[0].speaker === 'Система' &&
       transcription[0].text.startsWith('Грешка при извличане на транскрипция:');
-    
+
     if (transcription.length === 0 || isErrorTranscript) {
       throw new Error('Транскрипцията не е налична за това видео. Моля, опитайте със Standard режим за пълен видео анализ.');
     }
@@ -703,7 +735,7 @@ export const analyzeYouTubeQuick = async (url: string): Promise<AnalysisResponse
     }
 
     const cleanedText = cleanJsonResponse(data.text);
-    
+
     if (!cleanedText) {
       throw new Error('Не може да се извлече JSON от отговора на Gemini API');
     }
@@ -725,6 +757,12 @@ export const analyzeYouTubeQuick = async (url: string): Promise<AnalysisResponse
       candidatesTokens: data.usageMetadata?.candidatesTokenCount || 0,
       totalTokens: data.usageMetadata?.totalTokenCount || 0,
       estimatedCostUSD: calculateCostFromPricing(
+        'gemini-3-flash-preview',
+        data.usageMetadata?.promptTokenCount || 0,
+        data.usageMetadata?.candidatesTokenCount || 0,
+        false
+      ),
+      pointsCost: data.points?.deducted || calculateCostInPoints(
         'gemini-3-flash-preview',
         data.usageMetadata?.promptTokenCount || 0,
         data.usageMetadata?.candidatesTokenCount || 0,
@@ -761,7 +799,7 @@ export const analyzeNewsLink = async (url: string): Promise<AnalysisResponse> =>
     }
 
     const cleanedText = cleanJsonResponse(data.text);
-    
+
     if (!cleanedText) {
       throw new Error('Не може да се извлече JSON от отговора на Gemini API');
     }
@@ -785,6 +823,12 @@ export const analyzeNewsLink = async (url: string): Promise<AnalysisResponse> =>
         data.usageMetadata?.promptTokenCount || 0,
         data.usageMetadata?.candidatesTokenCount || 0,
         false
+      ),
+      pointsCost: data.points?.deducted || calculateCostInPoints(
+        'gemini-3-flash-preview',
+        data.usageMetadata?.promptTokenCount || 0,
+        data.usageMetadata?.candidatesTokenCount || 0,
+        false
       )
     };
 
@@ -799,28 +843,36 @@ export const analyzeNewsLink = async (url: string): Promise<AnalysisResponse> =>
  * Estimate costs for different analysis modes
  */
 export const estimateCosts = (durationSeconds: number): Record<string, CostEstimate> => {
+  // Base tokens estimation (approx 2 tokens per second for video+audio)
   const baseTokens = Math.floor(durationSeconds * 2);
   const minutes = Math.ceil(durationSeconds / 60);
+
+  // Estimations
+  const quickTokens = Math.floor(baseTokens * 0.5); // Text only is cheaper
+  const standardTokens = baseTokens;
 
   return {
     quick: {
       mode: 'quick',
-      estimatedTokens: baseTokens * 0.5,
-      estimatedCostUSD: baseTokens * 0.5 * 0.0000005,
+      estimatedTokens: quickTokens,
+      estimatedCostUSD: calculateCostFromPricing('gemini-3-flash-preview', quickTokens, quickTokens / 4, false),
+      pointsCost: calculateCostInPoints('gemini-3-flash-preview', quickTokens, quickTokens / 4, false),
       estimatedTime: `~${Math.max(1, Math.ceil(minutes * 0.3))} мин`,
       features: ['Бърз анализ на текстово съдържание', 'Само транскрипция']
     },
     standard: {
       mode: 'standard',
-      estimatedTokens: baseTokens,
-      estimatedCostUSD: baseTokens * 0.0000005,
+      estimatedTokens: standardTokens,
+      estimatedCostUSD: calculateCostFromPricing('gemini-3-flash-preview', standardTokens, standardTokens / 2, false),
+      pointsCost: calculateCostInPoints('gemini-3-flash-preview', standardTokens, standardTokens / 2, false),
       estimatedTime: `~${Math.max(1, minutes)} мин`,
       features: ['Пълен анализ на видео и аудио', 'Визуален контекст']
     },
     batch: {
       mode: 'batch',
-      estimatedTokens: baseTokens,
-      estimatedCostUSD: baseTokens * 0.000000125,
+      estimatedTokens: standardTokens,
+      estimatedCostUSD: calculateCostFromPricing('gemini-3-flash-preview', standardTokens, standardTokens / 2, true),
+      pointsCost: calculateCostInPoints('gemini-3-flash-preview', standardTokens, standardTokens / 2, true),
       estimatedTime: `~${Math.max(2, minutes * 2)} мин`,
       features: ['Пакетна обработка', 'По-евтино', 'По-бавно']
     }
