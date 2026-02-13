@@ -554,64 +554,65 @@ export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTub
     // Use YouTube URL directly with fileData.fileUri (official method from Gemini docs)
     // This is exactly how Google AI Studio does it - Gemini analyzes the video directly
     const data = await callGeminiAPI({
-      model: 'gemini-3-pro-preview', // User requested Gemini 3 Pro
-      prompt: getAnalysisPrompt(url, 'video', '') + (videoMetadata ? `\n\nVideo Context: Title: "${videoMetadata.title}", Author: "${videoMetadata.author}", Duration: ${videoMetadata.durationFormatted}.` : ''),
-      systemInstruction: "You are an ELITE fact-checker and investigative journalist with 20+ years of experience. Your mission is to create an EXCEPTIONAL, CRITICAL, and OBJECTIVE analysis that reveals all hidden viewpoints, manipulations, and facts. CRITICAL INSTRUCTIONS: 1) Watch and analyze ALL video frames and listen to ALL audio content. 2) Extract ALL important claims, quotes, and manipulations - for long videos (30+ minutes): MINIMUM 20-30 claims and 15-20 manipulations. 3) For videos with guests, identify REAL NAMES of participants from the video/transcript - use 'Speaker 1', 'Speaker 2' only if names are not mentioned. 4) Extract FULL quotes, not shortened ones - include complete context. 5) Verify EVERY claim against reliable sources, statistics, historical facts, expert opinions. 6) Provide unique factual comparisons with other sources. 7) Analyze visual elements (charts, images, body language). 8) Analyze audio tone, emotions, intonation. 9) Use REAL data only - DO NOT fabricate. 10) Output all text in BULGARIAN. 11) Keep JSON Enum values in English. 12) Create a FINAL INVESTIGATIVE REPORT that is a masterpiece of journalism - critical, objective, fact-based, with unique comparisons, revealing all hidden viewpoints. The report should be so good that users say 'WOW - this is something great'. Minimum 15-20 paragraphs with detailed analysis.",
-      videoUrl: url // This will be sent as fileData.fileUri in server.js
-    });
+      const data = await callGeminiAPI({
+        model: 'gemini-3-flash-preview', // User decided to stick with Flash for now
+        prompt: getAnalysisPrompt(url, 'video', '') + (videoMetadata ? `\n\nVideo Context: Title: "${videoMetadata.title}", Author: "${videoMetadata.author}", Duration: ${videoMetadata.durationFormatted}.` : ''),
+        systemInstruction: "You are an ELITE fact-checker and investigative journalist with 20+ years of experience. Your mission is to create an EXCEPTIONAL, CRITICAL, and OBJECTIVE analysis that reveals all hidden viewpoints, manipulations, and facts. CRITICAL INSTRUCTIONS: 1) Watch and analyze ALL video frames and listen to ALL audio content. 2) Extract ALL important claims, quotes, and manipulations - for long videos (30+ minutes): MINIMUM 20-30 claims and 15-20 manipulations. 3) For videos with guests, identify REAL NAMES of participants from the video/transcript - use 'Speaker 1', 'Speaker 2' only if names are not mentioned. 4) Extract FULL quotes, not shortened ones - include complete context. 5) Verify EVERY claim against reliable sources, statistics, historical facts, expert opinions. 6) Provide unique factual comparisons with other sources. 7) Analyze visual elements (charts, images, body language). 8) Analyze audio tone, emotions, intonation. 9) Use REAL data only - DO NOT fabricate. 10) Output all text in BULGARIAN. 11) Keep JSON Enum values in English. 12) Create a FINAL INVESTIGATIVE REPORT that is a masterpiece of journalism - critical, objective, fact-based, with unique comparisons, revealing all hidden viewpoints. The report should be so good that users say 'WOW - this is something great'. Minimum 15-20 paragraphs with detailed analysis.",
+        videoUrl: url // This will be sent as fileData.fileUri in server.js
+      });
 
-    // Extract transcript from the video for display (optional, for reference)
-    let transcription: TranscriptionLine[] = [];
-    try {
-      transcription = await extractYouTubeTranscript(url);
-    } catch (transcriptError: any) {
-      // Transcript extraction is optional - continue without it
-    }
+      // Extract transcript from the video for display (optional, for reference)
+      let transcription: TranscriptionLine[] = [];
+      try {
+        transcription = await extractYouTubeTranscript(url);
+      } catch(transcriptError: any) {
+        // Transcript extraction is optional - continue without it
+      }
 
     // Validate response before parsing
-    if (!data.text || typeof data.text !== 'string') {
-      throw new Error('Gemini API не върна валиден отговор');
-    }
+    if(!data.text || typeof data.text !== 'string') {
+        throw new Error('Gemini API не върна валиден отговор');
+  }
 
     const cleanedText = cleanJsonResponse(data.text);
 
-    if (!cleanedText) {
-      throw new Error('Не може да се извлече JSON от отговора на Gemini API');
-    }
-
-    let rawResponse: any;
-    try {
-      rawResponse = JSON.parse(cleanedText);
-    } catch (parseError: any) {
-      console.error('JSON parse error:', parseError);
-      console.error('Cleaned text (first 500 chars):', cleanedText.substring(0, 500));
-      throw new Error('Gemini API върна невалиден JSON формат. Моля, опитайте отново.');
-    }
-    const parsed = transformGeminiResponse(rawResponse, videoMetadata?.title, videoMetadata?.author, videoMetadata, transcription.length > 0 ? transcription : undefined);
-
-    const usage: APIUsage = {
-      promptTokens: data.usageMetadata?.promptTokenCount || 0,
-      candidatesTokens: data.usageMetadata?.candidatesTokenCount || 0,
-      totalTokens: data.usageMetadata?.totalTokenCount || 0,
-      estimatedCostUSD: calculateCostFromPricing(
-        'gemini-3-flash-preview',
-        data.usageMetadata?.promptTokenCount || 0,
-        data.usageMetadata?.candidatesTokenCount || 0,
-        false
-      ),
-      pointsCost: data.points?.deducted || calculateCostInPoints(
-        'gemini-3-flash-preview',
-        data.usageMetadata?.promptTokenCount || 0,
-        data.usageMetadata?.candidatesTokenCount || 0,
-        false
-      )
-    };
-
-    return { analysis: parsed, usage };
-  } catch (e: any) {
-    const appError = handleApiError(e);
-    throw appError;
+  if (!cleanedText) {
+    throw new Error('Не може да се извлече JSON от отговора на Gemini API');
   }
+
+  let rawResponse: any;
+  try {
+    rawResponse = JSON.parse(cleanedText);
+  } catch (parseError: any) {
+    console.error('JSON parse error:', parseError);
+    console.error('Cleaned text (first 500 chars):', cleanedText.substring(0, 500));
+    throw new Error('Gemini API върна невалиден JSON формат. Моля, опитайте отново.');
+  }
+  const parsed = transformGeminiResponse(rawResponse, videoMetadata?.title, videoMetadata?.author, videoMetadata, transcription.length > 0 ? transcription : undefined);
+
+  const usage: APIUsage = {
+    promptTokens: data.usageMetadata?.promptTokenCount || 0,
+    candidatesTokens: data.usageMetadata?.candidatesTokenCount || 0,
+    totalTokens: data.usageMetadata?.totalTokenCount || 0,
+    estimatedCostUSD: calculateCostFromPricing(
+      'gemini-3-flash-preview',
+      data.usageMetadata?.promptTokenCount || 0,
+      data.usageMetadata?.candidatesTokenCount || 0,
+      false
+    ),
+    pointsCost: data.points?.deducted || calculateCostInPoints(
+      'gemini-3-flash-preview',
+      data.usageMetadata?.promptTokenCount || 0,
+      data.usageMetadata?.candidatesTokenCount || 0,
+      false
+    )
+  };
+
+  return { analysis: parsed, usage };
+} catch (e: any) {
+  const appError = handleApiError(e);
+  throw appError;
+}
 };
 
 /**
