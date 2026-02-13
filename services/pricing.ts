@@ -29,14 +29,16 @@ export const GEMINI_PRICING = {
     output: 1.50,
     audio: 0.50,
   },
-  // Gemini 3 Pro (Reference)
+  // Gemini 3 Pro (Set to SAME pricing as Flash per user request)
   'gemini-3-pro-preview': {
-    input: 2.00,
-    output: 12.00,
+    input: 0.50,
+    output: 3.00,
+    audio: 1.00,
   },
   'gemini-3-pro-preview-batch': {
-    input: 1.00,
-    output: 6.00,
+    input: 0.25,
+    output: 1.50,
+    audio: 0.50,
   }
 } as const;
 
