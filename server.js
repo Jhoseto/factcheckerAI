@@ -126,15 +126,33 @@ app.post('/api/gemini/generate', async (req, res) => {
         const usage = response.usageMetadata || { promptTokenCount: 0, candidatesTokenCount: 0 };
 
         // 4. Calculate Points Cost
-        // Pricing (Gemini 3 Flash - Feb 2026):
-        // Input: $0.50 / 1M tokens = 0.0000005 per token
-        // Output: $3.00 / 1M tokens = 0.0000030 per token
-        // Audio: $1.00 / 1M tokens = 0.0000010 per token
+        // 4. Calculate Points Cost
+        // Pricing Configuration (Per 1M Tokens)
+        // Gemini 3 Flash / Pro: $0.50 / $3.00 (Standard)
+        // Gemini 2.5 Flash: $0.30 / $2.50 (Budget)
+        const PRICING = {
+            'flash3': { input: 0.50, output: 3.00, audio: 1.00 },
+            'flash2_5': { input: 0.30, output: 2.50, audio: 1.00 },
+            'pro': { input: 0.50, output: 3.00, audio: 1.00 } // PRO forced to Flash price
+        };
+
+        const modelId = requestPayload.model || 'gemini-3-flash-preview';
+        let selectedPricing = PRICING.flash3; // Default
+
+        if (modelId.includes('2.5-flash')) {
+            selectedPricing = PRICING.flash2_5;
+        } else if (modelId.includes('pro')) {
+            selectedPricing = PRICING.pro;
+        }
+
+        console.log(`[Gemini API] Model: ${modelId}, Pricing: Input $${selectedPricing.input}, Output $${selectedPricing.output}`);
 
         // Batch Pricing: 50% discount
         const BATCH_DISCOUNT = isBatch ? 0.5 : 1.0;
-        const COST_PER_INPUT_TOKEN = 0.0000005 * BATCH_DISCOUNT;
-        const COST_PER_OUTPUT_TOKEN = 0.0000030 * BATCH_DISCOUNT;
+
+        // Convert per 1M to per token
+        const COST_PER_INPUT_TOKEN = (selectedPricing.input / 1000000) * BATCH_DISCOUNT;
+        const COST_PER_OUTPUT_TOKEN = (selectedPricing.output / 1000000) * BATCH_DISCOUNT;
         const inputCost = usage.promptTokenCount * COST_PER_INPUT_TOKEN;
         const outputCost = usage.candidatesTokenCount * COST_PER_OUTPUT_TOKEN;
         const totalCostEur = inputCost + outputCost; // My cost

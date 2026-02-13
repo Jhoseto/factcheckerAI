@@ -103,7 +103,7 @@ export interface AnalysisResponse {
 }
 
 // New types for analysis modes
-export type AnalysisMode = 'quick' | 'batch' | 'standard';
+export type AnalysisMode = 'standard' | 'deep';
 
 export interface YouTubeVideoMetadata {
   videoId: string;
@@ -116,8 +116,9 @@ export interface YouTubeVideoMetadata {
 export interface CostEstimate {
   mode: AnalysisMode;
   estimatedTokens: number;
-  estimatedCostUSD: number; // Internal tracking only
+  inputCostUSD: number;
+  outputCostUSD: number;
+  totalCostObserved: number; // Cost to me (in currency)
   pointsCost: number; // User-facing cost in points
-  estimatedTime: string;
-  features: string[];
+  margin: number;
 }

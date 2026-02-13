@@ -29,6 +29,13 @@ export const GEMINI_PRICING = {
     output: 1.50,
     audio: 0.50,
   },
+  // Gemini 2.5 Flash (Budget / Standard Model)
+  // Input: $0.30, Output: $2.50
+  'gemini-2.5-flash': {
+    input: 0.30,
+    output: 2.50,
+    audio: 1.00, // Assuming similar to others
+  },
   // Gemini 3 Pro (Set to SAME pricing as Flash per user request)
   'gemini-3-pro-preview': {
     input: 0.50,

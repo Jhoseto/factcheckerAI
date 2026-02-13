@@ -56,66 +56,32 @@ export const calculateCostEstimate = (
     mode: AnalysisMode,
     durationSeconds: number
 ): CostEstimate => {
-    let estimatedTokens: number;
-    let estimatedCostUSD: number;
-    let pointsCost: number;
-    let estimatedTime: string;
-    let features: string[];
+    // Estimate tokens
+    // Input: ~111 tokens/sec for video + 2000 prompt overhead
+    const inputTokens = Math.floor(durationSeconds * 111) + 2000;
 
-    switch (mode) {
-        case 'quick':
-            // Quick mode: transcript-only analysis
-            const quickTokens = estimateTranscriptTokens(durationSeconds);
-            estimatedTokens = quickTokens.input + quickTokens.output;
-            estimatedCostUSD = calculateCost('gemini-3-flash-preview', quickTokens.input, quickTokens.output, false);
-            pointsCost = calculateCostInPoints('gemini-3-flash-preview', quickTokens.input, quickTokens.output, false);
-            estimatedTime = '5-10 секунди';
-            features = [
-                'Анализ само на текст/транскрипция',
-                'Извличане на твърдения и факти',
-                'Логически анализ',
-                'Най-ниска цена за бърза проверка'
-            ];
-            break;
+    // Output: ~4000 tokens base + 150 per minute
+    const minutes = durationSeconds / 60;
+    const outputTokens = Math.floor(4000 + (minutes * 150));
+    const estimatedTokens = inputTokens + outputTokens;
 
-        case 'batch':
-            // Batch mode: full video analysis with batch pricing (50% discount)
-            const batchTokens = estimateVideoTokens(durationSeconds);
-            estimatedTokens = batchTokens.input + batchTokens.output;
-            estimatedCostUSD = calculateCost('gemini-3-flash-preview', batchTokens.input, batchTokens.output, true);
-            pointsCost = calculateCostInPoints('gemini-3-flash-preview', batchTokens.input, batchTokens.output, true);
-            estimatedTime = '2-5 минути';
-            features = [
-                'Пълен анализ на видео + аудио',
-                'Визуален анализ (body language, графики)',
-                'Тонален анализ (емоции, интонация)',
-                '50% по-евтино от Standard режим'
-            ];
-            break;
+    // Determine Model Pricing based on Mode
+    // Standard -> Gemini 2.5 Flash
+    // Deep -> Gemini 3 Flash Preview
+    const modelId = mode === 'standard' ? 'gemini-2.5-flash' : 'gemini-3-flash-preview';
 
-        case 'standard':
-            // Standard mode: full video analysis
-            const standardTokens = estimateVideoTokens(durationSeconds);
-            estimatedTokens = standardTokens.input + standardTokens.output;
-            estimatedCostUSD = calculateCost('gemini-3-flash-preview', standardTokens.input, standardTokens.output, false);
-            pointsCost = calculateCostInPoints('gemini-3-flash-preview', standardTokens.input, standardTokens.output, false);
-            estimatedTime = '30-60 секунди';
-            features = [
-                'Пълен анализ на видео + аудио',
-                'Визуален анализ (body language, графики)',
-                'Тонален анализ (емоции, интонация)',
-                'Най-бърз резултат'
-            ];
-            break;
-    }
+    // Calculate Costs
+    const totalCostUSD = calculateCost(modelId, inputTokens, outputTokens, false);
+    const pointsCost = calculateCostInPoints(modelId, inputTokens, outputTokens, false);
 
     return {
         mode,
         estimatedTokens,
-        estimatedCostUSD: Math.max(0, estimatedCostUSD), // Ensure non-negative
-        pointsCost: Math.max(0, pointsCost), // Ensure non-negative
-        estimatedTime,
-        features
+        inputCostUSD: 0, // Simplified for now
+        outputCostUSD: 0,
+        totalCostObserved: totalCostUSD,
+        pointsCost,
+        margin: (pointsCost / 100 * 2) - totalCostUSD // Rough margin calculation
     };
 };
 
@@ -124,9 +90,8 @@ export const calculateCostEstimate = (
  */
 export const getAllCostEstimates = (durationSeconds: number): Record<AnalysisMode, CostEstimate> => {
     return {
-        quick: calculateCostEstimate('quick', durationSeconds),
-        batch: calculateCostEstimate('batch', durationSeconds),
-        standard: calculateCostEstimate('standard', durationSeconds)
+        standard: calculateCostEstimate('standard', durationSeconds),
+        deep: calculateCostEstimate('deep', durationSeconds)
     };
 };
 

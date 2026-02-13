@@ -549,12 +549,12 @@ ${metadataSection}
 /**
  * Standard YouTube analysis - uses video directly
  */
-export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTubeVideoMetadata): Promise<AnalysisResponse> => {
+export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTubeVideoMetadata, model: string = 'gemini-3-flash-preview'): Promise<AnalysisResponse> => {
   try {
     // Use YouTube URL directly with fileData.fileUri (official method from Gemini docs)
     // This is exactly how Google AI Studio does it - Gemini analyzes the video directly
     const data = await callGeminiAPI({
-      model: 'gemini-3-flash-preview', // User decided to stick with Flash for now
+      model: model, // Dynamically selected model
       prompt: getAnalysisPrompt(url, 'video', '') + (videoMetadata ? `\n\nVideo Context: Title: "${videoMetadata.title}", Author: "${videoMetadata.author}", Duration: ${videoMetadata.durationFormatted}.` : ''),
       systemInstruction: "You are an ELITE fact-checker and investigative journalist with 20+ years of experience. Your mission is to create an EXCEPTIONAL, CRITICAL, and OBJECTIVE analysis that reveals all hidden viewpoints, manipulations, and facts. CRITICAL INSTRUCTIONS: 1) Watch and analyze ALL video frames and listen to ALL audio content. 2) Extract ALL important claims, quotes, and manipulations - for long videos (30+ minutes): MINIMUM 20-30 claims and 15-20 manipulations. 3) For videos with guests, identify REAL NAMES of participants from the video/transcript - use 'Speaker 1', 'Speaker 2' only if names are not mentioned. 4) Extract FULL quotes, not shortened ones - include complete context. 5) Verify EVERY claim against reliable sources, statistics, historical facts, expert opinions. 6) Provide unique factual comparisons with other sources. 7) Analyze visual elements (charts, images, body language). 8) Analyze audio tone, emotions, intonation. 9) Use REAL data only - DO NOT fabricate. 10) Output all text in BULGARIAN. 11) Keep JSON Enum values in English. 12) Create a FINAL INVESTIGATIVE REPORT that is a masterpiece of journalism - critical, objective, fact-based, with unique comparisons, revealing all hidden viewpoints. The report should be so good that users say 'WOW - this is something great'. Minimum 15-20 paragraphs with detailed analysis.",
       videoUrl: url // This will be sent as fileData.fileUri in server.js
@@ -693,96 +693,6 @@ export const analyzeYouTubeBatch = async (url: string): Promise<AnalysisResponse
 };
 
 /**
- * Quick analysis - extracts transcript first, then analyzes only text (no video processing)
- * This is faster and cheaper than standard analysis
- */
-export const analyzeYouTubeQuick = async (url: string): Promise<AnalysisResponse> => {
-  try {
-    // 1. Extract transcript (text-only, no video processing)
-    let transcription: TranscriptionLine[] = [];
-    try {
-      transcription = await extractYouTubeTranscript(url);
-    } catch (transcriptError: any) {
-      // If transcript extraction fails, we can't do quick analysis
-      throw new Error('Бързият анализ изисква транскрипция. Видеото може да няма налична транскрипция. Моля, опитайте със Standard режим.');
-    }
-
-    // Check for transcript extraction errors more precisely
-    // Error messages from extractYouTubeTranscript start with "Грешка при извличане на транскрипция:"
-    // We check for this specific pattern, not just the word "Грешка" which could appear in legitimate content
-    const isErrorTranscript = transcription.length === 1 &&
-      transcription[0].speaker === 'Система' &&
-      transcription[0].text.startsWith('Грешка при извличане на транскрипция:');
-
-    if (transcription.length === 0 || isErrorTranscript) {
-      throw new Error('Транскрипцията не е налична за това видео. Моля, опитайте със Standard режим за пълен видео анализ.');
-    }
-
-    // 2. Build transcript text for analysis
-    const transcriptText = transcription.map(t => `[${t.timestamp}] ${t.speaker}: ${t.text}`).join('\n');
-
-    // 3. Analyze only the text (no video URL sent to Gemini - this saves cost and time)
-    const data = await callGeminiAPI({
-      model: 'gemini-3-flash-preview',
-      prompt: getAnalysisPrompt(url, 'video', transcriptText) + `\n\nВАЖНО: Това е бърз анализ само на текста. Не изпращам видеото, защото това е Quick режим. Анализирай само предоставения текст.`,
-      systemInstruction: "Ти си експерт фактчекър. Анализирай само предоставения текст от транскрипцията. CRITICAL INSTRUCTION: You MUST output all free-form text (summaries, explanations, recommendations, reasoning) in BULGARIAN language. However, you MUST keep specific JSON Enum values in English as strict constants: 'TRUE', 'MOSTLY_TRUE', 'PARTLY_TRUE', 'MISLEADING', 'FALSE', 'UNVERIFIABLE', 'ACCURATE', 'MOSTLY_ACCURATE', 'MIXED', 'INACCURATE', 'FABRICATED', 'LEFT', 'CENTER_LEFT', 'CENTER', 'CENTER_RIGHT', 'RIGHT'. Do not translate these Enum values. Everything else must be in Bulgarian. Ensure the analysis is thorough and detailed.",
-      // НЕ изпращай videoUrl - това е Quick режим, само текст анализ
-    });
-
-    // Validate response before parsing
-    if (!data.text || typeof data.text !== 'string') {
-      throw new Error('Gemini API не върна валиден отговор');
-    }
-
-    const cleanedText = cleanJsonResponse(data.text);
-
-    if (!cleanedText) {
-      throw new Error('Не може да се извлече JSON от отговора на Gemini API');
-    }
-
-    let rawResponse: any;
-    try {
-      rawResponse = JSON.parse(cleanedText);
-    } catch (parseError: any) {
-      console.error('JSON parse error:', parseError);
-      console.error('Cleaned text (first 500 chars):', cleanedText.substring(0, 500));
-      throw new Error('Gemini API върна невалиден JSON формат. Моля, опитайте отново.');
-    }
-
-    // 4. Transform response (use transcription we extracted)
-    const parsed = transformGeminiResponse(rawResponse, undefined, undefined, undefined, transcription);
-
-    const usage: APIUsage = {
-      promptTokens: data.usageMetadata?.promptTokenCount || 0,
-      candidatesTokens: data.usageMetadata?.candidatesTokenCount || 0,
-      totalTokens: data.usageMetadata?.totalTokenCount || 0,
-      estimatedCostUSD: calculateCostFromPricing(
-        'gemini-3-flash-preview',
-        data.usageMetadata?.promptTokenCount || 0,
-        data.usageMetadata?.candidatesTokenCount || 0,
-        false
-      ),
-      pointsCost: data.points?.deducted || calculateCostInPoints(
-        'gemini-3-flash-preview',
-        data.usageMetadata?.promptTokenCount || 0,
-        data.usageMetadata?.candidatesTokenCount || 0,
-        false
-      )
-    };
-
-    return { analysis: parsed, usage };
-  } catch (e: any) {
-    const appError = handleApiError(e);
-    throw appError;
-  }
-};
-
-/**
- * Default export points to standard analysis
- */
-export const analyzeYouTubeLink = analyzeYouTubeStandard;
-
-/**
  * News article analysis
  */
 export const analyzeNewsLink = async (url: string): Promise<AnalysisResponse> => {
@@ -837,44 +747,4 @@ export const analyzeNewsLink = async (url: string): Promise<AnalysisResponse> =>
     const appError = handleApiError(e);
     throw appError;
   }
-};
-
-/**
- * Estimate costs for different analysis modes
- */
-export const estimateCosts = (durationSeconds: number): Record<string, CostEstimate> => {
-  // Base tokens estimation (approx 2 tokens per second for video+audio)
-  const baseTokens = Math.floor(durationSeconds * 2);
-  const minutes = Math.ceil(durationSeconds / 60);
-
-  // Estimations
-  const quickTokens = Math.floor(baseTokens * 0.5); // Text only is cheaper
-  const standardTokens = baseTokens;
-
-  return {
-    quick: {
-      mode: 'quick',
-      estimatedTokens: quickTokens,
-      estimatedCostUSD: calculateCostFromPricing('gemini-3-flash-preview', quickTokens, quickTokens / 4, false),
-      pointsCost: calculateCostInPoints('gemini-3-flash-preview', quickTokens, quickTokens / 4, false),
-      estimatedTime: `~${Math.max(1, Math.ceil(minutes * 0.3))} мин`,
-      features: ['Бърз анализ на текстово съдържание', 'Само транскрипция']
-    },
-    standard: {
-      mode: 'standard',
-      estimatedTokens: standardTokens,
-      estimatedCostUSD: calculateCostFromPricing('gemini-3-flash-preview', standardTokens, standardTokens / 2, false),
-      pointsCost: calculateCostInPoints('gemini-3-flash-preview', standardTokens, standardTokens / 2, false),
-      estimatedTime: `~${Math.max(1, minutes)} мин`,
-      features: ['Пълен анализ на видео и аудио', 'Визуален контекст']
-    },
-    batch: {
-      mode: 'batch',
-      estimatedTokens: standardTokens,
-      estimatedCostUSD: calculateCostFromPricing('gemini-3-flash-preview', standardTokens, standardTokens / 2, true),
-      pointsCost: calculateCostInPoints('gemini-3-flash-preview', standardTokens, standardTokens / 2, true),
-      estimatedTime: `~${Math.max(2, minutes * 2)} мин`,
-      features: ['Пакетна обработка', 'По-евтино', 'По-бавно']
-    }
-  };
 };

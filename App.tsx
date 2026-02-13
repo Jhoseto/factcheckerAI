@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import html2canvas from 'html2canvas';
-import { analyzeYouTubeQuick, analyzeYouTubeBatch, analyzeYouTubeStandard, analyzeNewsLink } from './services/geminiService';
+import { analyzeYouTubeStandard, analyzeNewsLink } from './services/geminiService';
 import { VideoAnalysis, APIUsage, AnalysisMode, YouTubeVideoMetadata, CostEstimate } from './types';
 import ReliabilityChart from './components/ReliabilityChart';
-import AnalysisModeSelector from './components/AnalysisModeSelector';
+// AnalysisModeSelector removed (inlined)
 import { getYouTubeMetadata } from './services/youtubeMetadataService';
 import { getAllCostEstimates } from './services/costEstimationService';
 import { validateYouTubeUrl, validateNewsUrl } from './services/validation';
@@ -178,20 +178,11 @@ const App: React.FC = () => {
       let response;
 
       if (type === 'video') {
-        // Route to correct analysis function based on selected mode
-        switch (analysisMode) {
-          case 'quick':
-            response = await analyzeYouTubeQuick(url);
-            break;
-          case 'batch':
-            response = await analyzeYouTubeBatch(url);
-            break;
-          case 'standard':
-            response = await analyzeYouTubeStandard(url, videoMetadata || undefined);
-            break;
-          default:
-            response = await analyzeYouTubeStandard(url, videoMetadata || undefined);
-        }
+        const modelId = analysisMode === 'standard' ? 'gemini-2.5-flash' : 'gemini-3-flash-preview';
+        console.log(`Starting analysis with mode: ${analysisMode}, model: ${modelId}`);
+
+        // Pass the selected model explicitly
+        response = await analyzeYouTubeStandard(url, videoMetadata || undefined, modelId);
       } else {
         response = await analyzeNewsLink(url);
       }
@@ -236,7 +227,7 @@ const App: React.FC = () => {
     setActiveTab('summary');
     setVideoMetadata(null);
     setCostEstimates(null);
-    setAnalysisMode('quick');
+    setAnalysisMode('standard');
   };
 
   const handleSaveFullReport = async () => {
@@ -456,45 +447,60 @@ const App: React.FC = () => {
                   </div>
 
                   {/* Cost summary - показва се преди избора на режим */}
-                  {costEstimates && (
-                    <div className="pt-3 border-t border-slate-200">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Приблизителни разходи:</p>
-                      <div className="grid grid-cols-3 gap-2 text-xs">
-                        <div className="text-center p-2 bg-emerald-50 rounded border border-emerald-100">
-                          <p className="text-[9px] font-bold text-emerald-700 mb-0.5">Quick</p>
-                          <p className="text-sm font-black text-emerald-700">
-                            {costEstimates.quick.pointsCost} точки
-                          </p>
-                        </div>
-                        <div className="text-center p-2 bg-amber-50 rounded border border-amber-100">
-                          <p className="text-[9px] font-bold text-amber-700 mb-0.5">Batch</p>
-                          <p className="text-sm font-black text-amber-700">
-                            {costEstimates.batch.pointsCost} точки
-                          </p>
-                        </div>
-                        <div className="text-center p-2 bg-slate-50 rounded border border-slate-100">
-                          <p className="text-[9px] font-bold text-slate-700 mb-0.5">Standard</p>
-                          <p className="text-sm font-black text-slate-700">
-                            {costEstimates.standard.pointsCost} точки
-                          </p>
-                        </div>
-                      </div>
-                      <p className="text-[7px] text-slate-400 italic mt-2 text-center">
-                        * Цените са приблизителни и могат да варират в зависимост от дължината и сложността.
-                      </p>
-                    </div>
-                  )}
+                  {/* Cost summary removed (integrated into selectors) */}
                 </div>
               )}
 
-              {/* Mode selector */}
-              {videoMetadata && (
-                <AnalysisModeSelector
-                  selectedMode={analysisMode}
-                  onModeChange={setAnalysisMode}
-                  costEstimates={costEstimates}
-                  disabled={loading}
-                />
+              {/* New 2-Tier Modern Selector */}
+              {costEstimates && (
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Standard Option */}
+                  <div
+                    onClick={() => !loading && setAnalysisMode('standard')}
+                    className={`cursor-pointer p-4 rounded-sm border-2 transition-all group relative ${analysisMode === 'standard' ? 'border-amber-900 bg-amber-50/50' : 'border-slate-200 bg-white hover:border-amber-900/30'}`}
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className={`p-2 rounded-full ${analysisMode === 'standard' ? 'bg-amber-900 text-white' : 'bg-slate-100 text-slate-400 group-hover:bg-amber-900/10 group-hover:text-amber-900'}`}>
+                        {/* Modern Lightning Bolt Icon */}
+                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className={`text-[10px] font-black uppercase tracking-widest ${analysisMode === 'standard' ? 'text-amber-900' : 'text-slate-500'}`}>Стандартен</p>
+                        <p className="text-[14px] font-black text-slate-900">{costEstimates.standard.pointsCost} точки</p>
+                      </div>
+                    </div>
+                    {analysisMode === 'standard' && (
+                      <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-amber-900 animate-pulse"></div>
+                    )}
+                  </div>
+
+                  {/* Deep Option */}
+                  <div
+                    onClick={() => !loading && setAnalysisMode('deep')}
+                    className={`cursor-pointer p-4 rounded-sm border-2 transition-all group relative ${analysisMode === 'deep' ? 'border-slate-900 bg-slate-50' : 'border-slate-200 bg-white hover:border-slate-900/30'}`}
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className={`p-2 rounded-full ${analysisMode === 'deep' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-400 group-hover:bg-slate-900/10 group-hover:text-slate-900'}`}>
+                        {/* Modern Brain/Deep Icon */}
+                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5" />
+                          <path d="M8.5 8.5v.01" />
+                          <path d="M16 16v.01" />
+                          <path d="M12 12v.01" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className={`text-[10px] font-black uppercase tracking-widest ${analysisMode === 'deep' ? 'text-slate-900' : 'text-slate-500'}`}>Задълбочен</p>
+                        <p className="text-[14px] font-black text-slate-900">{costEstimates.deep.pointsCost} точки</p>
+                      </div>
+                    </div>
+                    {analysisMode === 'deep' && (
+                      <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-slate-900 animate-pulse"></div>
+                    )}
+                  </div>
+                </div>
               )}
 
               <button
