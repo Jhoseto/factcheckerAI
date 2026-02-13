@@ -112,7 +112,17 @@ app.post('/api/gemini/generate', async (req, res) => {
         }
 
         const response = await ai.models.generateContent(requestPayload);
-        const responseText = response.text(); // Correct way to get text in Node SDK
+
+        // Extract text safely (checking both SDK helper and direct structure)
+        let responseText = '';
+        if (typeof response.text === 'function') {
+            responseText = response.text();
+        } else if (response.candidates && response.candidates[0]?.content?.parts?.[0]?.text) {
+            responseText = response.candidates[0].content.parts[0].text;
+        } else {
+            console.log('Unexpected Gemini response structure:', JSON.stringify(response, null, 2));
+            responseText = JSON.stringify(response); // Fallback
+        }
         const usage = response.usageMetadata || { promptTokenCount: 0, candidatesTokenCount: 0 };
 
         // 4. Calculate Points Cost
