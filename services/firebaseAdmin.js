@@ -109,11 +109,11 @@ export async function addPointsToUser(userId, points) {
                 throw new Error(`User ${userId} not found in Firestore`);
             }
 
-            const currentPoints = userDoc.data()?.points || 0;
+            const currentPoints = userDoc.data()?.pointsBalance || 0;
             const newPoints = currentPoints + points;
 
             transaction.update(userRef, {
-                points: newPoints,
+                pointsBalance: newPoints,
                 lastPointsUpdate: admin.firestore.FieldValue.serverTimestamp()
             });
         });
@@ -143,7 +143,7 @@ export async function deductPointsFromUser(userId, points) {
                 throw new Error(`User ${userId} not found in Firestore`);
             }
 
-            const currentPoints = userDoc.data()?.points || 0;
+            const currentPoints = userDoc.data()?.pointsBalance || 0;
 
             if (currentPoints < points) {
                 console.log(`[Firebase Admin] ❌ Insufficient points for user ${userId}: has ${currentPoints}, needs ${points}`);
@@ -153,7 +153,7 @@ export async function deductPointsFromUser(userId, points) {
             const newPoints = currentPoints - points;
 
             transaction.update(userRef, {
-                points: newPoints,
+                pointsBalance: newPoints,
                 lastPointsUpdate: admin.firestore.FieldValue.serverTimestamp()
             });
 
@@ -185,7 +185,7 @@ export async function getUserPoints(userId) {
             return 0;
         }
 
-        return userDoc.data()?.points || 0;
+        return userDoc.data()?.pointsBalance || 0;
     } catch (error) {
         console.error(`[Firebase Admin] ❌ Failed to get user points:`, error);
         return 0;

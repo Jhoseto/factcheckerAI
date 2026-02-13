@@ -116,14 +116,15 @@ app.post('/api/gemini/generate', async (req, res) => {
         const usage = response.usageMetadata || { promptTokenCount: 0, candidatesTokenCount: 0 };
 
         // 4. Calculate Points Cost
-        // Pricing (Gemini 1.5 Flash approx in EUR):
-        // Input: €0.07 / 1M tokens = 0.00000007 per token
-        // Output: €0.28 / 1M tokens = 0.00000028 per token
+        // Pricing (Gemini 3 Flash - Feb 2026):
+        // Input: $0.50 / 1M tokens = 0.0000005 per token
+        // Output: $3.00 / 1M tokens = 0.0000030 per token
+        // Audio: $1.00 / 1M tokens = 0.0000010 per token
 
         // Batch Pricing: 50% discount
         const BATCH_DISCOUNT = isBatch ? 0.5 : 1.0;
-        const COST_PER_INPUT_TOKEN = 0.00000007 * BATCH_DISCOUNT;
-        const COST_PER_OUTPUT_TOKEN = 0.00000028 * BATCH_DISCOUNT;
+        const COST_PER_INPUT_TOKEN = 0.0000005 * BATCH_DISCOUNT;
+        const COST_PER_OUTPUT_TOKEN = 0.0000030 * BATCH_DISCOUNT;
         const inputCost = usage.promptTokenCount * COST_PER_INPUT_TOKEN;
         const outputCost = usage.candidatesTokenCount * COST_PER_OUTPUT_TOKEN;
         const totalCostEur = inputCost + outputCost; // My cost
