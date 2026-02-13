@@ -196,9 +196,14 @@ const App: React.FC = () => {
         response = await analyzeNewsLink(url);
       }
 
-      // Deduct points after successful analysis
+      // Deduct points after successful analysis using REAL usage data
       if (userProfile) {
-        await deductPoints(estimatedCost, response.analysis.id);
+        // Use the actual points cost from the API response (which is based on real token usage)
+        // Fallback to estimate only if usage data is missing (unlikely)
+        const finalCost = response.usage?.pointsCost || estimatedCost;
+        console.log(`[Points Deduction] Estimated: ${estimatedCost}, Actual: ${finalCost}`);
+
+        await deductPoints(finalCost, response.analysis.id);
       }
 
       setAnalysis(response.analysis);
