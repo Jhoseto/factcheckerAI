@@ -17,20 +17,19 @@
  */
 
 export const GEMINI_PRICING = {
-  // Using Gemini 1.5 Flash pricing constants (approximate)
-  // Input: $0.075 per 1M
-  // Output: $0.30 per 1M
+  // Official Gemini 3 Flash Pricing (Feb 2026)
+  // Source: Google Cloud / Vertex AI Pricing
   'gemini-3-flash-preview': {
-    input: 0.075,
-    output: 0.30,
-    audio: 0.10, // Approx
+    input: 0.50,  // $0.50 per 1M tokens (Video/Image/Text)
+    output: 3.00, // $3.00 per 1M tokens
+    audio: 1.00,  // $1.00 per 1M tokens (Audio specific)
   },
   'gemini-3-flash-preview-batch': {
-    input: 0.0375, // 50% discount
-    output: 0.15,
-    audio: 0.05,
+    input: 0.25,  // 50% discount
+    output: 1.50,
+    audio: 0.50,
   },
-  // Keep 3 Pro for critical analyses (optional)
+  // Gemini 3 Pro (Reference)
   'gemini-3-pro-preview': {
     input: 2.00,
     output: 12.00,
@@ -43,11 +42,6 @@ export const GEMINI_PRICING = {
 
 /**
  * Calculate cost based on token usage
- * @param model - The model name
- * @param promptTokens - Number of input tokens
- * @param candidatesTokens - Number of output tokens
- * @param isBatch - Whether using batch pricing
- * @returns Cost in USD
  */
 export const calculateCost = (
   model: string = 'gemini-3-flash-preview',
@@ -65,17 +59,25 @@ export const calculateCost = (
   const inputCost = (promptTokens / 1_000_000) * pricing.input;
   const outputCost = (candidatesTokens / 1_000_000) * pricing.output;
 
-  return Math.max(0, inputCost + outputCost); // Ensure non-negative
+  // Note: Audio tokens are usually counted as part of promptTokens in the API response,
+  // but if separated, they would need applying pricing.audio.
+  // Currently we assume promptTokens includes mixed modalities at base input rate, 
+  // or weighted average. For strict accuracy, audio-heavy inputs might cost more ($1.00),
+  // but $0.50 is the safe base for video (which is mostly image frames).
+
+  return Math.max(0, inputCost + outputCost);
 };
 
 /**
  * Calculate cost in points for user-facing display
- * Applies 2x markup on Gemini API cost
- * @param model - The model name
- * @param promptTokens - Number of input tokens
- * @param candidatesTokens - Number of output tokens
- * @param isBatch - Whether using batch pricing
- * @returns Cost in points (2x markup applied)
+ * Strictly applies 2x markup on Gemini API cost (100% Profit Margin)
+ * 
+ * Formula:
+ * 1. Calculate USD Cost to Google
+ * 2. Convert to EUR (0.93 rate)
+ * 3. Convert to Points (1 EUR = 100 Points)
+ * 4. Multiply by 2 (User Price = 2 * Our Cost)
+ * 5. Apply Minimum Floor (10 points)
  */
 export const calculateCostInPoints = (
   model: string = 'gemini-3-flash-preview',
@@ -85,12 +87,16 @@ export const calculateCostInPoints = (
 ): number => {
   const costUSD = calculateCost(model, promptTokens, candidatesTokens, isBatch);
 
-  // Convert USD to EUR (approximate 1 USD = 0.93 EUR)
+  // Exchange rate: 1 USD = ~0.93 EUR
   const costEUR = costUSD * 0.93;
 
-  // Convert to points: €1 = 100 points, with 2x markup
-  const points = Math.ceil(costEUR * 100 * 2);
+  // Cost in Points (100 points = 1 EUR)
+  const costPoints = costEUR * 100;
 
-  return points;
+  // User Price = 2 * Cost (Double Profit)
+  const userPoints = Math.ceil(costPoints * 2);
+
+  // Minimum floor of 10 points (0.10 EUR) to cover fixed overheads for small requests
+  return Math.max(10, userPoints);
 };
 
