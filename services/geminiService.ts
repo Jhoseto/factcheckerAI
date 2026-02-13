@@ -546,27 +546,39 @@ ${metadataSection}
   };
 };
 
-/**
- * Standard YouTube analysis - uses video directly
- */
 export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTubeVideoMetadata, model: string = 'gemini-3-flash-preview'): Promise<AnalysisResponse> => {
   try {
-    // Use YouTube URL directly with fileData.fileUri (official method from Gemini docs)
-    // This is exactly how Google AI Studio does it - Gemini analyzes the video directly
-    const data = await callGeminiAPI({
-      model: model, // Dynamically selected model
-      prompt: getAnalysisPrompt(url, 'video', '') + (videoMetadata ? `\n\nVideo Context: Title: "${videoMetadata.title}", Author: "${videoMetadata.author}", Duration: ${videoMetadata.durationFormatted}.` : ''),
-      systemInstruction: "You are an ELITE fact-checker and investigative journalist with 20+ years of experience. Your mission is to create an EXCEPTIONAL, CRITICAL, and OBJECTIVE analysis that reveals all hidden viewpoints, manipulations, and facts. CRITICAL INSTRUCTIONS: 1) Watch and analyze ALL video frames and listen to ALL audio content. 2) Extract ALL important claims, quotes, and manipulations - for long videos (30+ minutes): MINIMUM 20-30 claims and 15-20 manipulations. 3) For videos with guests, identify REAL NAMES of participants from the video/transcript - use 'Speaker 1', 'Speaker 2' only if names are not mentioned. 4) Extract FULL quotes, not shortened ones - include complete context. 5) Verify EVERY claim against reliable sources, statistics, historical facts, expert opinions. 6) Provide unique factual comparisons with other sources. 7) Analyze visual elements (charts, images, body language). 8) Analyze audio tone, emotions, intonation. 9) Use REAL data only - DO NOT fabricate. 10) Output all text in BULGARIAN. 11) Keep JSON Enum values in English. 12) Create a FINAL INVESTIGATIVE REPORT that is a masterpiece of journalism - critical, objective, fact-based, with unique comparisons, revealing all hidden viewpoints. The report should be so good that users say 'WOW - this is something great'. Minimum 15-20 paragraphs with detailed analysis.",
-      videoUrl: url // This will be sent as fileData.fileUri in server.js
-    });
-
-    // Extract transcript from the video for display (optional, for reference)
+    // 1. Try to extract transcript FIRST (fastest method)
+    // If we have a transcript, we can skip the heavy video processing
     let transcription: TranscriptionLine[] = [];
+    let transcriptText = '';
+
     try {
       transcription = await extractYouTubeTranscript(url);
+      if (transcription.length > 0) {
+        transcriptText = transcription.map(t => `[${t.timestamp}] ${t.speaker}: ${t.text}`).join('\n');
+      }
     } catch (transcriptError: any) {
-      // Transcript extraction is optional - continue without it
+      console.warn('Transcript extraction failed, falling back to video processing:', transcriptError);
     }
+
+    // 2. Prepare API payload based on transcript availability
+    // Strategy: Text-First (Fast) vs Video-First (Slow fallback)
+
+    const prompt = getAnalysisPrompt(url, 'video', transcriptText) + (videoMetadata ? `\n\nVideo Context: Title: "${videoMetadata.title}", Author: "${videoMetadata.author}", Duration: ${videoMetadata.durationFormatted}.` : '');
+
+    // If we have transcript text, we DO NOT send videoUrl to avoiding triggering the slow video processing path
+    // We only send videoUrl if we failed to get text
+    const payload = {
+      model: model,
+      prompt: prompt,
+      systemInstruction: "You are an ELITE fact-checker and investigative journalist with 20+ years of experience. Your mission is to create an EXCEPTIONAL, CRITICAL, and OBJECTIVE analysis that reveals all hidden viewpoints, manipulations, and facts. CRITICAL INSTRUCTIONS: 1) Extract ALL important claims, quotes, and manipulations from the provided text. 2) Output all text in BULGARIAN. 3) Keep JSON Enum values in English. 4) Create a FINAL INVESTIGATIVE REPORT that is a masterpiece of journalism.",
+      // Only send videoUrl if we DON'T have a transcript
+      videoUrl: transcriptText ? undefined : url
+    };
+
+    // 3. Call Gemini API
+    const data = await callGeminiAPI(payload);
 
     // Validate response before parsing
     if (!data.text || typeof data.text !== 'string') {
@@ -574,7 +586,6 @@ export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTub
     }
 
     const cleanedText = cleanJsonResponse(data.text);
-
     if (!cleanedText) {
       throw new Error('Не може да се извлече JSON от отговора на Gemini API');
     }
@@ -587,6 +598,7 @@ export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTub
       console.error('Cleaned text (first 500 chars):', cleanedText.substring(0, 500));
       throw new Error('Gemini API върна невалиден JSON формат. Моля, опитайте отново.');
     }
+
     const parsed = transformGeminiResponse(rawResponse, videoMetadata?.title, videoMetadata?.author, videoMetadata, transcription.length > 0 ? transcription : undefined);
 
     const usage: APIUsage = {
@@ -620,30 +632,33 @@ export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTub
  */
 export const analyzeYouTubeBatch = async (url: string): Promise<AnalysisResponse> => {
   try {
-    // Extract transcript first
+    // 1. Try to extract transcript FIRST (fastest method)
     let transcription: TranscriptionLine[] = [];
+    let transcriptText = '';
+
     try {
       transcription = await extractYouTubeTranscript(url);
+      if (transcription.length > 0) {
+        transcriptText = transcription.map(t => `[${t.timestamp}] ${t.speaker}: ${t.text}`).join('\n');
+      }
     } catch (transcriptError: any) {
+      console.warn('Transcript extraction failed in batch mode:', transcriptError);
     }
 
-    // Build prompt with transcript if available
-    const transcriptText = transcription.length > 0
-      ? transcription.map(t => `[${t.timestamp}] ${t.speaker}: ${t.text}`).join('\n')
-      : '';
+    // 2. Prepare API payload based on transcript availability
+    const prompt = getAnalysisPrompt(url, 'video', transcriptText);
 
-    const transcriptSection = transcriptText
-      ? `\n\nТранскрипция на видеото:\n${transcriptText}`
-      : '';
-
-    // Use same analysis as standard, but we'll apply batch pricing in cost calculation
-    const data = await callGeminiAPI({
+    const payload = {
       model: 'gemini-3-flash-preview',
-      prompt: getAnalysisPrompt(url, 'video', transcriptText),
-      systemInstruction: "You are an expert FactChecker AI. Your task is to analyze content and produce a detailed report. CRITICAL INSTRUCTION: You MUST output all free-form text (summaries, explanations, recommendations, reasoning) in BULGARIAN language. However, you MUST keep specific JSON Enum values in English as strict constants: 'TRUE', 'MOSTLY_TRUE', 'PARTLY_TRUE', 'MISLEADING', 'FALSE', 'UNVERIFIABLE', 'ACCURATE', 'MOSTLY_ACCURATE', 'MIXED', 'INACCURATE', 'FABRICATED', 'LEFT', 'CENTER_LEFT', 'CENTER', 'CENTER_RIGHT', 'RIGHT'. Do not translate these Enum values. Everything else must be in Bulgarian. Ensure the analysis is thorough and detailed.",
-      videoUrl: url, // Still analyze video, but use batch pricing
-      isBatch: true // Activate batch pricing logic
-    });
+      prompt: prompt,
+      systemInstruction: "You are an ELITE fact-checker. Output valid JSON only.",
+      // Only send videoUrl if we DON'T have a transcript
+      videoUrl: transcriptText ? undefined : url,
+      isBatch: true
+    };
+
+    // 3. Call Gemini API
+    const data = await callGeminiAPI(payload);
 
     // Validate response before parsing
     if (!data.text || typeof data.text !== 'string') {
@@ -651,7 +666,6 @@ export const analyzeYouTubeBatch = async (url: string): Promise<AnalysisResponse
     }
 
     const cleanedText = cleanJsonResponse(data.text);
-
     if (!cleanedText) {
       throw new Error('Не може да се извлече JSON от отговора на Gemini API');
     }
@@ -661,12 +675,11 @@ export const analyzeYouTubeBatch = async (url: string): Promise<AnalysisResponse
       rawResponse = JSON.parse(cleanedText);
     } catch (parseError: any) {
       console.error('JSON parse error:', parseError);
-      console.error('Cleaned text (first 500 chars):', cleanedText.substring(0, 500));
-      throw new Error('Gemini API върна невалиден JSON формат. Моля, опитайте отново.');
+      throw new Error('Gemini API върна невалиден JSON формат.');
     }
-    const parsed = transformGeminiResponse(rawResponse, undefined, undefined, undefined, transcription);
 
-    // Apply batch pricing (50% discount)
+    const parsed = transformGeminiResponse(rawResponse, undefined, undefined, undefined, transcription.length > 0 ? transcription : undefined);
+
     const usage: APIUsage = {
       promptTokens: data.usageMetadata?.promptTokenCount || 0,
       candidatesTokens: data.usageMetadata?.candidatesTokenCount || 0,
@@ -675,13 +688,13 @@ export const analyzeYouTubeBatch = async (url: string): Promise<AnalysisResponse
         'gemini-3-flash-preview',
         data.usageMetadata?.promptTokenCount || 0,
         data.usageMetadata?.candidatesTokenCount || 0,
-        true // Use batch pricing (50% discount)
+        true
       ),
       pointsCost: data.points?.deducted || calculateCostInPoints(
         'gemini-3-flash-preview',
         data.usageMetadata?.promptTokenCount || 0,
         data.usageMetadata?.candidatesTokenCount || 0,
-        true // Use batch pricing (50% discount)
+        true
       )
     };
 
