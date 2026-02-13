@@ -112,11 +112,27 @@ const cleanJsonResponse = (text: string): string => {
  * Extract YouTube transcript via server-side Gemini API
  * Returns structured transcript with timestamps and speaker information
  */
+
+import { auth } from './firebase';
+
+/**
+ * Extract YouTube transcript via server-side Gemini API
+ * Returns structured transcript with timestamps and speaker information
+ */
 export const extractYouTubeTranscript = async (url: string): Promise<TranscriptionLine[]> => {
     try {
+        const user = auth.currentUser;
+        if (!user) {
+            throw new Error('User must be logged in to extract transcript');
+        }
+        const token = await user.getIdToken();
+
         const response = await fetch('/api/gemini/generate', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
             body: JSON.stringify({
                 model: 'gemini-3-flash-preview',
                 videoUrl: url, // ВАЖНО: Изпращаме videoUrl за да анализира правилното видео
