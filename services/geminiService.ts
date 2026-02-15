@@ -1,4 +1,4 @@
-import { VideoAnalysis, APIUsage, AnalysisResponse, CostEstimate, YouTubeVideoMetadata, TranscriptionLine } from '../types';
+import { VideoAnalysis, APIUsage, AnalysisResponse, CostEstimate, YouTubeVideoMetadata, TranscriptionLine, AnalysisMode } from '../types';
 import { handleApiError } from './errorHandler';
 import { auth } from './firebase';
 import { calculateCost as calculateCostFromPricing, calculateCostInPoints } from './pricing';
@@ -62,12 +62,10 @@ const callGeminiAPI = async (payload: {
  * gemini-2.5-flash = standard analysis
  * gemini-3-flash-preview = deep analysis
  */
-const getAnalysisPrompt = (url: string, type: 'video' | 'news', model: string, transcript?: string): string => {
-  // Deep mode uses gemini-3-flash-preview with more detailed requirements
-  if (model === 'gemini-3-flash-preview') {
+const getAnalysisPrompt = (url: string, type: 'video' | 'news', mode: AnalysisMode, transcript?: string): string => {
+  if (mode === 'deep') {
     return getDeepAnalysisPrompt(url, type, transcript);
   }
-  // Standard mode uses gemini-2.5-flash with moderate detail
   return getStandardAnalysisPrompt(url, type, transcript);
 };
 
@@ -392,12 +390,12 @@ ${metadataSection}
   };
 };
 
-export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTubeVideoMetadata, model: string = 'gemini-3-flash-preview'): Promise<AnalysisResponse> => {
+export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTubeVideoMetadata, model: string = 'gemini-2.5-flash', mode: AnalysisMode = 'standard'): Promise<AnalysisResponse> => {
   try {
     // Strategy: Single API call - Gemini analyzes video AND extracts transcript in one go
     // No separate transcript extraction - everything happens in one request
 
-    const prompt = getAnalysisPrompt(url, 'video', model) + (videoMetadata ? `\n\nVideo Context: Title: "${videoMetadata.title}", Author: "${videoMetadata.author}", Duration: ${videoMetadata.durationFormatted}.` : '');
+    const prompt = getAnalysisPrompt(url, 'video', mode) + (videoMetadata ? `\n\nVideo Context: Title: "${videoMetadata.title}", Author: "${videoMetadata.author}", Duration: ${videoMetadata.durationFormatted}.` : '');
 
     // ALWAYS send videoUrl - Gemini will process video and return everything including transcript
     const payload = {
@@ -439,6 +437,7 @@ export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTub
       }];
 
     const parsed = transformGeminiResponse(rawResponse, model, videoMetadata?.title, videoMetadata?.author, videoMetadata, transcription);
+    parsed.analysisMode = mode;
 
     const usage: APIUsage = {
       promptTokens: data.usageMetadata?.promptTokenCount || 0,
@@ -473,7 +472,7 @@ export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTub
 export const analyzeYouTubeBatch = async (url: string): Promise<AnalysisResponse> => {
   try {
     // Single API call - same as standard, just with batch flag
-    const prompt = getAnalysisPrompt(url, 'video', 'gemini-3-flash-preview');
+    const prompt = getAnalysisPrompt(url, 'video', 'deep');
 
     const payload = {
       model: 'gemini-3-flash-preview',
@@ -547,8 +546,8 @@ export const analyzeYouTubeBatch = async (url: string): Promise<AnalysisResponse
 export const analyzeNewsLink = async (url: string): Promise<AnalysisResponse> => {
   try {
     const data = await callGeminiAPI({
-      model: 'gemini-3-flash-preview',
-      prompt: getAnalysisPrompt(url, 'news', 'gemini-3-flash-preview') + `\n\nNews URL: ${url}`,
+      model: 'gemini-2.5-flash',
+      prompt: getAnalysisPrompt(url, 'news', 'standard') + `\n\nNews URL: ${url}`,
       systemInstruction: 'You are a professional fact-checker. You MUST answer in Bulgarian language only. Translate any analysis to Bulgarian.'
     });
 

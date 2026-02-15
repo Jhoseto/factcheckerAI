@@ -20,7 +20,7 @@ const ReliabilityChart: React.FC<Props> = ({ data, claims, totalDuration }) => {
       // Намери съответния claim за този timestamp
       const matchingClaim = claims.find((c, cIdx) => cIdx === idx);
       const fullQuote = matchingClaim ? matchingClaim.quote : (p.event || 'Няма данни за събитие');
-      
+
       return {
         index: idx,
         label: p.time,
@@ -138,24 +138,24 @@ const ReliabilityChart: React.FC<Props> = ({ data, claims, totalDuration }) => {
       </div>
 
       {/* Регистър */}
-      <div className="editorial-card p-6 md:p-10 bg-slate-900 text-white rounded-sm overflow-hidden relative">
-        <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-[0.3em] md:tracking-[0.5em] text-amber-500 mb-6 border-b border-white/10 pb-4">Хронологичен регистър</h4>
+      <div className="editorial-card p-6 md:p-10 bg-white border-t-4 border-t-amber-900 rounded-sm overflow-hidden relative shadow-sm">
+        <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-[0.3em] md:tracking-[0.5em] text-amber-900 mb-6 border-b border-slate-100 pb-4">Хронологичен регистър</h4>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 max-h-[300px] md:max-h-[400px] overflow-y-auto pr-2 scroll-custom">
           {processedData.map((point, idx) => (
             <div
               key={idx}
-              className={`p-4 md:p-6 border border-white/5 transition-all cursor-default group hover:border-amber-500/50 ${hoveredPoint?.label === point.label ? 'bg-white/10 border-amber-500' : 'bg-white/5'}`}
+              className={`p-4 md:p-6 border border-slate-100 transition-all cursor-default group hover:border-amber-900/30 ${hoveredPoint?.label === point.label ? 'bg-amber-50/50 border-amber-900/50 shadow-sm' : 'bg-slate-50/30'}`}
             >
               <div className="flex justify-between items-start mb-2 md:mb-4">
-                <span className="text-[9px] md:text-[10px] font-black text-amber-500 tracking-tighter">{point.label}</span>
-                <span className={`text-[10px] md:text-xs font-black ${point.reliability < 50 ? 'text-red-500' : 'text-emerald-500'}`}>{point.reliability}%</span>
+                <span className="text-[9px] md:text-[10px] font-black text-amber-900 tracking-tighter">{point.label}</span>
+                <span className={`text-[10px] md:text-xs font-black ${point.reliability < 50 ? 'text-red-600' : 'text-emerald-700'}`}>{point.reliability}%</span>
               </div>
-              <p className="text-[11px] md:text-[12px] leading-relaxed font-medium text-slate-300 group-hover:text-white transition-colors">
+              <p className="text-[11px] md:text-[12px] leading-relaxed font-medium text-slate-700 group-hover:text-slate-900 transition-colors serif italic">
                 {point.event && point.event.length > 100 ? point.event.substring(0, 100) + '...' : point.event}
               </p>
               {point.event && point.event.length > 100 && (
-                <p className="text-[9px] text-amber-400 mt-1 italic">(Пълен цитат в таб "Твърдения")</p>
+                <p className="text-[9px] text-amber-900/60 mt-1 italic tracking-tight font-bold uppercase">(Пълен цитат в таб "Твърдения")</p>
               )}
             </div>
           ))}

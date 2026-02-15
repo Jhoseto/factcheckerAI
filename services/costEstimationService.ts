@@ -65,10 +65,8 @@ export const calculateCostEstimate = (
     const outputTokens = Math.floor(4000 + (minutes * 150));
     const estimatedTokens = inputTokens + outputTokens;
 
-    // Determine Model Pricing based on Mode
-    // Standard -> Gemini 2.5 Flash
-    // Deep -> Gemini 3 Flash Preview
-    const modelId = mode === 'standard' ? 'gemini-2.5-flash' : 'gemini-3-flash-preview';
+    // Both modes now use Gemini 2.5 Flash for cost estimation
+    const modelId = 'gemini-2.5-flash';
 
     // Calculate Costs
     const totalCostUSD = calculateCost(modelId, inputTokens, outputTokens, false);

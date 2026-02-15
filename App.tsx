@@ -178,10 +178,10 @@ const App: React.FC = () => {
       let response;
 
       if (type === 'video') {
-        const modelId = analysisMode === 'standard' ? 'gemini-2.5-flash' : 'gemini-3-flash-preview';
+        const modelId = 'gemini-2.5-flash';
 
-        // Pass the selected model explicitly
-        response = await analyzeYouTubeStandard(url, videoMetadata || undefined, modelId);
+        // Pass the mode explicitly to pick the right prompt
+        response = await analyzeYouTubeStandard(url, videoMetadata || undefined, modelId, analysisMode);
       } else {
         response = await analyzeNewsLink(url);
       }
@@ -497,7 +497,7 @@ const App: React.FC = () => {
                         </div>
                       </div>
                       {analysisMode === 'deep' && (
-                        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-slate-900 animate-pulse"></div>
+                        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-slate-900"></div>
                       )}
                     </div>
                   </div>
@@ -545,36 +545,36 @@ const App: React.FC = () => {
           </aside>
 
           <main className="lg:col-span-9 space-y-6">
-            <nav className="flex overflow-x-auto gap-8 border-b border-slate-200 sticky top-0 bg-[#f9f9f9]/95 backdrop-blur-md z-40 py-3 print:hidden no-scrollbar">
+            <nav className="flex flex-wrap gap-x-8 gap-y-2 border-b border-slate-200 sticky top-0 bg-[#f9f9f9]/95 backdrop-blur-md z-40 py-3 print:hidden">
               {(() => {
-                const baseTabs = [
+                const baseTabsBefore = [
                   { id: 'summary', label: 'Резюме' },
-                  { id: 'claims', label: `Твърдения ${analysis.analysisMode === 'deep' ? `(${analysis.claims.length}/50+)` : ''}` },
-                  { id: 'manipulation', label: `Манипулация ${analysis.analysisMode === 'deep' ? `(${analysis.manipulations.length}/50+)` : ''}` },
+                  { id: 'claims', label: 'Твърдения' },
+                  { id: 'manipulation', label: 'Манипулация' },
                   { id: 'transcript', label: 'Транскрипт' }
                 ];
 
                 const deepTabs = analysis.analysisMode === 'deep' ? [
-                  { id: 'visual', label: '🎥 Визуален' },
-                  { id: 'bodyLanguage', label: '🙋 Тяло' },
-                  { id: 'vocal', label: '🎤 Вокал' },
-                  { id: 'deception', label: '🔍 Измама' },
-                  { id: 'humor', label: '😄 Хумор' },
-                  { id: 'psychological', label: '🧠 Психо' },
-                  { id: 'cultural', label: '🏛️ Културен' }
+                  { id: 'visual', label: 'Визуален' },
+                  { id: 'bodyLanguage', label: 'Тяло' },
+                  { id: 'vocal', label: 'Вокал' },
+                  { id: 'deception', label: 'Измама' },
+                  { id: 'humor', label: 'Хумор' },
+                  { id: 'psychological', label: 'Психо' },
+                  { id: 'cultural', label: 'Културен' }
                 ] : [];
 
-                const finalTabs = [...baseTabs, ...deepTabs, { id: 'report', label: 'Финален Доклад' }];
+                const finalTabs = [...baseTabsBefore, ...deepTabs, { id: 'report', label: 'Финален доклад' }];
 
                 return finalTabs.map(tab => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as any)}
-                    className={`text-[9px] md:text-[10px] font-black uppercase tracking-[0.15em] whitespace-nowrap pb-1 relative transition-all ${activeTab === tab.id ? (analysis.analysisMode === 'deep' ? 'text-indigo-600' : 'text-amber-900') : 'text-slate-400 hover:text-slate-900'}`}
+                    className={`text-[9px] md:text-[10px] font-black uppercase tracking-[0.15em] whitespace-nowrap pb-1 relative transition-all ${activeTab === tab.id ? 'text-amber-900' : 'text-slate-400 hover:text-slate-900'}`}
                   >
                     {tab.label}
                     {activeTab === tab.id && (
-                      <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${analysis.analysisMode === 'deep' ? 'bg-indigo-600' : 'bg-amber-900'}`}></div>
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-900"></div>
                     )}
                   </button>
                 ));
@@ -585,16 +585,14 @@ const App: React.FC = () => {
               {activeTab === 'summary' && (
                 <div className="space-y-10 animate-fadeIn">
                   <div className="editorial-card p-6 md:p-8 border-l-4 border-l-slate-900 space-y-4">
-                    <div className="flex justify-between items-start">
+                    <div className="flex justify-between items-start relative">
                       <div className="space-y-1">
                         <p className="text-[8px] font-black text-amber-900 uppercase tracking-widest">ОБЕКТ:</p>
-                        <h2 className="text-xl md:text-3xl font-black text-slate-900 uppercase tracking-tight serif italic leading-tight">{analysis.videoTitle}</h2>
+                        <h2 className="text-xl md:text-3xl font-black text-slate-900 uppercase tracking-tight serif italic leading-tight pr-24">{analysis.videoTitle}</h2>
                       </div>
-                      {analysis.analysisMode === 'deep' && (
-                        <div className="px-3 py-1 bg-indigo-600 text-white text-[8px] font-black uppercase tracking-[0.2em] rounded-sm shadow-md animate-pulse">
-                          Deep Analysis Mode
-                        </div>
-                      )}
+                      <div className={`px-2 py-0.5 border ${analysis.analysisMode === 'deep' ? 'bg-amber-900 border-amber-900 text-white' : 'border-slate-200 text-slate-400'} text-[7px] font-black uppercase tracking-[0.2em] rounded-sm shadow-sm absolute top-0 right-0`}>
+                        {analysis.analysisMode === 'deep' ? 'Дълбок анализ' : 'Стандартен анализ'}
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-slate-100">
                       <div><p className="text-[8px] font-black text-slate-400 uppercase mb-0.5">Източник</p><p className="text-xs font-black text-slate-900 uppercase truncate">{analysis.videoAuthor}</p></div>
