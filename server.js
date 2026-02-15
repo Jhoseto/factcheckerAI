@@ -186,26 +186,48 @@ app.post('/api/gemini/generate', async (req, res) => {
             });
         }
 
-        const BATCH_DISCOUNT = isBatch ? 0.5 : 1.0;
-        const COST_PER_INPUT_TOKEN = (selectedPricing.input / 1000000) * BATCH_DISCOUNT;
-        const COST_PER_OUTPUT_TOKEN = (selectedPricing.output / 1000000) * BATCH_DISCOUNT;
-        const inputCost = usage.promptTokenCount * COST_PER_INPUT_TOKEN;
-        const outputCost = usage.candidatesTokenCount * COST_PER_OUTPUT_TOKEN;
-        const totalCostEur = inputCost + outputCost;
+        // === PRICING CALCULATION ===
 
-        const pointsDeducted = Math.ceil(totalCostEur * 200);
-        const finalPoints = Math.max(1, pointsDeducted);
+        // Use STANDARD pricing for ALL requests (Base Price)
+        // Gemini 2.5 Flash ($0.50 Input / $2.00 Output)
+        // This is the "Standard" rate.
+        const SELECTED_PRICING = { input: 0.50, output: 2.00, audio: 1.00 };
+
+        const BATCH_DISCOUNT = isBatch ? 0.5 : 1.0;
+        const COST_PER_INPUT_TOKEN = (SELECTED_PRICING.input / 1000000) * BATCH_DISCOUNT;
+        const COST_PER_OUTPUT_TOKEN = (SELECTED_PRICING.output / 1000000) * BATCH_DISCOUNT;
+
+        // Calculate Cost in USD
+        const inputCostUSD = usage.promptTokenCount * COST_PER_INPUT_TOKEN;
+        const outputCostUSD = usage.candidatesTokenCount * COST_PER_OUTPUT_TOKEN;
+        const totalCostUSD = inputCostUSD + outputCostUSD;
+
+        // Convert to EUR (0.95 rate)
+        const totalCostEur = totalCostUSD * 0.95;
+
+        // Formula: EUR * 100 * 2 (Standard Multiplier)
+        let pointsDeducted = Math.ceil(totalCostEur * 200);
+
+        // === DEEP ANALYSIS DOUBLING ===
+        // If Deep Analysis (Google Search enabled OR Explicit Deep Mode), DOUBLE the points.
+        const isDeep = enableGoogleSearch || model.includes('3-flash') || model.includes('pro');
+
+        if (isDeep) {
+            pointsDeducted = pointsDeducted * 2; // Double points for Deep Analysis
+        }
+
+        // Minimum points (5 for Standard, 10 for Deep)
+        const finalPoints = Math.max(isDeep ? 10 : 5, pointsDeducted);
 
         // DO NOT deduct points here. Deduction is handled by the client AFTER successful UI render.
-        // This ensures the user is only charged if the analysis is actually displayed.
-
         res.json({
             text: responseText,
             usageMetadata: usage,
             points: {
                 deducted: 0,
                 costInPoints: finalPoints,
-                costEur: totalCostEur
+                costEur: totalCostEur,
+                isDeep: isDeep
             }
         });
 
