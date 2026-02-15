@@ -22,9 +22,9 @@ app.use((req, res, next) => {
 });
 
 // JSON parsing middleware for API routes (except webhooks which need raw body)
-app.use('/api/gemini', express.json());
-app.use('/api/lemonsqueezy/checkout', express.json());
-app.use('/api/youtube/metadata', express.json());
+app.use('/api/gemini', express.json({ limit: '50mb' }));
+app.use('/api/lemonsqueezy/checkout', express.json({ limit: '1mb' }));
+app.use('/api/youtube/metadata', express.json({ limit: '1mb' }));
 
 // Initialize Firebase Admin SDK
 try {
@@ -146,6 +146,34 @@ app.post('/api/gemini/generate', async (req, res) => {
         }
 
         console.log(`[Gemini API] Model: ${modelId}, Pricing: Input $${selectedPricing.input}, Output $${selectedPricing.output}`);
+
+        // === FAIR BILLING VALIDATION ===
+        // Before deducting anything, verify the response is not empty or nonsensical
+        if (!responseText || responseText.length < 10) {
+            console.error('[Gemini API] ❌ AI returned empty or too short response. Skipping deduction.');
+            return res.status(500).json({
+                error: 'AI не успя да генерира валиден анализ. Моля, опитайте отново. (Никакви точки не бяха таксувани)',
+                code: 'AI_EMPTY_RESPONSE'
+            });
+        }
+
+        // Try a light JSON validation if possible
+        try {
+            // Check if it's at least potentially a JSON (starts with { or [)
+            const trimmed = responseText.trim();
+            if (!((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']')))) {
+                // It might have markdown, but if it doesn't even have braces, it's probably wrong
+                if (!trimmed.includes('{') && !trimmed.includes('[')) {
+                    throw new Error('Not a JSON response');
+                }
+            }
+        } catch (e) {
+            console.error('[Gemini API] ❌ AI returned non-JSON response. Skipping deduction.');
+            return res.status(500).json({
+                error: 'AI върна невалиден формат. Моля, опитайте отново. (Никакви точки не бяха таксувани)',
+                code: 'AI_INVALID_FORMAT'
+            });
+        }
 
         // Batch Pricing: 50% discount
         const BATCH_DISCOUNT = isBatch ? 0.5 : 1.0;
