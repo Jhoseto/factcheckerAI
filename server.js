@@ -81,9 +81,10 @@ app.post('/api/gemini/generate', async (req, res) => {
             contents: [],
             generationConfig: {
                 responseMimeType: 'application/json',
-                temperature: 0.7
+                temperature: 0.7,
+                maxOutputTokens: 8192
             },
-            tools: []
+            tools: [{ googleSearch: {} }]
         };
 
         if (videoUrl) {

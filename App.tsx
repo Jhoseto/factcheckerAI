@@ -613,11 +613,7 @@ const App: React.FC = () => {
 
               {activeTab === 'claims' && (
                 <div className="space-y-6 animate-fadeIn">
-                  {analysis.analysisMode === 'deep' && analysis.claims.length < 50 && (
-                    <div className="p-4 bg-red-50 border-l-4 border-red-500 text-red-700 text-xs font-bold uppercase tracking-widest">
-                      ⚠️ Внимание: Броят на извлечените твърдения ({analysis.claims.length}) е под изисквания минимум за Дълбок Анализ (50+).
-                    </div>
-                  )}
+
                   {analysis.claims.map((claim, idx) => (
                     <div key={idx} className="editorial-card p-6 md:p-8 space-y-6 border-t-2 border-t-slate-800">
                       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-4">
@@ -638,11 +634,6 @@ const App: React.FC = () => {
                 <div className="space-y-8 animate-fadeIn">
                   <div className="border-b border-slate-900 pb-4 mb-6">
                     <h3 className="text-lg md:text-xl font-black uppercase serif italic mb-2">Деконструкция на Манипулациите</h3>
-                    {analysis.analysisMode === 'deep' && analysis.manipulations.length < 50 && (
-                      <div className="mb-4 p-3 bg-red-50 border-l-4 border-red-500 text-red-700 text-[10px] font-bold uppercase tracking-widest">
-                        ⚠️ Внимание: Броят на идентифицираните манипулации ({analysis.manipulations.length}) е под изисквания минимум за Дълбок Анализ (50+).
-                      </div>
-                    )}
                     <p className="text-xs text-slate-600 italic">Всички идентифицирани манипулативни техники с конкретни примери от видеото и анализ на въздействието им.</p>
                   </div>
                   <div className="grid grid-cols-1 gap-6">
