@@ -559,7 +559,6 @@ export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTub
         transcriptText = transcription.map(t => `[${t.timestamp}] ${t.speaker}: ${t.text}`).join('\n');
       }
     } catch (transcriptError: any) {
-      console.warn('Transcript extraction failed, falling back to video processing:', transcriptError);
     }
 
     // 2. Prepare API payload based on transcript availability

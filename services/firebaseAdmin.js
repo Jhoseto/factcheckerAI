@@ -17,7 +17,6 @@ export function initializeFirebaseAdmin() {
     try {
         // Priority 1: Check for JSON in environment variable (Cloud Run best practice)
         if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-            console.log('[Firebase Admin] Using service account from FIREBASE_SERVICE_ACCOUNT_JSON env variable');
             const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
             admin.initializeApp({
                 credential: admin.credential.cert(serviceAccount)
@@ -37,7 +36,6 @@ export function initializeFirebaseAdmin() {
             } catch (fileError) {
                 // File not found. Check if default credentials work (Cloud Run).
                 if (process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.K_SERVICE) {
-                    console.log('[Firebase Admin] File not found, trying default credentials...');
                     admin.initializeApp(); // Use Default Application Credentials
                 } else {
                     throw fileError;

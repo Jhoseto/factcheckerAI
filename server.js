@@ -57,7 +57,6 @@ app.post('/api/gemini/generate', async (req, res) => {
         try {
             userId = await verifyToken(idToken);
             if (!userId) throw new Error('Invalid token');
-            console.log(`[Gemini API] ✨ Authenticated user: ${userId}`);
         } catch (e) {
             return res.status(401).json({ error: 'Unauthorized: Invalid token' });
         }
@@ -145,8 +144,6 @@ app.post('/api/gemini/generate', async (req, res) => {
             selectedPricing = PRICING.pro;
         }
 
-        console.log(`[Gemini API] Model: ${modelId}, Pricing: Input $${selectedPricing.input}, Output $${selectedPricing.output}`);
-
         // === FAIR BILLING VALIDATION ===
         // Before deducting anything, verify the response is not empty or nonsensical
         if (!responseText || responseText.length < 10) {
@@ -191,8 +188,6 @@ app.post('/api/gemini/generate', async (req, res) => {
 
         // Ensure at least 1 point is deducted if any usage occurred
         const finalPoints = Math.max(1, pointsDeducted);
-
-        console.log(`[Gemini API] 💰 Usage: ${usage.promptTokenCount}/${usage.candidatesTokenCount} tokens. Cost: €${totalCostEur.toFixed(6)}. Deducting: ${finalPoints} points.`);
 
         // 5. Deduct Points
         await deductPointsFromUser(userId, finalPoints);
@@ -372,8 +367,6 @@ app.post('/api/lemonsqueezy/checkout', async (req, res) => {
         const origin = req.headers.origin || req.headers.referer || `${req.protocol}://${req.get('host')}`;
         const redirectUrl = origin.replace(/\/$/, '') + '/';
 
-        console.log(`[Lemon Squeezy] Creating checkout: variant=${variantId}, user=${userId}, points=${points}, redirect=${redirectUrl}`);
-
         // Create checkout session - exact format from Lemon Squeezy API docs:
         // https://docs.lemonsqueezy.com/api/checkouts/create-checkout
         const checkout = await fetch('https://api.lemonsqueezy.com/v1/checkouts', {
@@ -419,7 +412,6 @@ app.post('/api/lemonsqueezy/checkout', async (req, res) => {
         const checkoutData = await checkout.json();
 
         if (checkoutData.data && checkoutData.data.attributes && checkoutData.data.attributes.url) {
-            console.log(`[Lemon Squeezy] ✅ Checkout created: ${checkoutData.data.attributes.url}`);
             res.json({
                 checkoutUrl: checkoutData.data.attributes.url
             });
@@ -452,9 +444,6 @@ app.post('/api/lemonsqueezy/webhook', express.raw({ type: 'application/json' }),
                 console.error('[Lemon Squeezy] Invalid signature');
                 return res.status(401).json({ error: 'Invalid signature' });
             }
-            console.log('[Lemon Squeezy] ✅ Signature verified');
-        } else {
-            console.warn('[Lemon Squeezy] ⚠️  Skipping signature verification (LEMON_SQUEEZY_WEBHOOK_SECRET not set)');
         }
 
         let event;
@@ -468,65 +457,53 @@ app.post('/api/lemonsqueezy/webhook', express.raw({ type: 'application/json' }),
                 event = req.body;
             }
         } catch (parseError) {
-            console.error('[Lemon Squeezy] JSON Parse Error:', parseError);
-            console.error('[Lemon Squeezy] Body type:', typeof req.body);
-            console.error('[Lemon Squeezy] Body value:', req.body);
-            return res.status(400).json({ error: 'Invalid JSON body' });
-        }
 
-        console.log('[Lemon Squeezy] Webhook received:', event?.meta?.event_name);
-        console.log('[Lemon Squeezy] Full Event payload:', JSON.stringify(event, null, 2));
+            // Handle successful purchase
+            if (event && (event.meta.event_name === 'order_created' || event.meta.event_name === 'order_paid') && event.data.attributes.status === 'paid') {
 
-        // Handle successful purchase
-        if (event && (event.meta.event_name === 'order_created' || event.meta.event_name === 'order_paid') && event.data.attributes.status === 'paid') {
+                // Try to find custom data in multiple places
+                const attributes = event.data.attributes;
+                let customData = {};
 
-            // Try to find custom data in multiple places
-            const attributes = event.data.attributes;
-            let customData = {};
+                // 1. Check in checkout_data (standard location)
+                if (attributes.checkout_data && attributes.checkout_data.custom) {
+                    customData = attributes.checkout_data.custom;
+                }
+                // 2. Check in first_order_item (common for order_created)
+                else if (attributes.first_order_item && attributes.first_order_item.custom_data) {
+                    customData = attributes.first_order_item.custom_data;
+                }
+                // 3. Check in meta (legacy/fallback)
+                else if (event.meta && event.meta.custom_data) {
+                    customData = event.meta.custom_data;
+                }
 
-            // 1. Check in checkout_data (standard location)
-            if (attributes.checkout_data && attributes.checkout_data.custom) {
-                console.log('[Lemon Squeezy] Found data in checkout_data.custom');
-                customData = attributes.checkout_data.custom;
-            }
-            // 2. Check in first_order_item (common for order_created)
-            else if (attributes.first_order_item && attributes.first_order_item.custom_data) {
-                console.log('[Lemon Squeezy] Found data in first_order_item.custom_data');
-                customData = attributes.first_order_item.custom_data;
-            }
-            // 3. Check in meta (legacy/fallback)
-            else if (event.meta && event.meta.custom_data) {
-                console.log('[Lemon Squeezy] Found data in meta.custom_data');
-                customData = event.meta.custom_data;
-            }
+                console.log('[Lemon Squeezy] Extracted custom data:', customData);
 
-            console.log('[Lemon Squeezy] Extracted custom data:', customData);
+                const userId = customData.user_id;
+                const points = parseInt(customData.points) || 0;
 
-            const userId = customData.user_id;
-            const points = parseInt(customData.points) || 0;
-
-            if (userId && points > 0) {
-                try {
-                    await addPointsToUser(userId, points);
-                    console.log(`[Lemon Squeezy] ✅ Added ${points} points to user ${userId}`);
-                } catch (error) {
-                    console.error(`[Lemon Squeezy] ❌ Failed to add points for user ${userId}:`, error);
+                if (userId && points > 0) {
+                    try {
+                        await addPointsToUser(userId, points);
+                    } catch (error) {
+                        console.error(`[Lemon Squeezy] ❌ Failed to add points for user ${userId}:`, error);
+                    }
+                } else {
+                    console.warn('[Lemon Squeezy] ⚠️  Missing userId or points in webhook data');
+                    console.warn(`userId: ${userId}, points: ${points}`);
                 }
             } else {
-                console.warn('[Lemon Squeezy] ⚠️  Missing userId or points in webhook data');
-                console.warn(`userId: ${userId}, points: ${points}`);
+                console.log(`[Lemon Squeezy] Ignoring event: ${event?.meta?.event_name} status: ${event?.data?.attributes?.status}`);
             }
-        } else {
-            console.log(`[Lemon Squeezy] Ignoring event: ${event?.meta?.event_name} status: ${event?.data?.attributes?.status}`);
+
+            res.json({ received: true });
+
+        } catch (error) {
+            console.error('[Lemon Squeezy] Webhook error:', error);
+            res.status(400).json({ error: 'Webhook processing failed', details: error.message, stack: error.stack });
         }
-
-        res.json({ received: true });
-
-    } catch (error) {
-        console.error('[Lemon Squeezy] Webhook error:', error);
-        res.status(400).json({ error: 'Webhook processing failed', details: error.message, stack: error.stack });
-    }
-});
+    });
 
 // === STATIC FILES & SPA ROUTING ===
 
