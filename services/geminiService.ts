@@ -1,8 +1,9 @@
 import { VideoAnalysis, APIUsage, AnalysisResponse, CostEstimate, YouTubeVideoMetadata, TranscriptionLine } from '../types';
-import { extractYouTubeTranscript } from './youtubeTranscriptService';
 import { handleApiError } from './errorHandler';
 import { auth } from './firebase';
 import { calculateCost as calculateCostFromPricing, calculateCostInPoints } from './pricing';
+import { getStandardAnalysisPrompt } from './prompts/standardAnalysisPrompt';
+import { getDeepAnalysisPrompt } from './prompts/deepAnalysisPrompt';
 
 /**
  * Helper function to call our server-side Gemini API
@@ -56,187 +57,19 @@ const callGeminiAPI = async (payload: {
   return response.json();
 };
 
-const getDetailedAnalysisPrompt = (url: string, type: 'video' | 'news', transcript?: string) => {
-  return `Ти си елитен фактчекър, разследващ журналист и медиен аналитик с над 20 години опит. Твоята задача е да направиш ПРОФЕСИОНАЛЕН, КРИТИЧЕН и ОБЕКТИВЕН анализ на ${type === 'video' ? 'видео' : 'статия'}, който да разкрие всички скрити гледни точки, манипулации и факти.
-
-ТВОЯТА МИСИЯ: Разкрий истината. Намери всички манипулации. Провери всяко твърдение. Дай на потребителя ИЗКЛЮЧИТЕЛНА информация която да му помогне да разбере реалността.
-
-КРИТИЧНО ВАЖНО ЗА ИЗВЛЕЧВАНЕ НА ДАННИ:
-1. ТРЯБВА да извлечеш ВСИЧКИ важни твърдения - не само 5-10, а ВСИЧКИ значими твърдения (МИНИМУМ 30-40 за стандартно видео)
-2. ТРЯБВА да извлечеш ВСИЧКИ важни цитати - МИНИМУМ 40-50 значими цитати от всички участници, за да се обхване целият контекст
-3. ТРЯБВА да идентифицираш ВСИЧКИ манипулативни техники - МИНИМУМ 30-40 използвани техники с конкретни примери и детайлно обяснение
-4. ТРЯБВА да използваш РЕАЛНИ данни от видеото - НЕ измисляй факти
-5. За дълги видеа (над 30 минути): Търси МИНИМУМ 60-90 твърдения и 50-60 манипулации
-6. За видеа с гости: идентифицирай твърденията на ВСЕКИ участник отделно с реалните им имена
-7. ВСЯКО твърдение трябва да се проверява срещу надеждни източници и да се съпоставя в контекст
-8. Използвай логически анализ, фактически проверки и контекстуално разбиране
-
-ВАЖНО: Всички текстове (summaries, explanations, recommendations) трябва да са на БЪЛГАРСКИ език. Само JSON enum стойностите остават на английски.
-
-Извърши следните анализи:
-
-1. ФАКТИЧЕСКА ТОЧНОСТ:
-- Провери всяко твърдение срещу надеждни източници
-- Оцени достоверността на всеки факт (0.0-1.0)
-- Идентифицирай неверни или подвеждащи твърдения
-
-2. ЛОГИЧЕСКА СТРОЙНОСТ:
-- Провери за логически заблуди
-- Оцени качеството на аргументацията (0.0-1.0)
-- Идентифицирай слаби аргументи
-
-3. ЕМОЦИОНАЛНА ПРИСТРАСТНОСТ:
-- Анализирай емоционалния тон (0.0 = неутрален, 1.0 = силно емоционален)
-- Идентифицирай емоционално заредени думи
-- Оцени дали емоциите се използват за манипулация
-
-4. ПРОПАГАНДЕН ИНДЕКС:
-- Оцени дали съдържанието е пропагандно (0.0-1.0)
-- Идентифицирай пропагандистки техники
-- Провери за едностранчиво представяне на факти
-
-5. НАДЕЖДНОСТ НА ИЗТОЧНИКА:
-- Оцени надеждността на автора/канала (0.0-1.0)
-- Провери за минали случаи на дезинформация
-- Оцени експертността в темата
-
-6. СУБЕКТИВНОСТ/ОБЕКТИВНОСТ:
-- Оцени нивото на субективност (0.0 = обективен, 1.0 = субективен)
-- Оцени нивото на обективност (0.0-1.0)
-- Идентифицирай лични мнения vs факти
-
-7. BIAS ИНТЕНЗИТЕТ:
-- Оцени интензитета на bias (0.0-1.0)
-- Идентифицирай вида на bias (политически, културен, икономически и т.н.)
-
-8. НАРАТИВНА КОНСИСТЕНТНОСТ:
-- Провери дали разказът е последователен (0.0-1.0)
-- Идентифицирай противоречия
-- Оцени логическата последователност
-
-9. СЕМАНТИЧНА ПЛЪТНОСТ:
-- Оцени информационната плътност (0.0-1.0)
-- Провери за празни приказки vs конкретна информация
-
-10. КОНТЕКСТУАЛНА СТАБИЛНОСТ:
-- Оцени дали контекстът е стабилен (0.0-1.0)
-- Провери за изваждане на неща извън контекст
-
-11. ГЕОПОЛИТИЧЕСКИ КОНТЕКСТ:
-- Опиши геополитическия контекст на темата
-- Идентифицирай засегнати страни/региони
-- Оцени политическите импликации
-
-12. ИСТОРИЧЕСКА ПРЕЦЕДЕНТНОСТ:
-- Намери исторически паралели
-- Опиши подобни случаи от миналото
-- Оцени дали има исторически контекст
-
-13. ПСИХО-ЛИНГВИСТИЧЕН АНАЛИЗ:
-- Анализирай използваните езикови модели
-- Идентифицирай манипулативни езикови техники
-- Оцени въздействието върху аудиторията
-
-14. СТРАТЕГИЧЕСКО НАМЕРЕНИЕ:
-- Оцени какво е стратегическото намерение на автора
-- Идентифицирай скрити цели
-- Оцени дали има скрита агенда
-
-15. НАРАТИВНА АРХИТЕКТУРА:
-- Опиши структурата на разказа
-- Идентифицирай използваните наративни техники
-- Оцени как информацията е организирана
-
-16. ТЕХНИЧЕСКА ЕКСПЕРТИЗА (FORENSICS):
-- Анализирай техническите аспекти (ако има)
-- Провери за манипулации в данните/графиките
-- Оцени техническата точност
-
-17. СОЦИАЛНО ВЪЗДЕЙСТВИЕ:
-- Оцени потенциалното социално въздействие
-- Идентифицирай засегнатите групи
-- Предложи прогноза за разпространение
-
-${transcript ? `\n\n=== ТРАНСКРИПЦИЯ (ИЗПОЛЗВАЙ Я КАТО ОСНОВЕН ИЗТОЧНИК) ===\n${transcript}\n\nВАЖНО: Всички твърдения, цитати и манипулации ТРЯБВА да са базирани на тази транскрипция. НЕ измисляй факти които не са в транскрипцията!` : ''}
-
-Върни резултата като JSON в следния формат:
-{
-  "summary": "Изключително детайлно резюме на български (минимум 5-7 изречения) което обхваща всички ключови моменти, твърдения, манипулации и заключения",
-  "overallAssessment": "ACCURATE" | "MOSTLY_ACCURATE" | "MIXED" | "MISLEADING" | "FALSE",
-  "factualClaims": [
-    {
-      "claim": "ПЪЛНОТО твърдение като е изказано (не скъсвай, включи целия контекст)",
-      "verdict": "TRUE" | "MOSTLY_TRUE" | "MIXED" | "MOSTLY_FALSE" | "FALSE" | "UNVERIFIABLE",
-      "evidence": "Детайлно доказателство или опровержение с фактически данни, статистики, исторически факти, сравнения с други източници. Използвай конкретни примери и реални данни.",
-      "sources": ["URL на надежден източник за проверка"],
-      "confidence": 0.0,
-      "speaker": "РЕАЛНОТО име на говорителя (ако е споменато в видеото, иначе 'Speaker 1', 'Speaker 2' и т.н.)",
-      "timestamp": "Точен timestamp от видеото",
-      "context": "Пълен контекст около твърдението - какво е казано преди и след него, как се вписва в общия разговор",
-      "logicalAnalysis": "Детайлен логически анализ - има ли логически заблуди, каква е структурата на аргументацията, дали е последователно",
-      "factualVerification": "Как се проверява това твърдение срещу реални източници, статистики, исторически факти, общо мнение на експерти",
-      "comparison": "Сравнение с други източници или мнения - какво казват други експерти/източници по същата тема"
-    }
-  ],
-  "quotes": [
-    {
-      "quote": "ПЪЛЕН цитат от транскрипцията (не скъсвай, включи целия контекст на изречението)",
-      "speaker": "РЕАЛНОТО име на говорителя (ако е споменато, иначе 'Speaker 1', 'Speaker 2' и т.н.)",
-      "timestamp": "Точен timestamp от видеото",
-      "context": "Пълен контекст - какво е казано преди и след цитата, как се вписва в разговора",
-      "importance": "high" | "medium" | "low",
-      "analysis": "Анализ на цитата - какво означава, какви са импликациите, дали е манипулативен"
-    }
-  ],
-  "biasIndicators": {
-    "politicalBias": "LEFT" | "CENTER_LEFT" | "CENTER" | "CENTER_RIGHT" | "RIGHT" | "UNCLEAR",
-    "emotionalLanguage": "Примери на емоционално зареден език на български",
-    "selectiveReporting": "Доказателства за cherry-picking на факти на български"
-  },
-  "manipulationTechniques": [
-    {
-      "technique": "Име на техниката на български (напр. 'Емоционална манипулация', 'Cherry-picking', 'Ad hominem', 'Ложна дилема', 'Изваждане извън контекст', 'Статистическа манипулация', 'Емоционално зареждане', 'Страх и паника', 'Създаване на враг', 'Обезличаване', 'Евфемизми/дисфемизми', 'Повторение', 'Ложна авторитетност', 'Логически заблуди', 'Газиране', 'Мисловни трикове', 'Емоционално шантажиране')",
-      "description": "Детайлно описание как точно се използва на български с конкретни примери от видеото. Обясни механизма на манипулацията.",
-      "timestamp": "Точен timestamp от видеото",
-      "severity": 0.0,
-      "example": "ПЪЛЕН цитат/пример от видеото който демонстрира техниката",
-      "speaker": "РЕАЛНОТО име на този който го използва",
-      "impact": "Какво е въздействието върху аудиторията - как манипулира мисленето",
-      "counterArgument": "Как може да се противодейства на тази манипулация - какво трябва да знае публиката"
-    }
-  ],
-  "detailedMetrics": {
-    "factualAccuracy": 0.0,
-    "logicalSoundness": 0.0,
-    "emotionalBias": 0.0,
-    "propagandaScore": 0.0,
-    "sourceReliability": 0.0,
-    "subjectivityScore": 0.0,
-    "objectivityScore": 0.0,
-    "biasIntensity": 0.0,
-    "narrativeConsistencyScore": 0.0,
-    "semanticDensity": 0.0,
-    "contextualStability": 0.0
-  },
-  "geopoliticalContext": "Изключително детайлен анализ на геополитическия контекст на български. Сравни събитията/твърденията с реални геополитически ситуации, исторически прецеденти, икономически данни. Дай уникални фактически сравнения.",
-  "historicalParallel": "Исторически паралели и контекст на български. Намери конкретни исторически събития които са подобни, сравни с миналото, покажи какво можем да научим от историята.",
-  "psychoLinguisticAnalysis": "Психолингвистичен анализ на български. Анализирай езика, думите, тоналността, как се влияе върху аудиторията, какви са скритите послания.",
-  "strategicIntent": "Анализ на стратегическото намерение на български. Какво наистина се опитва да се постигне? Какви са скритите цели? Кой печели от това съдържание?",
-  "narrativeArchitecture": "Анализ на наративната архитектура на български. Как е структуриран разказът? Каква е последователността? Как се изгражда наративът? Какви техники се използват?",
-  "technicalForensics": "Техническа експертиза на български. Провери данните, статистиките, графиките за манипулации. Анализирай техническата точност на твърденията.",
-  "socialImpactPrediction": "Прогноза за социално въздействие на български. Как това съдържание може да повлияе на обществото? Кои групи са засегнати? Какви са рисковете?",
-  "recommendations": "Препоръки за потребителите на български. Как да се защитят от манипулациите? Какво трябва да знаят? Как да проверят информацията?",
-  "finalInvestigativeReport": "ИЗКЛЮЧИТЕЛНО ДЕТАЙЛЕН ФИНАЛЕН РАЗСЛЕДВАЩ ДОКЛАД на български. Това трябва да е произведение на висша журналистика - критичен, обективен, базиран на факти. Включи: уникални фактически сравнения, разкриване на всички скрити гледни точки, анализ на всички манипулации, проверка на всички твърдения, контекстуални съпоставки, логически анализ, фактически проверки. Докладът трябва да бъде толкова добър че потребителят да каже 'WOW - това е нещо велико'. МИНИМУМ 50-60 параграфа с изключително детайлен и дълбок анализ."
-}`;
+/**
+ * Get the appropriate prompt based on model
+ * gemini-2.5-flash = standard analysis
+ * gemini-3-flash-preview = deep analysis
+ */
+const getAnalysisPrompt = (url: string, type: 'video' | 'news', model: string, transcript?: string): string => {
+  // Deep mode uses gemini-3-flash-preview with more detailed requirements
+  if (model === 'gemini-3-flash-preview') {
+    return getDeepAnalysisPrompt(url, type, transcript);
+  }
+  // Standard mode uses gemini-2.5-flash with moderate detail
+  return getStandardAnalysisPrompt(url, type, transcript);
 };
-
-// Keep old function for backward compatibility, but use new detailed one
-const getAnalysisPrompt = (url: string, type: 'video' | 'news', transcript?: string) => {
-  return getDetailedAnalysisPrompt(url, type, transcript);
-};
-
-// Import unified pricing - already imported at top
-// import { calculateCost as calculateCostFromPricing } from './pricing';
 
 /**
  * Clean JSON response from markdown code blocks and fix common issues
@@ -346,6 +179,7 @@ const cleanJsonResponse = (text: string): string => {
  */
 const transformGeminiResponse = (
   rawResponse: any,
+  model: string,
   videoTitle?: string,
   videoAuthor?: string,
   fullMetadata?: YouTubeVideoMetadata,
@@ -543,41 +377,37 @@ ${metadataSection}
       socialImpactPrediction: rawResponse?.socialImpactPrediction || rawResponse?.recommendations || 'Няма данни',
       sourceNetworkAnalysis: 'Няма данни',
       dataPointsProcessed: (claims?.length || 0) * 10
-    }
+    },
+    pointsCost: 0, // Will be set by caller
+    analysisMode: model.includes('2.5') ? 'standard' : 'deep',
+
+    // Multimodal analysis fields (deep analysis only)
+    visualAnalysis: rawResponse?.visualAnalysis,
+    bodyLanguageAnalysis: rawResponse?.bodyLanguageAnalysis,
+    vocalAnalysis: rawResponse?.vocalAnalysis,
+    deceptionAnalysis: rawResponse?.deceptionAnalysis,
+    humorAnalysis: rawResponse?.humorAnalysis,
+    psychologicalProfile: rawResponse?.psychologicalProfile,
+    culturalSymbolicAnalysis: rawResponse?.culturalSymbolicAnalysis
   };
 };
 
 export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTubeVideoMetadata, model: string = 'gemini-3-flash-preview'): Promise<AnalysisResponse> => {
   try {
-    // 1. Try to extract transcript FIRST (fastest method)
-    // If we have a transcript, we can skip the heavy video processing
-    let transcription: TranscriptionLine[] = [];
-    let transcriptText = '';
+    // Strategy: Single API call - Gemini analyzes video AND extracts transcript in one go
+    // No separate transcript extraction - everything happens in one request
 
-    try {
-      transcription = await extractYouTubeTranscript(url);
-      if (transcription.length > 0) {
-        transcriptText = transcription.map(t => `[${t.timestamp}] ${t.speaker}: ${t.text}`).join('\n');
-      }
-    } catch (transcriptError: any) {
-    }
+    const prompt = getAnalysisPrompt(url, 'video', model) + (videoMetadata ? `\n\nVideo Context: Title: "${videoMetadata.title}", Author: "${videoMetadata.author}", Duration: ${videoMetadata.durationFormatted}.` : '');
 
-    // 2. Prepare API payload based on transcript availability
-    // Strategy: Text-First (Fast) vs Video-First (Slow fallback)
-
-    const prompt = getAnalysisPrompt(url, 'video', transcriptText) + (videoMetadata ? `\n\nVideo Context: Title: "${videoMetadata.title}", Author: "${videoMetadata.author}", Duration: ${videoMetadata.durationFormatted}.` : '');
-
-    // If we have transcript text, we DO NOT send videoUrl to avoiding triggering the slow video processing path
-    // We only send videoUrl if we failed to get text
+    // ALWAYS send videoUrl - Gemini will process video and return everything including transcript
     const payload = {
       model: model,
       prompt: prompt,
-      systemInstruction: "You are an ELITE fact-checker and investigative journalist with 20+ years of experience. Your mission is to create an EXCEPTIONAL, CRITICAL, and OBJECTIVE analysis that reveals all hidden viewpoints, manipulations, and facts. CRITICAL INSTRUCTIONS: 1) Extract ALL important claims, quotes, and manipulations from the provided text. 2) Output all text in BULGARIAN. 3) Keep JSON Enum values in English. 4) Create a FINAL INVESTIGATIVE REPORT that is a masterpiece of journalism.",
-      // Only send videoUrl if we DON'T have a transcript
-      videoUrl: transcriptText ? undefined : url
+      systemInstruction: "You are an ELITE fact-checker and investigative journalist with 20+ years of experience. Your mission is to create an EXCEPTIONAL, CRITICAL, and OBJECTIVE analysis that reveals all hidden viewpoints, manipulations, and facts. CRITICAL INSTRUCTIONS: 1) Extract ALL important claims, quotes, and manipulations from the video. 2) Extract FULL transcription from the video with timestamps. 3) Output all text in BULGARIAN. 4) Keep JSON Enum values in English. 5) Create a FINAL INVESTIGATIVE REPORT that is a masterpiece of journalism.",
+      videoUrl: url // ← KEY: Always send video for single API call
     };
 
-    // 3. Call Gemini API
+    // 3. Call Gemini API (single call does everything)
     const data = await callGeminiAPI(payload);
 
     // Validate response before parsing
@@ -599,7 +429,16 @@ export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTub
       throw new Error('Gemini API върна невалиден JSON формат. Моля, опитайте отново.');
     }
 
-    const parsed = transformGeminiResponse(rawResponse, videoMetadata?.title, videoMetadata?.author, videoMetadata, transcription.length > 0 ? transcription : undefined);
+    // Extract transcription from Gemini's response
+    const transcription = rawResponse.transcription && Array.isArray(rawResponse.transcription) && rawResponse.transcription.length > 0
+      ? rawResponse.transcription
+      : [{
+        timestamp: '00:00',
+        speaker: 'Система',
+        text: 'Транскрипцията не беше налична за това видео.'
+      }];
+
+    const parsed = transformGeminiResponse(rawResponse, model, videoMetadata?.title, videoMetadata?.author, videoMetadata, transcription);
 
     const usage: APIUsage = {
       promptTokens: data.usageMetadata?.promptTokenCount || 0,
@@ -619,6 +458,7 @@ export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTub
       )
     };
 
+    parsed.pointsCost = usage.pointsCost;
     return { analysis: parsed, usage };
   } catch (e: any) {
     const appError = handleApiError(e);
@@ -632,27 +472,14 @@ export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTub
  */
 export const analyzeYouTubeBatch = async (url: string): Promise<AnalysisResponse> => {
   try {
-    // 1. Try to extract transcript FIRST (fastest method)
-    let transcription: TranscriptionLine[] = [];
-    let transcriptText = '';
-
-    try {
-      transcription = await extractYouTubeTranscript(url);
-      if (transcription.length > 0) {
-        transcriptText = transcription.map(t => `[${t.timestamp}] ${t.speaker}: ${t.text}`).join('\n');
-      }
-    } catch (transcriptError: any) {
-    }
-
-    // 2. Prepare API payload based on transcript availability
-    const prompt = getAnalysisPrompt(url, 'video', transcriptText);
+    // Single API call - same as standard, just with batch flag
+    const prompt = getAnalysisPrompt(url, 'video', 'gemini-3-flash-preview');
 
     const payload = {
       model: 'gemini-3-flash-preview',
       prompt: prompt,
-      systemInstruction: "You are an ELITE fact-checker. Output valid JSON only.",
-      // Only send videoUrl if we DON'T have a transcript
-      videoUrl: transcriptText ? undefined : url,
+      systemInstruction: "You are an ELITE fact-checker. Extract FULL transcription from video with timestamps. Output valid JSON only in Bulgarian.",
+      videoUrl: url, // Always send video
       isBatch: true
     };
 
@@ -677,7 +504,16 @@ export const analyzeYouTubeBatch = async (url: string): Promise<AnalysisResponse
       throw new Error('Gemini API върна невалиден JSON формат.');
     }
 
-    const parsed = transformGeminiResponse(rawResponse, undefined, undefined, undefined, transcription.length > 0 ? transcription : undefined);
+    // Extract transcription from response
+    const transcription = rawResponse.transcription && Array.isArray(rawResponse.transcription) && rawResponse.transcription.length > 0
+      ? rawResponse.transcription
+      : [{
+        timestamp: '00:00',
+        speaker: 'Система',
+        text: 'Транскрипцията не беше налична.'
+      }];
+
+    const parsed = transformGeminiResponse(rawResponse, 'gemini-3-flash-preview', undefined, undefined, undefined, transcription);
 
     const usage: APIUsage = {
       promptTokens: data.usageMetadata?.promptTokenCount || 0,
@@ -697,6 +533,7 @@ export const analyzeYouTubeBatch = async (url: string): Promise<AnalysisResponse
       )
     };
 
+    parsed.pointsCost = usage.pointsCost;
     return { analysis: parsed, usage };
   } catch (e: any) {
     const appError = handleApiError(e);
@@ -711,7 +548,7 @@ export const analyzeNewsLink = async (url: string): Promise<AnalysisResponse> =>
   try {
     const data = await callGeminiAPI({
       model: 'gemini-3-flash-preview',
-      prompt: getAnalysisPrompt(url, 'news') + `\n\nNews URL: ${url}`,
+      prompt: getAnalysisPrompt(url, 'news', 'gemini-3-flash-preview') + `\n\nNews URL: ${url}`,
       systemInstruction: 'You are a professional fact-checker. You MUST answer in Bulgarian language only. Translate any analysis to Bulgarian.'
     });
 
@@ -734,7 +571,7 @@ export const analyzeNewsLink = async (url: string): Promise<AnalysisResponse> =>
       console.error('Cleaned text (first 500 chars):', cleanedText.substring(0, 500));
       throw new Error('Gemini API върна невалиден JSON формат. Моля, опитайте отново.');
     }
-    const parsed = transformGeminiResponse(rawResponse);
+    const parsed = transformGeminiResponse(rawResponse, 'gemini-3-flash-preview');
 
     const usage: APIUsage = {
       promptTokens: data.usageMetadata?.promptTokenCount || 0,
@@ -754,6 +591,7 @@ export const analyzeNewsLink = async (url: string): Promise<AnalysisResponse> =>
       )
     };
 
+    parsed.pointsCost = usage.pointsCost;
     return { analysis: parsed, usage };
   } catch (e: any) {
     const appError = handleApiError(e);

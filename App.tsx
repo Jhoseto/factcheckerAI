@@ -70,7 +70,7 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<VideoAnalysis | null>(null);
   const [usageData, setUsageData] = useState<APIUsage | null>(null);
-  const [activeTab, setActiveTab] = useState<'summary' | 'claims' | 'manipulation' | 'transcript' | 'report'>('summary');
+  const [activeTab, setActiveTab] = useState<'summary' | 'claims' | 'manipulation' | 'transcript' | 'report' | 'visual' | 'bodyLanguage' | 'vocal' | 'deception' | 'humor' | 'psychological' | 'cultural'>('summary');
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [newsUrl, setNewsUrl] = useState('');
   const [isExporting, setIsExporting] = useState(false);
@@ -538,33 +538,63 @@ const App: React.FC = () => {
               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">КЛАСИФИКАЦИЯ</p>
               <span className="text-slate-900 font-black text-sm md:text-base block leading-tight uppercase tracking-tighter serif italic">{analysis.summary.finalClassification}</span>
             </div>
-            <div className="p-3 bg-slate-100 rounded-sm">
-              <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Data Points</p>
-              <p className="text-lg font-black text-slate-900">{(analysis.summary?.dataPointsProcessed ?? 0).toLocaleString()}</p>
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-sm">
+              <p className="text-[7px] font-black text-emerald-700 uppercase tracking-widest mb-0.5">Цена на анализа</p>
+              <p className="text-lg font-black text-emerald-900">{(analysis.pointsCost ?? 0).toLocaleString()} точки</p>
             </div>
           </aside>
 
           <main className="lg:col-span-9 space-y-6">
             <nav className="flex overflow-x-auto gap-8 border-b border-slate-200 sticky top-0 bg-[#f9f9f9]/95 backdrop-blur-md z-40 py-3 print:hidden no-scrollbar">
-              {(['summary', 'claims', 'manipulation', 'transcript', 'report'] as const).map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`text-[9px] md:text-[10px] font-black uppercase tracking-[0.15em] whitespace-nowrap pb-1 relative transition-all ${activeTab === tab ? 'text-amber-900' : 'text-slate-400 hover:text-slate-900'}`}
-                >
-                  {{ summary: 'Резюме', claims: 'Твърдения', manipulation: 'Манипулация', transcript: 'Транскрипт', report: 'Финален Доклад' }[tab]}
-                  {activeTab === tab && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-900"></div>}
-                </button>
-              ))}
+              {(() => {
+                const baseTabs = [
+                  { id: 'summary', label: 'Резюме' },
+                  { id: 'claims', label: `Твърдения ${analysis.analysisMode === 'deep' ? `(${analysis.claims.length}/50+)` : ''}` },
+                  { id: 'manipulation', label: `Манипулация ${analysis.analysisMode === 'deep' ? `(${analysis.manipulations.length}/50+)` : ''}` },
+                  { id: 'transcript', label: 'Транскрипт' }
+                ];
+
+                const deepTabs = analysis.analysisMode === 'deep' ? [
+                  { id: 'visual', label: '🎥 Визуален' },
+                  { id: 'bodyLanguage', label: '🙋 Тяло' },
+                  { id: 'vocal', label: '🎤 Вокал' },
+                  { id: 'deception', label: '🔍 Измама' },
+                  { id: 'humor', label: '😄 Хумор' },
+                  { id: 'psychological', label: '🧠 Психо' },
+                  { id: 'cultural', label: '🏛️ Културен' }
+                ] : [];
+
+                const finalTabs = [...baseTabs, ...deepTabs, { id: 'report', label: 'Финален Доклад' }];
+
+                return finalTabs.map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={`text-[9px] md:text-[10px] font-black uppercase tracking-[0.15em] whitespace-nowrap pb-1 relative transition-all ${activeTab === tab.id ? (analysis.analysisMode === 'deep' ? 'text-indigo-600' : 'text-amber-900') : 'text-slate-400 hover:text-slate-900'}`}
+                  >
+                    {tab.label}
+                    {activeTab === tab.id && (
+                      <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${analysis.analysisMode === 'deep' ? 'bg-indigo-600' : 'bg-amber-900'}`}></div>
+                    )}
+                  </button>
+                ));
+              })()}
             </nav>
 
             <section className="min-h-[400px]">
               {activeTab === 'summary' && (
                 <div className="space-y-10 animate-fadeIn">
                   <div className="editorial-card p-6 md:p-8 border-l-4 border-l-slate-900 space-y-4">
-                    <div className="space-y-1">
-                      <p className="text-[8px] font-black text-amber-900 uppercase tracking-widest">ОБЕКТ:</p>
-                      <h2 className="text-xl md:text-3xl font-black text-slate-900 uppercase tracking-tight serif italic leading-tight">{analysis.videoTitle}</h2>
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-1">
+                        <p className="text-[8px] font-black text-amber-900 uppercase tracking-widest">ОБЕКТ:</p>
+                        <h2 className="text-xl md:text-3xl font-black text-slate-900 uppercase tracking-tight serif italic leading-tight">{analysis.videoTitle}</h2>
+                      </div>
+                      {analysis.analysisMode === 'deep' && (
+                        <div className="px-3 py-1 bg-indigo-600 text-white text-[8px] font-black uppercase tracking-[0.2em] rounded-sm shadow-md animate-pulse">
+                          Deep Analysis Mode
+                        </div>
+                      )}
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-slate-100">
                       <div><p className="text-[8px] font-black text-slate-400 uppercase mb-0.5">Източник</p><p className="text-xs font-black text-slate-900 uppercase truncate">{analysis.videoAuthor}</p></div>
@@ -583,6 +613,11 @@ const App: React.FC = () => {
 
               {activeTab === 'claims' && (
                 <div className="space-y-6 animate-fadeIn">
+                  {analysis.analysisMode === 'deep' && analysis.claims.length < 50 && (
+                    <div className="p-4 bg-red-50 border-l-4 border-red-500 text-red-700 text-xs font-bold uppercase tracking-widest">
+                      ⚠️ Внимание: Броят на извлечените твърдения ({analysis.claims.length}) е под изисквания минимум за Дълбок Анализ (50+).
+                    </div>
+                  )}
                   {analysis.claims.map((claim, idx) => (
                     <div key={idx} className="editorial-card p-6 md:p-8 space-y-6 border-t-2 border-t-slate-800">
                       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-4">
@@ -603,6 +638,11 @@ const App: React.FC = () => {
                 <div className="space-y-8 animate-fadeIn">
                   <div className="border-b border-slate-900 pb-4 mb-6">
                     <h3 className="text-lg md:text-xl font-black uppercase serif italic mb-2">Деконструкция на Манипулациите</h3>
+                    {analysis.analysisMode === 'deep' && analysis.manipulations.length < 50 && (
+                      <div className="mb-4 p-3 bg-red-50 border-l-4 border-red-500 text-red-700 text-[10px] font-bold uppercase tracking-widest">
+                        ⚠️ Внимание: Броят на идентифицираните манипулации ({analysis.manipulations.length}) е под изисквания минимум за Дълбок Анализ (50+).
+                      </div>
+                    )}
                     <p className="text-xs text-slate-600 italic">Всички идентифицирани манипулативни техники с конкретни примери от видеото и анализ на въздействието им.</p>
                   </div>
                   <div className="grid grid-cols-1 gap-6">
@@ -677,6 +717,42 @@ const App: React.FC = () => {
                 </div>
               )}
 
+              {activeTab === 'visual' && (
+                <div className="space-y-6 animate-fadeIn">
+                  <MultimodalSection title="🎥 Визуален Анализ" content={analysis.visualAnalysis} color="indigo" />
+                </div>
+              )}
+              {activeTab === 'bodyLanguage' && (
+                <div className="space-y-6 animate-fadeIn">
+                  <MultimodalSection title="🙋 Език на тялото & Невербална комуникация" content={analysis.bodyLanguageAnalysis} color="indigo" />
+                </div>
+              )}
+              {activeTab === 'vocal' && (
+                <div className="space-y-6 animate-fadeIn">
+                  <MultimodalSection title="🎤 Вокален & Паралингвистичен анализ" content={analysis.vocalAnalysis} color="indigo" />
+                </div>
+              )}
+              {activeTab === 'deception' && (
+                <div className="space-y-6 animate-fadeIn">
+                  <MultimodalSection title="🔍 Анализ на Честност & Измама" content={analysis.deceptionAnalysis} color="indigo" />
+                </div>
+              )}
+              {activeTab === 'humor' && (
+                <div className="space-y-6 animate-fadeIn">
+                  <MultimodalSection title="😄 Анализ на Хумор & Сатира" content={analysis.humorAnalysis} color="indigo" />
+                </div>
+              )}
+              {activeTab === 'psychological' && (
+                <div className="space-y-6 animate-fadeIn">
+                  <MultimodalSection title="🧠 Психологически Профил на участниците" content={analysis.psychologicalProfile} color="indigo" />
+                </div>
+              )}
+              {activeTab === 'cultural' && (
+                <div className="space-y-6 animate-fadeIn">
+                  <MultimodalSection title="🏛️ Културен & Символен анализ" content={analysis.culturalSymbolicAnalysis} color="indigo" />
+                </div>
+              )}
+
               {activeTab === 'report' && (
                 <div className="space-y-6 animate-fadeIn">
                   <div className="p-6 bg-slate-900 text-white flex justify-between items-center rounded-sm">
@@ -715,6 +791,23 @@ const App: React.FC = () => {
         .animate-shake { animation: shake 0.4s ease-in-out; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
       `}</style>
+    </div>
+  );
+};
+
+const MultimodalSection: React.FC<{ title: string, content?: string, color: string }> = ({ title, content, color }) => {
+  if (!content || content === 'Няма данни') return null;
+
+  return (
+    <div className={`editorial-card p-6 md:p-10 border-t-2 border-t-${color}-600 bg-white animate-fadeIn`}>
+      <div className="mb-6 pb-4 border-b border-slate-200">
+        <h3 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tight serif italic">{title}</h3>
+      </div>
+      <div className="prose prose-slate max-w-none">
+        <div className="text-slate-800 text-sm md:text-base leading-relaxed whitespace-pre-wrap serif">
+          {content}
+        </div>
+      </div>
     </div>
   );
 };
@@ -813,6 +906,40 @@ const ReportView: React.FC<{ analysis: VideoAnalysis, reportRef?: React.RefObjec
               {analysis.summary.historicalParallel}
             </div>
           </section>
+
+          {analysis.analysisMode === 'deep' && (
+            <>
+              <section className="bg-indigo-50/20 p-8 border border-indigo-100">
+                <h4 className="text-[9px] font-black text-indigo-900 uppercase tracking-[0.4em] mb-4">VIII. МУЛТИМОДАЛЕН & ПСИХОЛОГИЧЕСКИ ОДИТ</h4>
+                <div className="grid grid-cols-1 gap-8 text-xs md:text-sm leading-relaxed">
+                  {analysis.visualAnalysis && (
+                    <div>
+                      <h5 className="font-black uppercase text-indigo-900 mb-2">Визуален Анализ:</h5>
+                      <p className="whitespace-pre-wrap serif">{analysis.visualAnalysis}</p>
+                    </div>
+                  )}
+                  {analysis.bodyLanguageAnalysis && (
+                    <div>
+                      <h5 className="font-black uppercase text-indigo-900 mb-2">Език на тялото:</h5>
+                      <p className="whitespace-pre-wrap serif">{analysis.bodyLanguageAnalysis}</p>
+                    </div>
+                  )}
+                  {analysis.deceptionAnalysis && (
+                    <div>
+                      <h5 className="font-black uppercase text-indigo-900 mb-2">Детекция на Измама:</h5>
+                      <p className="whitespace-pre-wrap serif">{analysis.deceptionAnalysis}</p>
+                    </div>
+                  )}
+                  {analysis.psychologicalProfile && (
+                    <div>
+                      <h5 className="font-black uppercase text-indigo-900 mb-2">Психологически Профил:</h5>
+                      <p className="whitespace-pre-wrap serif">{analysis.psychologicalProfile}</p>
+                    </div>
+                  )}
+                </div>
+              </section>
+            </>
+          )}
         </div>
 
         <aside className="md:col-span-4 space-y-8">

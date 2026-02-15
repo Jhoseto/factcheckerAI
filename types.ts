@@ -87,6 +87,17 @@ export interface VideoAnalysis {
   fallacies: Fallacy[];
   timeline: TimelinePoint[];
   summary: AnalysisSummary;
+  pointsCost: number;
+  analysisMode?: AnalysisMode; // 'standard' or 'deep'
+
+  // Multimodal analysis fields (deep analysis only)
+  visualAnalysis?: string;
+  bodyLanguageAnalysis?: string;
+  vocalAnalysis?: string;
+  deceptionAnalysis?: string;
+  humorAnalysis?: string;
+  psychologicalProfile?: string;
+  culturalSymbolicAnalysis?: string;
 }
 
 export interface APIUsage {
