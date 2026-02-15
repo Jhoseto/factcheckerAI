@@ -453,54 +453,59 @@ const App: React.FC = () => {
 
               {/* New 2-Tier Modern Selector */}
               {costEstimates && (
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Standard Option */}
-                  <div
-                    onClick={() => !loading && setAnalysisMode('standard')}
-                    className={`cursor-pointer p-4 rounded-sm border-2 transition-all group relative ${analysisMode === 'standard' ? 'border-amber-900 bg-amber-50/50' : 'border-slate-200 bg-white hover:border-amber-900/30'}`}
-                  >
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className={`p-2 rounded-full ${analysisMode === 'standard' ? 'bg-amber-900 text-white' : 'bg-slate-100 text-slate-400 group-hover:bg-amber-900/10 group-hover:text-amber-900'}`}>
-                        {/* Modern Lightning Bolt Icon */}
-                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                        </svg>
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Standard Option */}
+                    <div
+                      onClick={() => !loading && setAnalysisMode('standard')}
+                      className={`cursor-pointer p-4 rounded-sm border-2 transition-all group relative ${analysisMode === 'standard' ? 'border-amber-900 bg-amber-50/50' : 'border-slate-200 bg-white hover:border-amber-900/30'}`}
+                    >
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className={`p-2 rounded-full ${analysisMode === 'standard' ? 'bg-amber-900 text-white' : 'bg-slate-100 text-slate-400 group-hover:bg-amber-900/10 group-hover:text-amber-900'}`}>
+                          {/* Modern Lightning Bolt Icon */}
+                          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className={`text-[10px] font-black uppercase tracking-widest ${analysisMode === 'standard' ? 'text-amber-900' : 'text-slate-500'}`}>Стандартен</p>
+                          <p className="text-[14px] font-black text-slate-900">{costEstimates.standard.pointsCost} точки</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className={`text-[10px] font-black uppercase tracking-widest ${analysisMode === 'standard' ? 'text-amber-900' : 'text-slate-500'}`}>Стандартен</p>
-                        <p className="text-[14px] font-black text-slate-900">{costEstimates.standard.pointsCost} точки</p>
-                      </div>
+                      {analysisMode === 'standard' && (
+                        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-amber-900 animate-pulse"></div>
+                      )}
                     </div>
-                    {analysisMode === 'standard' && (
-                      <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-amber-900 animate-pulse"></div>
-                    )}
-                  </div>
 
-                  {/* Deep Option */}
-                  <div
-                    onClick={() => !loading && setAnalysisMode('deep')}
-                    className={`cursor-pointer p-4 rounded-sm border-2 transition-all group relative ${analysisMode === 'deep' ? 'border-slate-900 bg-slate-50' : 'border-slate-200 bg-white hover:border-slate-900/30'}`}
-                  >
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className={`p-2 rounded-full ${analysisMode === 'deep' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-400 group-hover:bg-slate-900/10 group-hover:text-slate-900'}`}>
-                        {/* Modern Brain/Deep Icon */}
-                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5" />
-                          <path d="M8.5 8.5v.01" />
-                          <path d="M16 16v.01" />
-                          <path d="M12 12v.01" />
-                        </svg>
+                    {/* Deep Option */}
+                    <div
+                      onClick={() => !loading && setAnalysisMode('deep')}
+                      className={`cursor-pointer p-4 rounded-sm border-2 transition-all group relative ${analysisMode === 'deep' ? 'border-slate-900 bg-slate-50' : 'border-slate-200 bg-white hover:border-slate-900/30'}`}
+                    >
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className={`p-2 rounded-full ${analysisMode === 'deep' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-400 group-hover:bg-slate-900/10 group-hover:text-slate-900'}`}>
+                          {/* Modern Brain/Deep Icon */}
+                          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5" />
+                            <path d="M8.5 8.5v.01" />
+                            <path d="M16 16v.01" />
+                            <path d="M12 12v.01" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className={`text-[10px] font-black uppercase tracking-widest ${analysisMode === 'deep' ? 'text-slate-900' : 'text-slate-500'}`}>Задълбочен</p>
+                          <p className="text-[14px] font-black text-slate-900">{costEstimates.deep.pointsCost} точки</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className={`text-[10px] font-black uppercase tracking-widest ${analysisMode === 'deep' ? 'text-slate-900' : 'text-slate-500'}`}>Задълбочен</p>
-                        <p className="text-[14px] font-black text-slate-900">{costEstimates.deep.pointsCost} точки</p>
-                      </div>
+                      {analysisMode === 'deep' && (
+                        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-slate-900 animate-pulse"></div>
+                      )}
                     </div>
-                    {analysisMode === 'deep' && (
-                      <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-slate-900 animate-pulse"></div>
-                    )}
                   </div>
-                </div>
+                  <p className="text-[10px] text-slate-500 italic mt-2 text-center opacity-80">
+                    *Посочените точки са приблизителни спрямо дължината на видеото.
+                  </p>
+                </>
               )}
 
               <button
