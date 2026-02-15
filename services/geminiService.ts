@@ -423,7 +423,9 @@ export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTub
       model: model,
       prompt: prompt,
       systemInstruction: "You are an ELITE fact-checker and investigative journalist with 20+ years of experience. Your mission is to create an EXCEPTIONAL, CRITICAL, and OBJECTIVE analysis that reveals all hidden viewpoints, manipulations, and facts. CRITICAL INSTRUCTIONS: 1) Extract ALL important claims, quotes, and manipulations from the video. 2) Extract FULL transcription from the video with timestamps. 3) Output all text in BULGARIAN. 4) Keep JSON Enum values in English. 5) Create a FINAL INVESTIGATIVE REPORT that is a masterpiece of journalism.",
-      videoUrl: url // ← KEY: Always send video for single API call
+      videoUrl: url, // ← KEY: Always send video for single API call
+      mode: mode, // ← Send mode to activate Deep analysis features
+      enableGoogleSearch: mode === 'deep' // ← Explicit Google Search activation for deep mode
     };
 
     // 3. Call Gemini API (single call does everything)

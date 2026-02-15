@@ -76,7 +76,7 @@ app.post('/api/gemini/generate', async (req, res) => {
         }
 
         // 3. Perform Generation
-        const { model, prompt, systemInstruction, videoUrl, isBatch, enableGoogleSearch } = req.body;
+        const { model, prompt, systemInstruction, videoUrl, isBatch, enableGoogleSearch, mode } = req.body;
 
         const ai = new GoogleGenAI({ apiKey });
 
@@ -85,11 +85,14 @@ app.post('/api/gemini/generate', async (req, res) => {
             maxOutputTokens: 50000
         };
 
+        // Check if Deep Mode is requested (either via mode parameter or enableGoogleSearch flag)
+        const isDeepMode = mode === 'deep';
+
         // IF using Google Search (Deep Mode), we CANNOT enforce JSON MIME type.
         // IF NOT using Google Search (Standard Mode), we CAN enforce JSON MIME type for stability.
-        if (enableGoogleSearch) {
+        if (isDeepMode || enableGoogleSearch) {
             config.tools = [{ googleSearch: {} }];
-            // config.responseMimeType = 'application/json'; // REMOVED to avoid 400 ERROR
+            // Do NOT set responseMimeType when using tools (it causes 400 error)
         } else {
             config.responseMimeType = 'application/json';
         }
@@ -102,14 +105,20 @@ app.post('/api/gemini/generate', async (req, res) => {
             config: config
         };
 
-        // REVERT to Text-Based Analysis for YouTube URLs.
-        // Direct fileData with YouTube URL causes 'fetch failed' in Node SDK.
-        // The "perfect" analysis experienced before was likely based on the transcript in the prompt.
+        // YOUTUBE VIDEO ANALYSIS WITH CORRECT FILE DATA STRUCTURE
+        // YouTube URLs must be passed as fileData parts, NOT as text in the prompt
+        // This ensures Gemini actually processes the video content instead of hallucinating
         if (videoUrl) {
-            const finalPrompt = `ANALYZING VIDEO: ${videoUrl}\n\n${prompt}`;
             requestPayload.contents = [{
                 role: 'user',
-                parts: [{ text: finalPrompt }]
+                parts: [
+                    {
+                        fileData: {
+                            fileUri: videoUrl
+                        }
+                    },
+                    { text: prompt }
+                ]
             }];
         } else {
             requestPayload.contents = [{
