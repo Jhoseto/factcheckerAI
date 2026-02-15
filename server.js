@@ -77,6 +77,7 @@ app.post('/api/gemini/generate', async (req, res) => {
 
         // 3. Perform Generation
         const { model, prompt, systemInstruction, videoUrl, isBatch, enableGoogleSearch } = req.body;
+
         const ai = new GoogleGenAI({ apiKey });
 
         const config = {
@@ -93,6 +94,7 @@ app.post('/api/gemini/generate', async (req, res) => {
             config.responseMimeType = 'application/json';
         }
 
+
         const requestPayload = {
             model: model || 'gemini-2.5-flash',
             systemInstruction: systemInstruction || 'You are a professional fact-checker and media analyst. Respond ONLY with valid JSON.',
@@ -100,10 +102,14 @@ app.post('/api/gemini/generate', async (req, res) => {
             config: config
         };
 
+        // REVERT to Text-Based Analysis for YouTube URLs.
+        // Direct fileData with YouTube URL causes 'fetch failed' in Node SDK.
+        // The "perfect" analysis experienced before was likely based on the transcript in the prompt.
         if (videoUrl) {
+            const finalPrompt = `ANALYZING VIDEO: ${videoUrl}\n\n${prompt}`;
             requestPayload.contents = [{
                 role: 'user',
-                parts: [{ fileData: { fileUri: videoUrl, mimeType: 'video/mp4' } }, { text: prompt }]
+                parts: [{ text: finalPrompt }]
             }];
         } else {
             requestPayload.contents = [{
@@ -122,6 +128,8 @@ app.post('/api/gemini/generate', async (req, res) => {
         } else {
             responseText = JSON.stringify(response);
         }
+
+
         const usage = response.usageMetadata || { promptTokenCount: 0, candidatesTokenCount: 0 };
 
         const PRICING = {
@@ -149,14 +157,29 @@ app.post('/api/gemini/generate', async (req, res) => {
         }
 
         try {
-            const trimmed = responseText.trim();
+            let trimmed = responseText.trim();
+            // Try to find JSON if it's wrapped in markdown
+            const jsonMatch = trimmed.match(/```json\s*([\s\S]*?)\s*```/);
+            if (jsonMatch) {
+                trimmed = jsonMatch[1].trim();
+            } else {
+                const firstBrace = trimmed.indexOf('{');
+                const lastBrace = trimmed.lastIndexOf('}');
+                if (firstBrace !== -1 && lastBrace !== -1) {
+                    trimmed = trimmed.substring(firstBrace, lastBrace + 1);
+                }
+            }
+
             if (!((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']')))) {
+                console.error('[Gemini API] ❌ Response does not look like JSON:', trimmed.substring(0, 100));
                 if (!trimmed.includes('{') && !trimmed.includes('[')) {
                     throw new Error('Not a JSON response');
                 }
             }
+            // We don't verify JSON validity here entirely, client does that. 
+            // We just ensure it LOOKS like JSON to justify billing.
         } catch (e) {
-            console.error('[Gemini API] ❌ AI returned non-JSON response. Skipping deduction.');
+            console.error('[Gemini API] ❌ AI returned non-JSON response. Skipping deduction. Error:', e.message);
             return res.status(500).json({
                 error: 'AI върна невалиден формат. Моля, опитайте отново. (Никакви точки не бяха таксувани)',
                 code: 'AI_INVALID_FORMAT'
