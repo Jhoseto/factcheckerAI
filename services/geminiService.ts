@@ -13,7 +13,7 @@ const callGeminiAPI = async (payload: {
   systemInstruction?: string;
   videoUrl?: string;
   isBatch?: boolean;
-}): Promise<{ text: string; usageMetadata: any; points?: { deducted: number; remaining: number } }> => {
+}): Promise<{ text: string; usageMetadata: any; points?: { deducted: number; costInPoints: number; remaining?: number } }> => {
 
   const user = auth.currentUser;
   if (!user) {
@@ -367,29 +367,33 @@ const transformGeminiResponse = (
     return map[assessment?.toUpperCase()] || 'НЕОПРЕДЕЛЕНО';
   };
 
-  const claims = rawResponse.factualClaims || [];
-  const quotes = rawResponse.quotes || [];
-  const trueClaims = claims.filter((c: any) => ['TRUE', 'MOSTLY_TRUE'].includes(c.verdict?.toUpperCase())).length;
-  const credibilityIndex = claims.length > 0 ? (trueClaims / claims.length) : 0.5;
+  // Safe variable initialization
+  const claims = Array.isArray(rawResponse?.factualClaims) ? rawResponse.factualClaims : [];
+  const quotes = Array.isArray(rawResponse?.quotes) ? rawResponse.quotes : [];
+  const manipulations = Array.isArray(rawResponse?.manipulationTechniques) ? rawResponse.manipulationTechniques : [];
 
-  const manipulations = rawResponse.manipulationTechniques || [];
+  let allClaims: any[] = [...claims];
+  try {
+    quotes.forEach((q: any) => {
+      if (q && q.quote && !allClaims.find(c => c && c.claim === q.quote)) {
+        allClaims.push({
+          claim: q.quote,
+          verdict: 'UNVERIFIABLE',
+          evidence: q.context || 'Цитат от предаването',
+          sources: [],
+          confidence: 0.5,
+          speaker: q.speaker,
+          timestamp: q.timestamp
+        });
+      }
+    });
+  } catch (e) {
+    console.error('[Transform] Error merging quotes:', e);
+  }
+
+  const trueClaimsCount = claims.filter((c: any) => c && ['TRUE', 'MOSTLY_TRUE'].includes(c.verdict?.toUpperCase())).length;
+  const credibilityIndex = claims.length > 0 ? (trueClaimsCount / claims.length) : 0.5;
   const manipulationIndex = Math.min(manipulations.length * 0.15, 1);
-
-  // Добавяме цитатите към claims ако не са вече там
-  const allClaims = [...claims];
-  quotes.forEach((q: any) => {
-    if (!allClaims.find(c => c.claim === q.quote)) {
-      allClaims.push({
-        claim: q.quote,
-        verdict: 'UNVERIFIABLE',
-        evidence: q.context || 'Цитат от предаването',
-        sources: [],
-        confidence: 0.5,
-        speaker: q.speaker,
-        timestamp: q.timestamp
-      });
-    }
-  });
 
   const transformedClaims = allClaims.map((c: any) => ({
     quote: c.claim || '',
@@ -414,22 +418,20 @@ const transformGeminiResponse = (
   const timeline = allClaims.length > 0
     ? allClaims.map((c: any, idx: number) => ({
       time: `${String(Math.floor(idx * 5)).padStart(2, '0')}:${String((idx * 30) % 60).padStart(2, '0')}`,
-      reliability: ['TRUE', 'MOSTLY_TRUE'].includes(c.verdict) ? 0.9 : 0.3,
-      event: c.claim?.substring(0, 50) || 'Твърдение'
+      reliability: c && ['TRUE', 'MOSTLY_TRUE'].includes(c.verdict) ? 0.9 : 0.3,
+      event: c?.claim?.substring(0, 50) || 'Твърдение'
     }))
     : [{ time: '00:00', reliability: 0.5, event: 'Начало' }];
 
-  // Construct a rich investigative report
   const metadataSection = fullMetadata
     ? `\n\n**Метаданни на видеоклипа:**\n- **Заглавие:** ${fullMetadata.title}\n- **Автор:** ${fullMetadata.author}\n- **Продължителност:** ${fullMetadata.durationFormatted}\n- **ID:** ${fullMetadata.videoId}`
     : (videoTitle ? `\n\n**Метаданни:**\n- **Заглавие:** ${videoTitle}\n- **Автор:** ${videoAuthor || 'Неизвестен'}` : '');
 
-  // Construct EXCEPTIONAL investigative report - "произведение на висша журналистика"
-  const constructedReport = rawResponse.finalInvestigativeReport || `
+  const constructedReport = (rawResponse?.finalInvestigativeReport) || `
 # ФИНАЛЕН РАЗСЛЕДВАЩ ДОКЛАД
 
 ## Изпълнително резюме
-${rawResponse.summary || 'Няма налично резюме.'}
+${rawResponse?.summary || 'Няма налично резюме.'}
 
 ## Ключови констатации и фактически проверки
 ${(allClaims || []).slice(0, 10).map((c: any) => `
@@ -460,27 +462,27 @@ ${m.counterArgument ? `**Как да се защитим:**\n${m.counterArgument
 ` : ''}
 
 ## Геополитически контекст и исторически паралели
-${rawResponse.geopoliticalContext || 'Неприложимо'}
+${rawResponse?.geopoliticalContext || 'Неприложимо'}
 
-${rawResponse.historicalParallel ? `\n### Исторически прецеденти\n${rawResponse.historicalParallel}\n` : ''}
+${rawResponse?.historicalParallel ? `\n### Исторически прецеденти\n${rawResponse.historicalParallel}\n` : ''}
 
 ## Психолингвистичен анализ
-${rawResponse.psychoLinguisticAnalysis || 'Няма данни'}
+${rawResponse?.psychoLinguisticAnalysis || 'Няма данни'}
 
 ## Стратегическо намерение
-${rawResponse.strategicIntent || 'Няма данни'}
+${rawResponse?.strategicIntent || 'Няма данни'}
 
 ## Наративна архитектура
-${rawResponse.narrativeArchitecture || 'Няма данни'}
+${rawResponse?.narrativeArchitecture || 'Няма данни'}
 
 ## Техническа експертиза
-${rawResponse.technicalForensics || 'Няма данни'}
+${rawResponse?.technicalForensics || 'Няма данни'}
 
 ## Социално въздействие
-${rawResponse.socialImpactPrediction || 'Няма данни'}
+${rawResponse?.socialImpactPrediction || 'Няма данни'}
 
 ## Заключение и препоръки
-${rawResponse.recommendations || 'Препоръчва се критично осмисляне на представената информация.'}
+${rawResponse?.recommendations || 'Препоръчва се критично осмисляне на представената информация.'}
 
 ${metadataSection}
 `.trim();
@@ -488,8 +490,8 @@ ${metadataSection}
   return {
     id: crypto.randomUUID(),
     timestamp: Date.now(),
-    videoTitle: videoTitle || rawResponse.videoTitle || 'Анализирано съдържание',
-    videoAuthor: videoAuthor || rawResponse.videoAuthor || 'Неизвестен автор',
+    videoTitle: videoTitle || rawResponse?.videoTitle || 'Анализирано съдържание',
+    videoAuthor: videoAuthor || rawResponse?.videoAuthor || 'Неизвестен автор',
     transcription: transcription || [
       {
         timestamp: '00:00',
@@ -500,12 +502,13 @@ ${metadataSection}
     segments: [], claims: transformedClaims, manipulations: transformedManipulations,
     fallacies: [], timeline: timeline,
     summary: {
-      credibilityIndex, manipulationIndex, unverifiablePercent: 0.1,
-      finalClassification: mapAssessment(rawResponse.overallAssessment),
-      overallSummary: (rawResponse.summary || 'Анализът е завършен.') + metadataSection,
+      credibilityIndex: credibilityIndex,
+      manipulationIndex: manipulationIndex,
+      unverifiablePercent: 0.1,
+      finalClassification: mapAssessment(rawResponse?.overallAssessment),
+      overallSummary: (rawResponse?.summary || 'Анализът е завършен.') + metadataSection,
       totalDuration: fullMetadata?.durationFormatted || 'N/A',
-      detailedStats: rawResponse.detailedMetrics ? {
-        // Use REAL metrics from Gemini, not hardcoded values!
+      detailedStats: rawResponse?.detailedMetrics ? {
         factualAccuracy: rawResponse.detailedMetrics.factualAccuracy ?? credibilityIndex,
         logicalSoundness: rawResponse.detailedMetrics.logicalSoundness ?? (1 - manipulationIndex),
         emotionalBias: rawResponse.detailedMetrics.emotionalBias ?? 0.5,
@@ -518,7 +521,6 @@ ${metadataSection}
         semanticDensity: rawResponse.detailedMetrics.semanticDensity ?? 0.6,
         contextualStability: rawResponse.detailedMetrics.contextualStability ?? 0.6
       } : {
-        // Fallback only if detailedMetrics is not provided
         factualAccuracy: credibilityIndex,
         logicalSoundness: 1 - manipulationIndex,
         emotionalBias: 0.5,
@@ -531,17 +533,16 @@ ${metadataSection}
         semanticDensity: 0.6,
         contextualStability: 0.6
       },
-      finalInvestigativeReport: rawResponse.finalInvestigativeReport || constructedReport,
-      // Use REAL values from Gemini response, not hardcoded "Няма данни"
-      geopoliticalContext: rawResponse.geopoliticalContext || 'Неприложимо',
-      historicalParallel: rawResponse.historicalParallel || 'Няма данни',
-      psychoLinguisticAnalysis: rawResponse.psychoLinguisticAnalysis || 'Няма данни',
-      strategicIntent: rawResponse.strategicIntent || 'Няма данни',
-      narrativeArchitecture: rawResponse.narrativeArchitecture || 'Няма данни',
-      technicalForensics: rawResponse.technicalForensics || 'Няма данни',
-      socialImpactPrediction: rawResponse.socialImpactPrediction || rawResponse.recommendations || 'Няма данни',
-      sourceNetworkAnalysis: 'Няма данни', // This field is not in the prompt yet
-      dataPointsProcessed: claims.length * 10
+      finalInvestigativeReport: rawResponse?.finalInvestigativeReport || constructedReport,
+      geopoliticalContext: rawResponse?.geopoliticalContext || 'Неприложимо',
+      historicalParallel: rawResponse?.historicalParallel || 'Няма данни',
+      psychoLinguisticAnalysis: rawResponse?.psychoLinguisticAnalysis || 'Няма данни',
+      strategicIntent: rawResponse?.strategicIntent || 'Няма данни',
+      narrativeArchitecture: rawResponse?.narrativeArchitecture || 'Няма данни',
+      technicalForensics: rawResponse?.technicalForensics || 'Няма данни',
+      socialImpactPrediction: rawResponse?.socialImpactPrediction || rawResponse?.recommendations || 'Няма данни',
+      sourceNetworkAnalysis: 'Няма данни',
+      dataPointsProcessed: (claims?.length || 0) * 10
     }
   };
 };
@@ -610,7 +611,7 @@ export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTub
         data.usageMetadata?.candidatesTokenCount || 0,
         false
       ),
-      pointsCost: data.points?.deducted || calculateCostInPoints(
+      pointsCost: data.points?.costInPoints || calculateCostInPoints(
         'gemini-3-flash-preview',
         data.usageMetadata?.promptTokenCount || 0,
         data.usageMetadata?.candidatesTokenCount || 0,
@@ -688,7 +689,7 @@ export const analyzeYouTubeBatch = async (url: string): Promise<AnalysisResponse
         data.usageMetadata?.candidatesTokenCount || 0,
         true
       ),
-      pointsCost: data.points?.deducted || calculateCostInPoints(
+      pointsCost: data.points?.costInPoints || calculateCostInPoints(
         'gemini-3-flash-preview',
         data.usageMetadata?.promptTokenCount || 0,
         data.usageMetadata?.candidatesTokenCount || 0,
@@ -745,7 +746,7 @@ export const analyzeNewsLink = async (url: string): Promise<AnalysisResponse> =>
         data.usageMetadata?.candidatesTokenCount || 0,
         false
       ),
-      pointsCost: data.points?.deducted || calculateCostInPoints(
+      pointsCost: data.points?.costInPoints || calculateCostInPoints(
         'gemini-3-flash-preview',
         data.usageMetadata?.promptTokenCount || 0,
         data.usageMetadata?.candidatesTokenCount || 0,

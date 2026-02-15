@@ -187,16 +187,17 @@ const App: React.FC = () => {
       }
 
       // Deduct points after successful analysis using REAL usage data
-      if (userProfile) {
-        // Use the actual points cost from the API response (which is based on real token usage)
-        // Fallback to estimate only if usage data is missing (unlikely)
-        const finalCost = response.usage?.pointsCost || estimatedCost;
-
-        await deductPoints(finalCost, response.analysis.id);
-      }
-
       setAnalysis(response.analysis);
       setUsageData(response.usage);
+
+      // CRITICAL: Deduct points ONLY after analysis is successfully displayed
+      if (userProfile && response.analysis && response.analysis.id) {
+        // Use the actual points cost from the server calculation
+        const finalCost = response.usage?.pointsCost || estimatedCost;
+
+        // Wait for deduction to complete, but UI is already updated
+        await deductPoints(finalCost, response.analysis.id);
+      }
     } catch (e: any) {
       console.error('[Analysis Error]', e);
       // Покажи user-friendly съобщение според типа грешка

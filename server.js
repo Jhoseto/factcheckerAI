@@ -159,15 +159,15 @@ app.post('/api/gemini/generate', async (req, res) => {
         const pointsDeducted = Math.ceil(totalCostEur * 200);
         const finalPoints = Math.max(1, pointsDeducted);
 
-        await deductPointsFromUser(userId, finalPoints);
-        const newBalance = await getUserPoints(userId);
+        // DO NOT deduct points here. Deduction is handled by the client AFTER successful UI render.
+        // This ensures the user is only charged if the analysis is actually displayed.
 
         res.json({
             text: responseText,
             usageMetadata: usage,
             points: {
-                deducted: finalPoints,
-                remaining: newBalance,
+                deducted: 0,
+                costInPoints: finalPoints,
                 costEur: totalCostEur
             }
         });
