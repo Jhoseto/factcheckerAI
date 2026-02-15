@@ -179,7 +179,6 @@ const App: React.FC = () => {
 
       if (type === 'video') {
         const modelId = analysisMode === 'standard' ? 'gemini-2.5-flash' : 'gemini-3-flash-preview';
-        console.log(`Starting analysis with mode: ${analysisMode}, model: ${modelId}`);
 
         // Pass the selected model explicitly
         response = await analyzeYouTubeStandard(url, videoMetadata || undefined, modelId);
@@ -192,7 +191,6 @@ const App: React.FC = () => {
         // Use the actual points cost from the API response (which is based on real token usage)
         // Fallback to estimate only if usage data is missing (unlikely)
         const finalCost = response.usage?.pointsCost || estimatedCost;
-        console.log(`[Points Deduction] Estimated: ${estimatedCost}, Actual: ${finalCost}`);
 
         await deductPoints(finalCost, response.analysis.id);
       }

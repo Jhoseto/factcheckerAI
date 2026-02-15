@@ -44,11 +44,9 @@ export function initializeFirebaseAdmin() {
         }
 
         adminInitialized = true;
-        console.log('[Firebase Admin] ✅ Initialized successfully');
         return true;
     } catch (error) {
         console.warn('[Firebase Admin] ⚠️  Not initialized:', error.message);
-        console.warn('[Firebase Admin] Points crediting will NOT work until service account is configured');
         return false;
     }
 }
@@ -81,7 +79,7 @@ export async function verifyToken(idToken) {
         return decodedToken.uid;
     } catch (error) {
         console.error('[Firebase Admin] Token verification failed:', error);
-        return null; // This causes 401 in server.js
+        return null;
     }
 }
 
@@ -92,7 +90,6 @@ export async function verifyToken(idToken) {
  */
 export async function addPointsToUser(userId, points) {
     if (!adminInitialized) {
-        console.warn('[Firebase Admin] ⚠️  Cannot add points - not initialized');
         return;
     }
 
@@ -116,7 +113,6 @@ export async function addPointsToUser(userId, points) {
             });
         });
 
-        console.log(`[Firebase Admin] ✅ Added ${points} points to user ${userId}`);
     } catch (error) {
         console.error(`[Firebase Admin] ❌ Failed to add points:`, error);
         throw error;
@@ -144,7 +140,6 @@ export async function deductPointsFromUser(userId, points) {
             const currentPoints = userDoc.data()?.pointsBalance || 0;
 
             if (currentPoints < points) {
-                console.log(`[Firebase Admin] ❌ Insufficient points for user ${userId}: has ${currentPoints}, needs ${points}`);
                 return false;
             }
 
@@ -157,10 +152,6 @@ export async function deductPointsFromUser(userId, points) {
 
             return true;
         });
-
-        if (result) {
-            console.log(`[Firebase Admin] ✅ Deducted ${points} points from user ${userId}`);
-        }
 
         return result;
     } catch (error) {

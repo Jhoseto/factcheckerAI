@@ -641,7 +641,6 @@ export const analyzeYouTubeBatch = async (url: string): Promise<AnalysisResponse
         transcriptText = transcription.map(t => `[${t.timestamp}] ${t.speaker}: ${t.text}`).join('\n');
       }
     } catch (transcriptError: any) {
-      console.warn('Transcript extraction failed in batch mode:', transcriptError);
     }
 
     // 2. Prepare API payload based on transcript availability

@@ -76,7 +76,7 @@ app.post('/api/gemini/generate', async (req, res) => {
         const ai = new GoogleGenAI({ apiKey });
 
         const requestPayload = {
-            model: model || 'gemini-3-flash-preview', // Default to 3 Flash Preview as requested
+            model: model || 'gemini-3-flash-preview',
             systemInstruction: systemInstruction || 'You are a professional fact-checker and media analyst. Respond ONLY with valid JSON.',
             contents: [],
             generationConfig: {
@@ -86,23 +86,11 @@ app.post('/api/gemini/generate', async (req, res) => {
             tools: []
         };
 
-        // ... (Video/Text Logic remains same) ...
-        // Check if videoUrl is provided and determine how to handle it
         if (videoUrl) {
-            // Check if it's a YouTube URL (including mobile formats: m.youtube.com, youtu.be, etc.)
-            const isYouTubeUrl = /(?:youtube\.com|youtu\.be|m\.youtube\.com)/.test(videoUrl);
-
-            if (isYouTubeUrl) {
-                requestPayload.contents = [{
-                    role: 'user',
-                    parts: [{ fileData: { fileUri: videoUrl } }, { text: prompt }]
-                }];
-            } else {
-                requestPayload.contents = [{
-                    role: 'user',
-                    parts: [{ fileData: { fileUri: videoUrl } }, { text: prompt }]
-                }];
-            }
+            requestPayload.contents = [{
+                role: 'user',
+                parts: [{ fileData: { fileUri: videoUrl } }, { text: prompt }]
+            }];
         } else {
             requestPayload.contents = [{
                 role: 'user',
@@ -112,31 +100,24 @@ app.post('/api/gemini/generate', async (req, res) => {
 
         const response = await ai.models.generateContent(requestPayload);
 
-        // Extract text safely (checking both SDK helper and direct structure)
         let responseText = '';
         if (typeof response.text === 'function') {
             responseText = response.text();
         } else if (response.candidates && response.candidates[0]?.content?.parts?.[0]?.text) {
             responseText = response.candidates[0].content.parts[0].text;
         } else {
-            console.log('Unexpected Gemini response structure:', JSON.stringify(response, null, 2));
-            responseText = JSON.stringify(response); // Fallback
+            responseText = JSON.stringify(response);
         }
         const usage = response.usageMetadata || { promptTokenCount: 0, candidatesTokenCount: 0 };
 
-        // 4. Calculate Points Cost
-        // 4. Calculate Points Cost
-        // Pricing Configuration (Per 1M Tokens)
-        // Gemini 3 Flash / Pro: $0.50 / $3.00 (Standard)
-        // Gemini 2.5 Flash: $0.30 / $2.50 (Budget)
         const PRICING = {
             'flash3': { input: 0.50, output: 3.00, audio: 1.00 },
             'flash2_5': { input: 0.30, output: 2.50, audio: 1.00 },
-            'pro': { input: 0.50, output: 3.00, audio: 1.00 } // PRO forced to Flash price
+            'pro': { input: 0.50, output: 3.00, audio: 1.00 }
         };
 
         const modelId = requestPayload.model || 'gemini-3-flash-preview';
-        let selectedPricing = PRICING.flash3; // Default
+        let selectedPricing = PRICING.flash3;
 
         if (modelId.includes('2.5-flash')) {
             selectedPricing = PRICING.flash2_5;
@@ -145,7 +126,6 @@ app.post('/api/gemini/generate', async (req, res) => {
         }
 
         // === FAIR BILLING VALIDATION ===
-        // Before deducting anything, verify the response is not empty or nonsensical
         if (!responseText || responseText.length < 10) {
             console.error('[Gemini API] ❌ AI returned empty or too short response. Skipping deduction.');
             return res.status(500).json({
@@ -154,12 +134,9 @@ app.post('/api/gemini/generate', async (req, res) => {
             });
         }
 
-        // Try a light JSON validation if possible
         try {
-            // Check if it's at least potentially a JSON (starts with { or [)
             const trimmed = responseText.trim();
             if (!((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']')))) {
-                // It might have markdown, but if it doesn't even have braces, it's probably wrong
                 if (!trimmed.includes('{') && !trimmed.includes('[')) {
                     throw new Error('Not a JSON response');
                 }
@@ -172,24 +149,16 @@ app.post('/api/gemini/generate', async (req, res) => {
             });
         }
 
-        // Batch Pricing: 50% discount
         const BATCH_DISCOUNT = isBatch ? 0.5 : 1.0;
-
-        // Convert per 1M to per token
         const COST_PER_INPUT_TOKEN = (selectedPricing.input / 1000000) * BATCH_DISCOUNT;
         const COST_PER_OUTPUT_TOKEN = (selectedPricing.output / 1000000) * BATCH_DISCOUNT;
         const inputCost = usage.promptTokenCount * COST_PER_INPUT_TOKEN;
         const outputCost = usage.candidatesTokenCount * COST_PER_OUTPUT_TOKEN;
-        const totalCostEur = inputCost + outputCost; // My cost
+        const totalCostEur = inputCost + outputCost;
 
-        // User Pricing Rule: 1 EUR = 100 Points. Charge DOUBLE my cost.
-        // Formula: Cost_EUR * 2 (markup) * 100 (points conversion) = Cost_EUR * 200
         const pointsDeducted = Math.ceil(totalCostEur * 200);
-
-        // Ensure at least 1 point is deducted if any usage occurred
         const finalPoints = Math.max(1, pointsDeducted);
 
-        // 5. Deduct Points
         await deductPointsFromUser(userId, finalPoints);
         const newBalance = await getUserPoints(userId);
 
@@ -220,7 +189,6 @@ app.post('/api/gemini/generate', async (req, res) => {
 });
 
 // === YOUTUBE METADATA API (SERVER-SIDE) ===
-// This keeps the YouTube API key secure on the server
 app.get('/api/youtube/metadata', async (req, res) => {
     try {
         const videoUrl = req.query.url;
@@ -229,7 +197,6 @@ app.get('/api/youtube/metadata', async (req, res) => {
             return res.status(400).json({ error: 'Missing or invalid video URL parameter' });
         }
 
-        // Extract video ID from URL
         const extractVideoId = (url) => {
             const patterns = [
                 /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/,
@@ -250,18 +217,16 @@ app.get('/api/youtube/metadata', async (req, res) => {
             return res.status(400).json({ error: 'Invalid YouTube URL' });
         }
 
-        // Get YouTube API key from environment
         const apiKey = process.env.VITE_YOUTUBE_API_KEY || process.env.YOUTUBE_API_KEY;
         if (!apiKey) {
             return res.status(500).json({ error: 'YouTube API key not configured' });
         }
 
-        // Call YouTube Data API v3
         const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${apiKey}`;
         const response = await fetch(apiUrl);
 
         if (!response.ok) {
-            console.error(`[YouTube Metadata] API request failed: ${response.status} ${response.statusText}`);
+            console.error(`[YouTube Metadata] API request failed: ${response.status}`);
             return res.status(response.status).json({ error: `YouTube API error: ${response.status}` });
         }
 
@@ -274,7 +239,6 @@ app.get('/api/youtube/metadata', async (req, res) => {
         const snippet = video.snippet;
         const contentDetails = video.contentDetails;
 
-        // Parse ISO 8601 duration
         const parseISODuration = (iso) => {
             const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
             if (!match) return 0;
@@ -313,33 +277,21 @@ app.get('/api/youtube/metadata', async (req, res) => {
 
 // === API PROXIES (YOUTUBE) ===
 
-// 1. YouTube oEmbed Proxy
 const oembedProxy = createProxyMiddleware({
     target: 'https://www.youtube.com',
     changeOrigin: true,
-    pathRewrite: { '^/api/oembed': '/oembed' },
-    onProxyReq: (proxyReq, req) => {
-    },
-    onProxyRes: (proxyRes) => {
-    }
+    pathRewrite: { '^/api/oembed': '/oembed' }
 });
 app.use('/api/oembed', oembedProxy);
 
-// 2. YouTube Direct Scrape Proxy
-// IMPORTANT: This must NOT catch /api/youtube/metadata - that route is handled above
 const youtubeProxy = createProxyMiddleware({
     target: 'https://www.youtube.com',
     changeOrigin: true,
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-    pathRewrite: { '^/api/youtube': '' },
-    onProxyReq: (proxyReq, req) => {
-    },
-    onProxyRes: (proxyRes) => {
-    }
+    pathRewrite: { '^/api/youtube': '' }
 });
-// Only apply proxy to /api/youtube paths that are NOT /api/youtube/metadata
+
 app.use('/api/youtube', (req, res, next) => {
-    // Skip /metadata route - it's handled by the specific route above
     if (req.path.startsWith('/metadata')) {
         return next();
     }
@@ -349,7 +301,7 @@ app.use('/api/youtube', (req, res, next) => {
 // === LEMON SQUEEZY CHECKOUT API ===
 app.post('/api/lemonsqueezy/checkout', async (req, res) => {
     try {
-        const { variantId, userId, userEmail, productName, points } = req.body;
+        const { variantId, userId, userEmail, points } = req.body;
 
         if (!variantId) {
             return res.status(400).json({ error: 'Variant ID is required' });
@@ -363,12 +315,9 @@ app.post('/api/lemonsqueezy/checkout', async (req, res) => {
             return res.status(500).json({ error: 'Lemon Squeezy not configured' });
         }
 
-        // Build the redirect URL dynamically based on the request origin
         const origin = req.headers.origin || req.headers.referer || `${req.protocol}://${req.get('host')}`;
         const redirectUrl = origin.replace(/\/$/, '') + '/';
 
-        // Create checkout session - exact format from Lemon Squeezy API docs:
-        // https://docs.lemonsqueezy.com/api/checkouts/create-checkout
         const checkout = await fetch('https://api.lemonsqueezy.com/v1/checkouts', {
             method: 'POST',
             headers: {
@@ -417,7 +366,7 @@ app.post('/api/lemonsqueezy/checkout', async (req, res) => {
             });
         } else {
             console.error('[Lemon Squeezy] ❌ API error:', JSON.stringify(checkoutData, null, 2));
-            res.status(500).json({ error: 'Failed to create checkout', details: checkoutData.errors });
+            res.status(500).json({ error: 'Failed to create checkout' });
         }
 
     } catch (error) {
@@ -427,17 +376,13 @@ app.post('/api/lemonsqueezy/checkout', async (req, res) => {
 });
 
 // === LEMON SQUEEZY WEBHOOK ===
-// We use express.raw to try to get the raw body, but if global middleware ran first, we handle that too
 app.post('/api/lemonsqueezy/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
     try {
         const webhookSecret = process.env.LEMON_SQUEEZY_WEBHOOK_SECRET;
         const signature = req.headers['x-signature'];
 
         if (webhookSecret) {
-            // const crypto = require('crypto'); // Removed, using import
             const hmac = crypto.createHmac('sha256', webhookSecret);
-            // Process the raw body to compute signature
-            // With express.raw(), req.body IS the raw buffer
             const digest = hmac.update(req.body).digest('hex');
 
             if (!signature || !crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(signature))) {
@@ -453,67 +398,48 @@ app.post('/api/lemonsqueezy/webhook', express.raw({ type: 'application/json' }),
             } else if (typeof req.body === 'string') {
                 event = JSON.parse(req.body);
             } else {
-                // It's already a parsed object (middleware ran before us)
                 event = req.body;
             }
         } catch (parseError) {
+            console.error('[Lemon Squeezy] JSON Parse Error:', parseError);
+            return res.status(400).json({ error: 'Invalid JSON body' });
+        }
 
-            // Handle successful purchase
-            if (event && (event.meta.event_name === 'order_created' || event.meta.event_name === 'order_paid') && event.data.attributes.status === 'paid') {
+        if (event && (event.meta.event_name === 'order_created' || event.meta.event_name === 'order_paid') && event.data.attributes.status === 'paid') {
+            const attributes = event.data.attributes;
+            let customData = {};
 
-                // Try to find custom data in multiple places
-                const attributes = event.data.attributes;
-                let customData = {};
-
-                // 1. Check in checkout_data (standard location)
-                if (attributes.checkout_data && attributes.checkout_data.custom) {
-                    customData = attributes.checkout_data.custom;
-                }
-                // 2. Check in first_order_item (common for order_created)
-                else if (attributes.first_order_item && attributes.first_order_item.custom_data) {
-                    customData = attributes.first_order_item.custom_data;
-                }
-                // 3. Check in meta (legacy/fallback)
-                else if (event.meta && event.meta.custom_data) {
-                    customData = event.meta.custom_data;
-                }
-
-                console.log('[Lemon Squeezy] Extracted custom data:', customData);
-
-                const userId = customData.user_id;
-                const points = parseInt(customData.points) || 0;
-
-                if (userId && points > 0) {
-                    try {
-                        await addPointsToUser(userId, points);
-                    } catch (error) {
-                        console.error(`[Lemon Squeezy] ❌ Failed to add points for user ${userId}:`, error);
-                    }
-                } else {
-                    console.warn('[Lemon Squeezy] ⚠️  Missing userId or points in webhook data');
-                    console.warn(`userId: ${userId}, points: ${points}`);
-                }
-            } else {
-                console.log(`[Lemon Squeezy] Ignoring event: ${event?.meta?.event_name} status: ${event?.data?.attributes?.status}`);
+            if (attributes.checkout_data && attributes.checkout_data.custom) {
+                customData = attributes.checkout_data.custom;
+            } else if (attributes.first_order_item && attributes.first_order_item.custom_data) {
+                customData = attributes.first_order_item.custom_data;
+            } else if (event.meta && event.meta.custom_data) {
+                customData = event.meta.custom_data;
             }
 
-            res.json({ received: true });
+            const userId = customData.user_id;
+            const points = parseInt(customData.points) || 0;
 
-        } catch (error) {
-            console.error('[Lemon Squeezy] Webhook error:', error);
-            res.status(400).json({ error: 'Webhook processing failed', details: error.message, stack: error.stack });
+            if (userId && points > 0) {
+                try {
+                    await addPointsToUser(userId, points);
+                } catch (error) {
+                    console.error(`[Lemon Squeezy] ❌ Failed to add points for user ${userId}:`, error);
+                }
+            }
         }
-    });
+
+        res.json({ received: true });
+    } catch (error) {
+        console.error('[Lemon Squeezy] Webhook error:', error);
+        res.status(400).json({ error: 'Webhook processing failed' });
+    }
+});
 
 // === STATIC FILES & SPA ROUTING ===
-
-// Serve static files from the 'dist' directory
 app.use(express.static(path.join(__dirname, 'dist')));
 
-// Handle React routing (history API fallback)
-// This MUST be last to avoid catching API routes
 app.use((req, res) => {
-    // Safety check: if somehow an API request reaches here, don't serve HTML
     if (req.path.startsWith('/api')) {
         console.error(`[Server] ERROR: Unhandled API request reached catch-all: ${req.path}`);
         return res.status(404).json({ error: 'API route not found' });
@@ -522,5 +448,4 @@ app.use((req, res) => {
 });
 
 app.listen(port, '0.0.0.0', () => {
-    console.log(`[Server] Running on port ${port}`);
 });

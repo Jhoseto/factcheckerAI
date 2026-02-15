@@ -7,7 +7,7 @@ import { YouTubeVideoMetadata } from '../types';
 export const extractVideoId = (url: string): string | null => {
     // Normalize URL - remove any trailing slashes and whitespace
     const normalizedUrl = url.trim();
-    
+
     const patterns = [
         // Standard formats
         /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/,
@@ -50,8 +50,7 @@ export const getYouTubeMetadata = async (url: string): Promise<YouTubeVideoMetad
         // Use server-side endpoint instead of direct API call
         // This allows the API key to be stored securely on the server
         const apiUrl = `/api/youtube/metadata?url=${encodeURIComponent(url)}`;
-        console.log('[YouTube Metadata] Fetching from:', apiUrl);
-        
+
         const response = await fetch(apiUrl);
 
         if (!response.ok) {
@@ -61,7 +60,6 @@ export const getYouTubeMetadata = async (url: string): Promise<YouTubeVideoMetad
         }
 
         const data = await response.json();
-        console.log('[YouTube Metadata] Success:', data);
         return data;
     } catch (error: any) {
         console.error('[YouTube Metadata] Fetch error:', error);
