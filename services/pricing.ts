@@ -53,7 +53,7 @@ export const GEMINI_PRICING = {
  * Calculate cost based on token usage
  */
 export const calculateCost = (
-  model: string = 'gemini-3-flash-preview',
+  model: string = 'gemini-2.5-flash',
   promptTokens: number,
   candidatesTokens: number,
   isBatch: boolean = false
@@ -89,7 +89,7 @@ export const calculateCost = (
  * 5. Apply Minimum Floor (10 points)
  */
 export const calculateCostInPoints = (
-  model: string = 'gemini-3-flash-preview',
+  model: string = 'gemini-2.5-flash',
   promptTokens: number,
   candidatesTokens: number,
   isBatch: boolean = false

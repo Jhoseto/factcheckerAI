@@ -14,6 +14,7 @@ const callGeminiAPI = async (payload: {
   systemInstruction?: string;
   videoUrl?: string;
   isBatch?: boolean;
+  enableGoogleSearch?: boolean;
 }): Promise<{ text: string; usageMetadata: any; points?: { deducted: number; costInPoints: number; remaining?: number } }> => {
 
   const user = auth.currentUser;
@@ -23,44 +24,64 @@ const callGeminiAPI = async (payload: {
 
   const token = await user.getIdToken();
 
-  const response = await fetch('/api/gemini/generate', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    },
-    body: JSON.stringify(payload)
-  });
+  // Create AbortController with 15-minute timeout for long video analysis
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 900000); // 15 minutes
 
-  if (!response.ok) {
-    let errorData;
-    try {
-      errorData = await response.json();
-    } catch {
-      errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
+  try {
+    const response = await fetch('/api/gemini/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch {
+        errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
+      }
+
+      // Create error object with status code for proper error handling
+      const error = new Error(errorData.error || 'Failed to generate content');
+      (error as any).status = response.status;
+      (error as any).statusCode = response.status;
+      (error as any).code = errorData.code;
+
+      // Pass strictly typed error data if available
+      if (errorData.currentBalance !== undefined) {
+        (error as any).currentBalance = errorData.currentBalance;
+      }
+
+      throw error;
     }
 
-    // Create error object with status code for proper error handling
-    const error = new Error(errorData.error || 'Failed to generate content');
-    (error as any).status = response.status;
-    (error as any).statusCode = response.status;
-    (error as any).code = errorData.code;
+    return response.json();
+  } catch (error: any) {
+    clearTimeout(timeoutId);
 
-    // Pass strictly typed error data if available
-    if (errorData.currentBalance !== undefined) {
-      (error as any).currentBalance = errorData.currentBalance;
+    // Handle timeout/abort errors
+    if (error.name === 'AbortError') {
+      const timeoutError = new Error('Анализът отне твърде дълго време (над 15 минути). Моля, опитайте с по-кратко видео или се свържете с поддръжката.');
+      (timeoutError as any).code = 'TIMEOUT_ERROR';
+      throw timeoutError;
     }
 
     throw error;
   }
-
-  return response.json();
 };
 
 /**
  * Get the appropriate prompt based on model
- * gemini-2.5-flash = standard analysis
- * gemini-3-flash-preview = deep analysis
+ * gemini-2.5-flash = both standard and deep analysis (unified model)
+ * Note: We now use gemini-2.5-flash for all analysis modes
  */
 const getAnalysisPrompt = (url: string, type: 'video' | 'news', mode: AnalysisMode, transcript?: string): string => {
   if (mode === 'deep') {
@@ -444,13 +465,13 @@ export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTub
       candidatesTokens: data.usageMetadata?.candidatesTokenCount || 0,
       totalTokens: data.usageMetadata?.totalTokenCount || 0,
       estimatedCostUSD: calculateCostFromPricing(
-        'gemini-3-flash-preview',
+        'gemini-2.5-flash',
         data.usageMetadata?.promptTokenCount || 0,
         data.usageMetadata?.candidatesTokenCount || 0,
         false
       ),
       pointsCost: data.points?.costInPoints || calculateCostInPoints(
-        'gemini-3-flash-preview',
+        'gemini-2.5-flash',
         data.usageMetadata?.promptTokenCount || 0,
         data.usageMetadata?.candidatesTokenCount || 0,
         false
@@ -475,7 +496,7 @@ export const analyzeYouTubeBatch = async (url: string): Promise<AnalysisResponse
     const prompt = getAnalysisPrompt(url, 'video', 'deep');
 
     const payload = {
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.5-flash',
       prompt: prompt,
       systemInstruction: "You are an ELITE fact-checker. Extract FULL transcription from video with timestamps. Output valid JSON only in Bulgarian.",
       videoUrl: url, // Always send video
@@ -512,20 +533,20 @@ export const analyzeYouTubeBatch = async (url: string): Promise<AnalysisResponse
         text: 'Транскрипцията не беше налична.'
       }];
 
-    const parsed = transformGeminiResponse(rawResponse, 'gemini-3-flash-preview', undefined, undefined, undefined, transcription);
+    const parsed = transformGeminiResponse(rawResponse, 'gemini-2.5-flash', undefined, undefined, undefined, transcription);
 
     const usage: APIUsage = {
       promptTokens: data.usageMetadata?.promptTokenCount || 0,
       candidatesTokens: data.usageMetadata?.candidatesTokenCount || 0,
       totalTokens: data.usageMetadata?.totalTokenCount || 0,
       estimatedCostUSD: calculateCostFromPricing(
-        'gemini-3-flash-preview',
+        'gemini-2.5-flash',
         data.usageMetadata?.promptTokenCount || 0,
         data.usageMetadata?.candidatesTokenCount || 0,
         true
       ),
       pointsCost: data.points?.costInPoints || calculateCostInPoints(
-        'gemini-3-flash-preview',
+        'gemini-2.5-flash',
         data.usageMetadata?.promptTokenCount || 0,
         data.usageMetadata?.candidatesTokenCount || 0,
         true
@@ -570,20 +591,20 @@ export const analyzeNewsLink = async (url: string): Promise<AnalysisResponse> =>
       console.error('Cleaned text (first 500 chars):', cleanedText.substring(0, 500));
       throw new Error('Gemini API върна невалиден JSON формат. Моля, опитайте отново.');
     }
-    const parsed = transformGeminiResponse(rawResponse, 'gemini-3-flash-preview');
+    const parsed = transformGeminiResponse(rawResponse, 'gemini-2.5-flash');
 
     const usage: APIUsage = {
       promptTokens: data.usageMetadata?.promptTokenCount || 0,
       candidatesTokens: data.usageMetadata?.candidatesTokenCount || 0,
       totalTokens: data.usageMetadata?.totalTokenCount || 0,
       estimatedCostUSD: calculateCostFromPricing(
-        'gemini-3-flash-preview',
+        'gemini-2.5-flash',
         data.usageMetadata?.promptTokenCount || 0,
         data.usageMetadata?.candidatesTokenCount || 0,
         false
       ),
       pointsCost: data.points?.costInPoints || calculateCostInPoints(
-        'gemini-3-flash-preview',
+        'gemini-2.5-flash',
         data.usageMetadata?.promptTokenCount || 0,
         data.usageMetadata?.candidatesTokenCount || 0,
         false

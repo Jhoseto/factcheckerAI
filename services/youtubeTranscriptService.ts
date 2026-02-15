@@ -134,7 +134,7 @@ export const extractYouTubeTranscript = async (url: string): Promise<Transcripti
                 'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-2.5-flash',
                 videoUrl: url, // ВАЖНО: Изпращаме videoUrl за да анализира правилното видео
                 prompt: `Извлечи пълната транскрипция от това YouTube видео.
 

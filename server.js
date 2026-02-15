@@ -36,6 +36,10 @@ try {
 // === GEMINI API PROXY (SERVER-SIDE) ===
 // This keeps the API key secure on the server
 app.post('/api/gemini/generate', async (req, res) => {
+    // Set timeout to 15 minutes for long video analysis
+    req.setTimeout(900000); // 15 minutes
+    res.setTimeout(900000);
+
     try {
         const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.VITE_API_KEY;
 
@@ -72,25 +76,34 @@ app.post('/api/gemini/generate', async (req, res) => {
         }
 
         // 3. Perform Generation
-        const { model, prompt, systemInstruction, videoUrl, isBatch } = req.body;
+        const { model, prompt, systemInstruction, videoUrl, isBatch, enableGoogleSearch } = req.body;
         const ai = new GoogleGenAI({ apiKey });
 
+        const config = {
+            temperature: 0.7,
+            maxOutputTokens: 50000
+        };
+
+        // IF using Google Search (Deep Mode), we CANNOT enforce JSON MIME type.
+        // IF NOT using Google Search (Standard Mode), we CAN enforce JSON MIME type for stability.
+        if (enableGoogleSearch) {
+            config.tools = [{ googleSearch: {} }];
+            // config.responseMimeType = 'application/json'; // REMOVED to avoid 400 ERROR
+        } else {
+            config.responseMimeType = 'application/json';
+        }
+
         const requestPayload = {
-            model: model || 'gemini-3-flash-preview',
+            model: model || 'gemini-2.5-flash',
             systemInstruction: systemInstruction || 'You are a professional fact-checker and media analyst. Respond ONLY with valid JSON.',
             contents: [],
-            generationConfig: {
-                responseMimeType: 'application/json',
-                temperature: 0.7,
-                maxOutputTokens: 8192
-            },
-            tools: [{ googleSearch: {} }]
+            config: config
         };
 
         if (videoUrl) {
             requestPayload.contents = [{
                 role: 'user',
-                parts: [{ fileData: { fileUri: videoUrl } }, { text: prompt }]
+                parts: [{ fileData: { fileUri: videoUrl, mimeType: 'video/mp4' } }, { text: prompt }]
             }];
         } else {
             requestPayload.contents = [{
@@ -117,7 +130,7 @@ app.post('/api/gemini/generate', async (req, res) => {
             'pro': { input: 0.50, output: 3.00, audio: 1.00 }
         };
 
-        const modelId = requestPayload.model || 'gemini-3-flash-preview';
+        const modelId = requestPayload.model || 'gemini-2.5-flash';
         let selectedPricing = PRICING.flash3;
 
         if (modelId.includes('2.5-flash')) {
