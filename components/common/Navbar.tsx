@@ -8,11 +8,8 @@ const Navbar: React.FC = () => {
     const [showUserMenu, setShowUserMenu] = useState(false);
 
     const handleNewAudit = () => {
-        // Navigate to home to start new audit. 
-        // If already on home, we might want to force a reset, but usually navigation is enough or user manually clears.
-        // For identifying a "reset" intent, we could pass state, but standard navigation is a good start.
-        navigate('/');
-        window.scrollTo(0, 0);
+        // Force reload to clear all state
+        window.location.href = '/';
     };
 
     return (

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
+import Navbar from './components/common/Navbar';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
 import PricingPage from './components/pricing/PricingPage';
@@ -22,38 +23,41 @@ const AppRouter: React.FC = () => {
     }
 
     return (
-        <Routes>
-            {/* Public routes */}
-            <Route
-                path="/login"
-                element={currentUser ? <Navigate to="/" replace /> : <Login />}
-            />
-            <Route
-                path="/register"
-                element={currentUser ? <Navigate to="/" replace /> : <Register />}
-            />
+        <>
+            <Navbar />
+            <Routes>
+                {/* Public routes */}
+                <Route
+                    path="/login"
+                    element={currentUser ? <Navigate to="/" replace /> : <Login />}
+                />
+                <Route
+                    path="/register"
+                    element={currentUser ? <Navigate to="/" replace /> : <Register />}
+                />
 
-            {/* Main app - PUBLIC, authentication checked on analysis action */}
-            <Route
-                path="/"
-                element={<App />}
-            />
+                {/* Main app - PUBLIC, authentication checked on analysis action */}
+                <Route
+                    path="/"
+                    element={<App />}
+                />
 
-            {/* Pricing - requires authentication */}
-            <Route
-                path="/pricing"
-                element={currentUser ? <PricingPage /> : <Navigate to="/login" replace />}
-            />
+                {/* Pricing - requires authentication */}
+                <Route
+                    path="/pricing"
+                    element={currentUser ? <PricingPage /> : <Navigate to="/login" replace />}
+                />
 
-            {/* Expenses & History - requires authentication */}
-            <Route
-                path="/expenses"
-                element={currentUser ? <ExpensesPage /> : <Navigate to="/login" replace />}
-            />
+                {/* Expenses & History - requires authentication */}
+                <Route
+                    path="/expenses"
+                    element={currentUser ? <ExpensesPage /> : <Navigate to="/login" replace />}
+                />
 
-            {/* Fallback */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+                {/* Fallback */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+        </>
     );
 };
 
