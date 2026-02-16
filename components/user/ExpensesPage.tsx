@@ -48,7 +48,13 @@ const ExpensesPage: React.FC = () => {
 
     const filteredTransactions = transactions
         .filter(t => {
-            if (filter !== 'all' && t.type !== filter) return false;
+            if (filter !== 'all') {
+                if (filter === 'purchase') {
+                    if (t.type !== 'purchase' && t.type !== 'bonus') return false;
+                } else if (t.type !== filter) {
+                    return false;
+                }
+            }
             if (searchTerm) {
                 const term = searchTerm.toLowerCase();
                 const title = t.metadata?.videoTitle?.toLowerCase() || '';
@@ -172,8 +178,8 @@ const ExpensesPage: React.FC = () => {
                         <button
                             onClick={() => setFilter('all')}
                             className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition-colors rounded-sm ${filter === 'all'
-                                    ? 'bg-amber-900 text-white'
-                                    : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
+                                ? 'bg-amber-900 text-white'
+                                : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
                                 }`}
                         >
                             Всички
@@ -181,8 +187,8 @@ const ExpensesPage: React.FC = () => {
                         <button
                             onClick={() => setFilter('deduction')}
                             className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition-colors rounded-sm ${filter === 'deduction'
-                                    ? 'bg-amber-900 text-white'
-                                    : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
+                                ? 'bg-amber-900 text-white'
+                                : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
                                 }`}
                         >
                             Разходи
@@ -190,8 +196,8 @@ const ExpensesPage: React.FC = () => {
                         <button
                             onClick={() => setFilter('purchase')}
                             className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition-colors rounded-sm ${filter === 'purchase'
-                                    ? 'bg-amber-900 text-white'
-                                    : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
+                                ? 'bg-amber-900 text-white'
+                                : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
                                 }`}
                         >
                             Зареждания

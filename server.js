@@ -718,7 +718,7 @@ app.post('/api/lemonsqueezy/webhook', express.raw({ type: 'application/json' }),
                 customData = event.meta.custom_data;
             }
 
-            const userId = customData.user_id;
+            const userId = customData.userId || customData.user_id;
             const points = parseInt(customData.points) || 0;
 
             if (userId && points > 0) {

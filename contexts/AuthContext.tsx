@@ -59,6 +59,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     createdAt: new Date().toISOString()
                 };
                 await setDoc(doc(db, 'users', user.uid), newProfile);
+
+                // Record welcome bonus transaction
+                await setDoc(doc(db, 'transactions', `${user.uid}_welcome`), {
+                    userId: user.uid,
+                    type: 'bonus',
+                    amount: 100,
+                    description: 'Начален бонус при регистрация',
+                    createdAt: new Date().toISOString()
+                });
+
                 setUserProfile(newProfile);
                 console.log(`[Auth] ✅ New user created with 100 points welcome bonus: ${user.uid}`);
             }

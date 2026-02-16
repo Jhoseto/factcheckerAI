@@ -112,8 +112,19 @@ export async function addPointsToUser(userId: string, points: number): Promise<v
             const newPoints = currentPoints + points;
 
             transaction.update(userRef, {
-                points: newPoints,
+                pointsBalance: newPoints,
                 lastPointsUpdate: admin.firestore.FieldValue.serverTimestamp()
+            });
+
+            // Record transaction in history
+            const transactionId = `${userId}_${Date.now()}`;
+            const transactionRef = db.collection('transactions').doc(transactionId);
+            transaction.set(transactionRef, {
+                userId: userId,
+                type: 'purchase',
+                amount: points,
+                description: `Зареждане на ${points} точки`,
+                createdAt: new Date().toISOString()
             });
         });
 
