@@ -56,9 +56,9 @@ export const calculateCostEstimate = (
     mode: AnalysisMode,
     durationSeconds: number
 ): CostEstimate => {
-    // Estimate tokens
-    // Input: ~111 tokens/sec for video + 2000 prompt overhead
-    const inputTokens = Math.floor(durationSeconds * 111) + 2000;
+    // Estimate tokens with MEDIA_RESOLUTION_LOW:
+    // ~66 tokens/frame (1 FPS) + ~32 tokens/sec audio = ~100 tokens/sec
+    const inputTokens = Math.floor(durationSeconds * 100) + 2000; // + prompt overhead
 
     // Output: ~4000 tokens base + 150 per minute
     const minutes = durationSeconds / 60;
@@ -68,13 +68,15 @@ export const calculateCostEstimate = (
     // Both modes now use Gemini 2.5 Flash for cost estimation
     const modelId = 'gemini-2.5-flash';
 
-    // Calculate Costs
+    // Calculate Costs (pass isDeep so Deep mode gets x3 multiplier)
+    const isDeep = mode === 'deep';
     const totalCostUSD = calculateCost(modelId, inputTokens, outputTokens, false);
-    const pointsCost = calculateCostInPoints(modelId, inputTokens, outputTokens, false);
+    const pointsCost = calculateCostInPoints(modelId, inputTokens, outputTokens, false, isDeep);
 
     return {
         mode,
         estimatedTokens,
+        estimatedInputTokens: inputTokens,
         inputCostUSD: 0, // Simplified for now
         outputCostUSD: 0,
         totalCostObserved: totalCostUSD,

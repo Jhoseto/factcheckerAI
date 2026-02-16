@@ -79,10 +79,10 @@ export const calculateCost = (
  * 1. Calculate USD Cost
  * 2. Convert to EUR (0.95 rate)
  * 3. Convert to Points (1 EUR = 100 Points)
- * 4. Multiply by 2 (User Price = 2 * Our Cost) ("Standard")
- * 5. IF DEEP MODE: Multiply by 2 AGAIN (User Price = 4 * Our Cost)
+ * 4. Multiply by 2 (User Price = 2 * Our Cost) ("Standard") → x2 profit
+ * 5. IF DEEP MODE: Multiply by 1.5 AGAIN (User Price = 3 * Our Cost) → x3 profit
  * 
- * Result: Deep Analysis is ALWAYS double the points of Standard Analysis.
+ * Result: Standard = x2 profit, Deep = x3 profit.
  */
 export const calculateCostInPoints = (
   model: string = 'gemini-2.5-flash',
@@ -99,12 +99,12 @@ export const calculateCostInPoints = (
   // Cost in Points (100 points = 1 EUR)
   const costPoints = costEUR * 100;
 
-  // User Price = 2 * Cost (Base Multiplier)
+  // User Price = 2 * Cost (Base Multiplier) → x2 profit for Standard
   let userPoints = Math.ceil(costPoints * 2);
 
-  // IF Deep Analysis: Double the points
+  // IF Deep Analysis: x1.5 additional → total x3 profit
   if (isDeep) {
-    userPoints = userPoints * 2;
+    userPoints = Math.ceil(userPoints * 1.5);
   }
 
   // Minimum floor

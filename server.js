@@ -80,66 +80,87 @@ app.post('/api/gemini/generate', async (req, res) => {
 
         const ai = new GoogleGenAI({ apiKey });
 
-        const config = {
-            temperature: 0.7,
-            maxOutputTokens: 50000
-        };
-
-        // Check if Deep Mode is requested (either via mode parameter or enableGoogleSearch flag)
         const isDeepMode = mode === 'deep';
+        const tools = (isDeepMode || enableGoogleSearch) ? [{ googleSearch: {} }] : undefined;
 
-        // IF using Google Search (Deep Mode), we CANNOT enforce JSON MIME type.
-        // IF NOT using Google Search (Standard Mode), we CAN enforce JSON MIME type for stability.
-        if (isDeepMode || enableGoogleSearch) {
-            config.tools = [{ googleSearch: {} }];
-            // Do NOT set responseMimeType when using tools (it causes 400 error)
-        } else {
-            config.responseMimeType = 'application/json';
-        }
+        // Use SDK for ALL requests (streaming for video, regular for text)
+        // This avoids Node.js undici headers timeout bug with REST API fetch
+        let response;
+        const contents = [];
 
-
-        const requestPayload = {
-            model: model || 'gemini-2.5-flash',
-            systemInstruction: systemInstruction || 'You are a professional fact-checker and media analyst. Respond ONLY with valid JSON.',
-            contents: [],
-            config: config
-        };
-
-        // YOUTUBE VIDEO ANALYSIS WITH CORRECT FILE DATA STRUCTURE
-        // YouTube URLs must be passed as fileData parts, NOT as text in the prompt
-        // This ensures Gemini actually processes the video content instead of hallucinating
         if (videoUrl) {
-            requestPayload.contents = [{
+            // SDK streaming for YouTube video - avoids undici timeout
+            contents.push({
                 role: 'user',
                 parts: [
-                    {
-                        fileData: {
-                            fileUri: videoUrl
-                        }
-                    },
+                    { fileData: { mimeType: 'video/mp4', fileUri: videoUrl } },
                     { text: prompt }
                 ]
-            }];
+            });
+
+            // Use streaming to avoid timeout - collect all chunks
+            console.log('[Gemini API] Starting streaming request for video:', videoUrl);
+            const stream = await ai.models.generateContentStream({
+                model: model || 'gemini-2.5-flash',
+                contents,
+                config: {
+                    systemInstruction: systemInstruction || 'You are a professional fact-checker and media analyst. Respond ONLY with valid JSON.',
+                    temperature: 0.7,
+                    maxOutputTokens: isDeepMode ? 65536 : 20000,
+                    responseMimeType: tools ? undefined : 'application/json',
+                    mediaResolution: 'MEDIA_RESOLUTION_LOW',
+                    tools: tools
+                }
+            });
+
+            let fullText = '';
+            let streamUsage = null;
+
+            for await (const chunk of stream) {
+                if (chunk.text) fullText += chunk.text;
+                if (chunk.usageMetadata) streamUsage = chunk.usageMetadata;
+            }
+
+            console.log('[Gemini API] Streaming complete. Total chars:', fullText.length);
+
+            // Build response object matching SDK format
+            response = {
+                text: fullText,
+                usageMetadata: streamUsage
+            };
         } else {
-            requestPayload.contents = [{
+            // Regular metadata-only generation
+            contents.push({
                 role: 'user',
                 parts: [{ text: prompt }]
-            }];
+            });
+            response = await ai.models.generateContent({
+                model: model || 'gemini-2.5-flash',
+                contents,
+                config: {
+                    systemInstruction: systemInstruction || 'You are a professional fact-checker and media analyst. Respond ONLY with valid JSON.',
+                    temperature: 0.7,
+                    maxOutputTokens: isDeepMode ? 65536 : 20000,
+                    responseMimeType: tools ? undefined : 'application/json',
+                    tools: tools
+                }
+            });
         }
-
-        const response = await ai.models.generateContent(requestPayload);
 
         let responseText = '';
-        if (typeof response.text === 'function') {
-            responseText = response.text();
-        } else if (response.candidates && response.candidates[0]?.content?.parts?.[0]?.text) {
-            responseText = response.candidates[0].content.parts[0].text;
+        let usage = null;
+
+
+        // Handle response formats
+        if (videoUrl) {
+            // Streaming response
+            responseText = response.text || '';
+            usage = response.usageMetadata || { promptTokenCount: 0, candidatesTokenCount: 0, totalTokenCount: 0 };
         } else {
-            responseText = JSON.stringify(response);
+            // SDK single response format
+            responseText = response.text || '';
+            usage = response.usageMetadata || { promptTokenCount: 0, candidatesTokenCount: 0 };
         }
-
-
-        const usage = response.usageMetadata || { promptTokenCount: 0, candidatesTokenCount: 0 };
 
         const PRICING = {
             'flash3': { input: 0.50, output: 3.00, audio: 1.00 },
@@ -147,7 +168,7 @@ app.post('/api/gemini/generate', async (req, res) => {
             'pro': { input: 0.50, output: 3.00, audio: 1.00 }
         };
 
-        const modelId = requestPayload.model || 'gemini-2.5-flash';
+        const modelId = model || 'gemini-2.5-flash';
         let selectedPricing = PRICING.flash3;
 
         if (modelId.includes('2.5-flash')) {
@@ -214,15 +235,14 @@ app.post('/api/gemini/generate', async (req, res) => {
         // Convert to EUR (0.95 rate)
         const totalCostEur = totalCostUSD * 0.95;
 
-        // Formula: EUR * 100 * 2 (Standard Multiplier)
+        // Formula: EUR * 100 * 2 (Standard Multiplier = x2 profit)
         let pointsDeducted = Math.ceil(totalCostEur * 200);
 
-        // === DEEP ANALYSIS DOUBLING ===
-        // If Deep Analysis (Google Search enabled OR Explicit Deep Mode), DOUBLE the points.
-        const isDeep = enableGoogleSearch || model.includes('3-flash') || model.includes('pro');
+        // === DEEP ANALYSIS: x1.5 additional (total x3 profit) ===
+        const isDeep = enableGoogleSearch === true;
 
         if (isDeep) {
-            pointsDeducted = pointsDeducted * 2; // Double points for Deep Analysis
+            pointsDeducted = Math.ceil(pointsDeducted * 1.5); // x2 base * x1.5 = x3 total
         }
 
         // Minimum points (5 for Standard, 10 for Deep)
@@ -253,6 +273,230 @@ app.post('/api/gemini/generate', async (req, res) => {
             error: error.message || 'Failed to generate content',
             code: 'UNKNOWN_ERROR'
         });
+    }
+});
+
+// === SSE STREAMING ENDPOINT ===
+// Streams Gemini responses in real-time so client can show progress
+app.post('/api/gemini/generate-stream', async (req, res) => {
+    req.setTimeout(900000);
+    res.setTimeout(900000);
+
+    // SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+
+    const sendSSE = (event, data) => {
+        res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    };
+
+    try {
+        const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.VITE_API_KEY;
+        if (!apiKey) {
+            sendSSE('error', { error: 'Server configuration error: Missing API key' });
+            return res.end();
+        }
+
+        // Auth
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            sendSSE('error', { error: 'Unauthorized' });
+            return res.end();
+        }
+
+        const idToken = authHeader.split('Bearer ')[1];
+        const { verifyToken, getUserPoints } = await import('./services/firebaseAdmin.js');
+
+        let userId;
+        try {
+            userId = await verifyToken(idToken);
+            if (!userId) throw new Error('Invalid token');
+        } catch (e) {
+            sendSSE('error', { error: 'Unauthorized: Invalid token' });
+            return res.end();
+        }
+
+        const currentBalance = await getUserPoints(userId);
+        if (currentBalance < 10) {
+            sendSSE('error', { error: 'Insufficient points', code: 'INSUFFICIENT_POINTS', currentBalance });
+            return res.end();
+        }
+
+        const { model, prompt, systemInstruction, videoUrl, isBatch, enableGoogleSearch, mode } = req.body;
+        const ai = new GoogleGenAI({ apiKey });
+
+        const isDeepMode = mode === 'deep';
+        const tools = (isDeepMode || enableGoogleSearch) ? [{ googleSearch: {} }] : undefined;
+
+        const contents = [{
+            role: 'user',
+            parts: videoUrl
+                ? [{ fileData: { mimeType: 'video/mp4', fileUri: videoUrl } }, { text: prompt }]
+                : [{ text: prompt }]
+        }];
+
+        sendSSE('progress', { status: 'Изпращане на заявка ...' });
+
+        const stream = await ai.models.generateContentStream({
+            model: model || 'gemini-2.5-flash',
+            contents,
+            config: {
+                systemInstruction: systemInstruction || 'You are a professional fact-checker and media analyst. Respond ONLY with valid JSON.',
+                temperature: 0.7,
+                maxOutputTokens: isDeepMode ? 65536 : 50000,
+                responseMimeType: tools ? undefined : 'application/json',
+                mediaResolution: 'MEDIA_RESOLUTION_LOW',
+                tools: tools
+            }
+        });
+
+        let fullText = '';
+        let streamUsage = null;
+        let chunkCount = 0;
+
+        for await (const chunk of stream) {
+            const chunkText = chunk.text || '';
+
+            if (chunkText) {
+                fullText += chunkText;
+                chunkCount++;
+                // Send progress every few chunks to avoid flooding
+                if (chunkCount % 5 === 0) {
+                    sendSSE('progress', { status: `Анализиране (${Math.round(fullText.length / 1024)} KB)...` });
+                }
+            }
+
+            if (chunk.usageMetadata) {
+                streamUsage = chunk.usageMetadata;
+            }
+        }
+
+        const responseText = fullText;
+        const usage = streamUsage || { promptTokenCount: 0, candidatesTokenCount: 0, totalTokenCount: 0 };
+
+        // Billing validation
+        if (!responseText || responseText.length < 10) {
+            sendSSE('error', { error: 'AI не успя да генерира валиден анализ.', code: 'AI_EMPTY_RESPONSE' });
+            return res.end();
+        }
+
+        // JSON validation
+        try {
+            let trimmed = responseText.trim();
+            const jsonMatch = trimmed.match(/```json\s*([\s\S]*?)\s*```/);
+            if (jsonMatch) {
+                trimmed = jsonMatch[1].trim();
+            } else {
+                const firstBrace = trimmed.indexOf('{');
+                const lastBrace = trimmed.lastIndexOf('}');
+                if (firstBrace !== -1 && lastBrace !== -1) {
+                    trimmed = trimmed.substring(firstBrace, lastBrace + 1);
+                }
+            }
+            if (!((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']')))) {
+                if (!trimmed.includes('{') && !trimmed.includes('[')) {
+                    throw new Error('Not a JSON response');
+                }
+            }
+        } catch (e) {
+            sendSSE('error', { error: 'AI върна невалиден формат.', code: 'AI_INVALID_FORMAT' });
+            return res.end();
+        }
+
+        // Pricing
+        const SELECTED_PRICING = { input: 0.50, output: 2.00, audio: 1.00 };
+        const BATCH_DISCOUNT = isBatch ? 0.5 : 1.0;
+        const inputCostUSD = (usage.promptTokenCount || 0) * (SELECTED_PRICING.input / 1000000) * BATCH_DISCOUNT;
+        const outputCostUSD = (usage.candidatesTokenCount || 0) * (SELECTED_PRICING.output / 1000000) * BATCH_DISCOUNT;
+        const totalCostEur = (inputCostUSD + outputCostUSD) * 0.95;
+        let pointsDeducted = Math.ceil(totalCostEur * 200);
+
+        const isDeep = enableGoogleSearch || (model && (model.includes('3-flash') || model.includes('pro')));
+        if (isDeep) pointsDeducted *= 2;
+        const finalPoints = Math.max(isDeep ? 10 : 5, pointsDeducted);
+
+        // Send complete event with full response
+        sendSSE('complete', {
+            text: responseText,
+            usageMetadata: usage,
+            points: {
+                deducted: 0,
+                costInPoints: finalPoints,
+                costEur: totalCostEur,
+                isDeep: isDeep
+            }
+        });
+        res.end();
+
+    } catch (error) {
+        console.error('[Gemini Stream API] Error:', error?.message || error);
+        console.error('[Gemini Stream API] Stack:', error?.stack);
+        try {
+            sendSSE('error', { error: error.message || 'Failed to generate content', code: 'UNKNOWN_ERROR' });
+        } catch (writeErr) {
+            console.error('[Gemini Stream API] Could not send error SSE:', writeErr.message);
+        }
+        res.end();
+    }
+});
+
+// === REPORT SYNTHESIS ENDPOINT ===
+// Text-only call that generates a professional journalistic report from analysis data
+app.post('/api/gemini/synthesize-report', async (req, res) => {
+    try {
+        const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.VITE_API_KEY;
+        if (!apiKey) {
+            return res.status(500).json({ error: 'Missing API key' });
+        }
+
+        // Auth
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+        const idToken = authHeader.split('Bearer ')[1];
+        const { verifyToken } = await import('./services/firebaseAdmin.js');
+        try {
+            const userId = await verifyToken(idToken);
+            if (!userId) throw new Error('Invalid');
+        } catch (e) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        const { prompt } = req.body;
+        if (!prompt) {
+            return res.status(400).json({ error: 'Missing prompt' });
+        }
+
+        const ai = new GoogleGenAI({ apiKey });
+
+        console.log('[Report Synthesis] Starting text-only generation...');
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            config: {
+                temperature: 0.8,
+                maxOutputTokens: 16000
+            }
+        });
+
+        let reportText = '';
+        if (typeof response.text === 'string') {
+            reportText = response.text;
+        } else if (typeof response.text === 'function') {
+            reportText = response.text();
+        } else if (response.candidates?.[0]?.content?.parts?.[0]?.text) {
+            reportText = response.candidates[0].content.parts[0].text;
+        }
+
+        console.log('[Report Synthesis] Complete. Length:', reportText.length);
+
+        res.json({ report: reportText });
+    } catch (error) {
+        console.error('[Report Synthesis] Error:', error?.message || error);
+        res.status(500).json({ error: error.message || 'Report synthesis failed' });
     }
 });
 

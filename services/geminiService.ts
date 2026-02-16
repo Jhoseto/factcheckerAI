@@ -4,9 +4,12 @@ import { auth } from './firebase';
 import { calculateCost as calculateCostFromPricing, calculateCostInPoints } from './pricing';
 import { getStandardAnalysisPrompt } from './prompts/standardAnalysisPrompt';
 import { getDeepAnalysisPrompt } from './prompts/deepAnalysisPrompt';
+import { getReportSynthesisPrompt } from './prompts/reportSynthesisPrompt';
+import { normalizeYouTubeUrl } from './validation';
 
 /**
  * Helper function to call our server-side Gemini API
+ * Uses streaming endpoint for video analysis to avoid undici timeout
  */
 const callGeminiAPI = async (payload: {
   model: string;
@@ -15,7 +18,8 @@ const callGeminiAPI = async (payload: {
   videoUrl?: string;
   isBatch?: boolean;
   enableGoogleSearch?: boolean;
-}): Promise<{ text: string; usageMetadata: any; points?: { deducted: number; costInPoints: number; remaining?: number } }> => {
+  mode?: string;
+}, onProgress?: (status: string) => void): Promise<{ text: string; usageMetadata: any; points?: { deducted: number; costInPoints: number; remaining?: number } }> => {
 
   const user = auth.currentUser;
   if (!user) {
@@ -24,9 +28,14 @@ const callGeminiAPI = async (payload: {
 
   const token = await user.getIdToken();
 
-  // Create AbortController with 15-minute timeout for long video analysis
+  // Use streaming endpoint for video analysis (avoids undici timeout)
+  if (payload.videoUrl) {
+    return callGeminiStreamAPI(payload, token, onProgress);
+  }
+
+  // Regular endpoint for non-video requests
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 900000); // 15 minutes
+  const timeoutId = setTimeout(() => controller.abort(), 900000);
 
   try {
     const response = await fetch('/api/gemini/generate', {
@@ -49,13 +58,11 @@ const callGeminiAPI = async (payload: {
         errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
       }
 
-      // Create error object with status code for proper error handling
       const error = new Error(errorData.error || 'Failed to generate content');
       (error as any).status = response.status;
       (error as any).statusCode = response.status;
       (error as any).code = errorData.code;
 
-      // Pass strictly typed error data if available
       if (errorData.currentBalance !== undefined) {
         (error as any).currentBalance = errorData.currentBalance;
       }
@@ -66,16 +73,105 @@ const callGeminiAPI = async (payload: {
     return response.json();
   } catch (error: any) {
     clearTimeout(timeoutId);
-
-    // Handle timeout/abort errors
     if (error.name === 'AbortError') {
-      const timeoutError = new Error('Анализът отне твърде дълго време (над 15 минути). Моля, опитайте с по-кратко видео или се свържете с поддръжката.');
+      const timeoutError = new Error('Анализът отне твърде дълго време (над 15 минути).');
       (timeoutError as any).code = 'TIMEOUT_ERROR';
       throw timeoutError;
     }
-
     throw error;
   }
+};
+
+/**
+ * Streaming SSE client for video analysis
+ * Avoids Node.js undici headers timeout by using Server-Sent Events
+ */
+const callGeminiStreamAPI = async (payload: any, token: string, onProgress?: (status: string) => void): Promise<{ text: string; usageMetadata: any; points?: any }> => {
+  const response = await fetch('/api/gemini/generate-stream', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    // Try to read error from body
+    let errorMsg = `Stream request failed: ${response.status}`;
+    try {
+      const errBody = await response.text();
+      errorMsg = errBody || errorMsg;
+    } catch { /* ignore */ }
+    throw new Error(errorMsg);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error('No response stream available');
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let result: { text: string; usageMetadata: any; points?: any } | null = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+
+    // SSE events are separated by double newlines
+    // Split on \n\n or \r\n\r\n
+    const eventBlocks = buffer.split(/\r?\n\r?\n/);
+    // Last item may be incomplete - keep it in buffer
+    buffer = eventBlocks.pop() || '';
+
+    for (const block of eventBlocks) {
+      if (!block.trim()) continue;
+
+      let eventType = '';
+      let eventData = '';
+
+      for (const line of block.split(/\r?\n/)) {
+        if (line.startsWith('event: ')) {
+          eventType = line.substring(7).trim();
+        } else if (line.startsWith('data: ')) {
+          eventData = line.substring(6);
+        }
+      }
+
+      if (!eventType || !eventData) continue;
+
+      try {
+        const data = JSON.parse(eventData);
+
+        if (eventType === 'progress' && onProgress) {
+          onProgress(data.status || 'Анализирам...');
+        } else if (eventType === 'complete') {
+          result = data;
+        } else if (eventType === 'error') {
+          const error = new Error(data.error || 'Stream error');
+          (error as any).code = data.code;
+          if (data.currentBalance !== undefined) {
+            (error as any).currentBalance = data.currentBalance;
+          }
+          throw error;
+        }
+      } catch (e: any) {
+        // Re-throw actual errors (not JSON parse errors)
+        if (e.code || e.message !== 'Stream error' && e instanceof Error && !(e instanceof SyntaxError)) {
+          throw e;
+        }
+      }
+    }
+  }
+
+  if (!result) {
+    throw new Error('Stream ended without complete event');
+  }
+
+  return result;
 };
 
 /**
@@ -181,13 +277,152 @@ const cleanJsonResponse = (text: string): string => {
   // Remove multi-line comments
   cleaned = cleaned.replace(/\/\*[\s\S]*?\*\//g, '');
 
+  // === ROBUST JSON SANITIZER ===
+  // When responseMimeType is not 'application/json' (deep mode with Google Search tools),
+  // the model may produce: (1) literal control chars inside strings, (2) unescaped quotes
+  // inside strings, (3) truncated JSON. This sanitizer handles all three.
+  {
+    let result = '';
+    let inStr = false;
+    let i = 0;
+
+    while (i < cleaned.length) {
+      const ch = cleaned[i];
+      const code = cleaned.charCodeAt(i);
+
+      // Handle escape sequences inside strings
+      if (inStr && ch === '\\') {
+        // Pass through the escape sequence (\ + next char)
+        result += ch;
+        i++;
+        if (i < cleaned.length) {
+          result += cleaned[i];
+          i++;
+        }
+        continue;
+      }
+
+      // Handle quote characters
+      if (ch === '"') {
+        if (!inStr) {
+          // Opening a string
+          inStr = true;
+          result += ch;
+          i++;
+          continue;
+        }
+
+        // We're inside a string and hit a quote — is it the closing quote or an unescaped internal quote?
+        // Look ahead to see if this quote is structural (followed by : , } ] or whitespace+structural)
+        let lookAhead = i + 1;
+        while (lookAhead < cleaned.length && /\s/.test(cleaned[lookAhead])) {
+          lookAhead++;
+        }
+        const nextSignificant = lookAhead < cleaned.length ? cleaned[lookAhead] : '';
+
+        if (nextSignificant === ':' || nextSignificant === ',' || nextSignificant === '}' ||
+          nextSignificant === ']' || nextSignificant === '' || nextSignificant === '"') {
+          // This is a structural closing quote
+          inStr = false;
+          result += ch;
+          i++;
+          continue;
+        }
+
+        // This quote is inside the string value — escape it
+        result += '\\"';
+        i++;
+        continue;
+      }
+
+      // Handle control characters inside strings
+      if (inStr && code < 0x20) {
+        switch (code) {
+          case 0x0A: result += '\\n'; break;
+          case 0x0D: result += '\\r'; break;
+          case 0x09: result += '\\t'; break;
+          case 0x08: result += '\\b'; break;
+          case 0x0C: result += '\\f'; break;
+          default: result += '\\u' + code.toString(16).padStart(4, '0'); break;
+        }
+        i++;
+        continue;
+      }
+
+      // Normal character
+      result += ch;
+      i++;
+    }
+    cleaned = result;
+  }
+
   // Remove any trailing text after the JSON (common when Gemini adds explanations)
-  // Find the last } or ] and remove everything after it
   const lastBrace = cleaned.lastIndexOf('}');
   const lastBracket = cleaned.lastIndexOf(']');
   const lastJsonChar = Math.max(lastBrace, lastBracket);
   if (lastJsonChar !== -1 && lastJsonChar < cleaned.length - 1) {
     cleaned = cleaned.substring(0, lastJsonChar + 1);
+  }
+
+  // === TRUNCATED JSON REPAIR ===
+  // If the JSON still fails to parse, try to close any open strings and brackets
+  try {
+    JSON.parse(cleaned);
+  } catch (e) {
+    if (e instanceof SyntaxError) {
+      console.warn('[cleanJsonResponse] Attempting to repair JSON...', e.message);
+      let repaired = cleaned;
+
+      // Scan to find open structures
+      let inString = false;
+      let escapeNext = false;
+      const stack: string[] = [];
+
+      for (let i = 0; i < repaired.length; i++) {
+        const ch = repaired[i];
+        if (escapeNext) { escapeNext = false; continue; }
+        if (ch === '\\' && inString) { escapeNext = true; continue; }
+        if (ch === '"') { inString = !inString; continue; }
+        if (!inString) {
+          if (ch === '{') stack.push('}');
+          else if (ch === '[') stack.push(']');
+          else if (ch === '}' || ch === ']') stack.pop();
+        }
+      }
+
+      // Close unterminated string
+      if (inString) repaired += '"';
+
+      // Remove trailing incomplete values
+      repaired = repaired.replace(/,\s*"[^"]*"?\s*:\s*"?[^"}\]]*$/, '');
+      repaired = repaired.replace(/,\s*"[^"]*$/, '');
+      repaired = repaired.replace(/,\s*$/, '');
+
+      // Re-scan and close all open brackets/braces
+      const stack2: string[] = [];
+      let inStr2 = false;
+      let esc2 = false;
+      for (let i = 0; i < repaired.length; i++) {
+        const ch = repaired[i];
+        if (esc2) { esc2 = false; continue; }
+        if (ch === '\\' && inStr2) { esc2 = true; continue; }
+        if (ch === '"') { inStr2 = !inStr2; continue; }
+        if (!inStr2) {
+          if (ch === '{') stack2.push('}');
+          else if (ch === '[') stack2.push(']');
+          else if (ch === '}' || ch === ']') stack2.pop();
+        }
+      }
+      while (stack2.length > 0) repaired += stack2.pop();
+
+      try {
+        JSON.parse(repaired);
+        console.log('[cleanJsonResponse] ✅ JSON repair successful');
+        cleaned = repaired;
+      } catch (e2) {
+        console.error('[cleanJsonResponse] ❌ JSON repair failed:', (e2 as Error).message);
+      }
+    }
   }
 
   return cleaned.trim();
@@ -411,37 +646,42 @@ ${metadataSection}
   };
 };
 
-export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTubeVideoMetadata, model: string = 'gemini-2.5-flash', mode: AnalysisMode = 'standard'): Promise<AnalysisResponse> => {
+export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTubeVideoMetadata, model: string = 'gemini-2.5-flash', mode: AnalysisMode = 'standard', onProgress?: (status: string) => void): Promise<AnalysisResponse> => {
   try {
+    // Normalize YouTube URL to standard format (handles mobile, shortened URLs)
+    const normalizedUrl = normalizeYouTubeUrl(url);
+
     // Strategy: Single API call - Gemini analyzes video AND extracts transcript in one go
     // No separate transcript extraction - everything happens in one request
 
-    const prompt = getAnalysisPrompt(url, 'video', mode) + (videoMetadata ? `\n\nVideo Context: Title: "${videoMetadata.title}", Author: "${videoMetadata.author}", Duration: ${videoMetadata.durationFormatted}.` : '');
+    const prompt = getAnalysisPrompt(normalizedUrl, 'video', mode) + (videoMetadata ? `\n\nVideo Context: Title: "${videoMetadata.title}", Author: "${videoMetadata.author}", Duration: ${videoMetadata.durationFormatted}.` : '');
 
     // ALWAYS send videoUrl - Gemini will process video and return everything including transcript
     const payload = {
       model: model,
       prompt: prompt,
       systemInstruction: "You are an ELITE fact-checker and investigative journalist with 20+ years of experience. Your mission is to create an EXCEPTIONAL, CRITICAL, and OBJECTIVE analysis that reveals all hidden viewpoints, manipulations, and facts. CRITICAL INSTRUCTIONS: 1) Extract ALL important claims, quotes, and manipulations from the video. 2) Extract FULL transcription from the video with timestamps. 3) Output all text in BULGARIAN. 4) Keep JSON Enum values in English. 5) Create a FINAL INVESTIGATIVE REPORT that is a masterpiece of journalism.",
-      videoUrl: url, // ← KEY: Always send video for single API call
+      videoUrl: normalizedUrl, // ← Use normalized URL
       mode: mode, // ← Send mode to activate Deep analysis features
       enableGoogleSearch: mode === 'deep' // ← Explicit Google Search activation for deep mode
     };
 
-    // 3. Call Gemini API (single call does everything)
-    const data = await callGeminiAPI(payload);
+    // 3. Call Gemini API (streaming for video, regular for text)
+    const data = await callGeminiAPI(payload, onProgress);
 
     // Validate response before parsing
     if (!data.text || typeof data.text !== 'string') {
       throw new Error('Gemini API не върна валиден отговор');
     }
 
+    let rawResponse: any;
+
+    // Both modes parse JSON from response
     const cleanedText = cleanJsonResponse(data.text);
     if (!cleanedText) {
       throw new Error('Не може да се извлече JSON от отговора на Gemini API');
     }
 
-    let rawResponse: any;
     try {
       rawResponse = JSON.parse(cleanedText);
     } catch (parseError: any) {
@@ -450,13 +690,15 @@ export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTub
       throw new Error('Gemini API върна невалиден JSON формат. Моля, опитайте отново.');
     }
 
-    // Extract transcription from Gemini's response
-    const transcription = rawResponse.transcription && Array.isArray(rawResponse.transcription) && rawResponse.transcription.length > 0
+
+    // Extract transcription from Gemini's response (only for Deep mode)
+    // Standard mode doesn't generate transcription to save time
+    const transcription = mode === 'deep' && rawResponse.transcription && Array.isArray(rawResponse.transcription) && rawResponse.transcription.length > 0
       ? rawResponse.transcription
       : [{
         timestamp: '00:00',
         speaker: 'Система',
-        text: 'Транскрипцията не беше налична за това видео.'
+        text: mode === 'standard' ? 'Транскрипцията не е налична в Standard режим.' : 'Транскрипцията не беше налична за това видео.'
       }];
 
     const parsed = transformGeminiResponse(rawResponse, model, videoMetadata?.title, videoMetadata?.author, videoMetadata, transcription);
@@ -476,7 +718,8 @@ export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTub
         'gemini-2.5-flash',
         data.usageMetadata?.promptTokenCount || 0,
         data.usageMetadata?.candidatesTokenCount || 0,
-        false
+        false,
+        mode === 'deep'
       )
     };
 
@@ -619,4 +862,59 @@ export const analyzeNewsLink = async (url: string): Promise<AnalysisResponse> =>
     const appError = handleApiError(e);
     throw appError;
   }
+};
+
+/**
+ * Synthesize a professional report from analysis data
+ * This is a background text-only call (no video) - fast and cheap
+ */
+export const synthesizeReport = async (analysis: VideoAnalysis): Promise<string> => {
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const prompt = getReportSynthesisPrompt({
+    videoTitle: analysis.videoTitle,
+    videoAuthor: analysis.videoAuthor,
+    summary: analysis.summary.overallSummary,
+    credibilityIndex: analysis.summary.credibilityIndex,
+    manipulationIndex: analysis.summary.manipulationIndex,
+    classification: analysis.summary.finalClassification,
+    claims: analysis.claims.map(c => ({
+      claim: c.quote || c.formulation || '',
+      verdict: c.veracity || '',
+      evidence: c.explanation || '',
+      speaker: ''
+    })),
+    manipulations: analysis.manipulations.map(m => ({
+      technique: m.technique,
+      description: m.logic || '',
+      impact: m.effect || '',
+      example: ''
+    })),
+    geopoliticalContext: analysis.summary.geopoliticalContext,
+    narrativeArchitecture: analysis.summary.narrativeArchitecture,
+    psychoLinguisticAnalysis: analysis.summary.psychoLinguisticAnalysis,
+    strategicIntent: analysis.summary.strategicIntent,
+    technicalForensics: analysis.summary.technicalForensics,
+    historicalParallel: analysis.summary.historicalParallel,
+    socialImpactPrediction: analysis.summary.socialImpactPrediction,
+    mode: analysis.analysisMode || 'standard'
+  });
+
+  const response = await fetch('/api/gemini/synthesize-report', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({ prompt })
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(err || 'Report synthesis failed');
+  }
+
+  const data = await response.json();
+  return data.report || '';
 };

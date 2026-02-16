@@ -98,6 +98,7 @@ export interface VideoAnalysis {
   humorAnalysis?: string;
   psychologicalProfile?: string;
   culturalSymbolicAnalysis?: string;
+  synthesizedReport?: string;
 }
 
 export interface APIUsage {
@@ -127,6 +128,7 @@ export interface YouTubeVideoMetadata {
 export interface CostEstimate {
   mode: AnalysisMode;
   estimatedTokens: number;
+  estimatedInputTokens: number;
   inputCostUSD: number;
   outputCostUSD: number;
   totalCostObserved: number; // Cost to me (in currency)

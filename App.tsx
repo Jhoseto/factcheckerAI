@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import html2canvas from 'html2canvas';
-import { analyzeYouTubeStandard, analyzeNewsLink } from './services/geminiService';
+import { analyzeYouTubeStandard, analyzeNewsLink, synthesizeReport } from './services/geminiService';
 import { VideoAnalysis, APIUsage, AnalysisMode, YouTubeVideoMetadata, CostEstimate } from './types';
 import ReliabilityChart from './components/ReliabilityChart';
 // AnalysisModeSelector removed (inlined)
@@ -67,6 +67,9 @@ const translateMetricName = (key: string): string => {
 const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [loadingPhase, setLoadingPhase] = useState(0);
+  const [streamingProgress, setStreamingProgress] = useState<string | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [reportLoading, setReportLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<VideoAnalysis | null>(null);
   const [usageData, setUsageData] = useState<APIUsage | null>(null);
@@ -80,8 +83,8 @@ const App: React.FC = () => {
   const { currentUser, userProfile, logout, deductPoints } = useAuth();
   const navigate = useNavigate();
 
-  // New state for analysis mode selection
-  const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('quick');
+  // New state for analysis mode selection - null until user selects
+  const [analysisMode, setAnalysisMode] = useState<AnalysisMode | null>(null);
   const [videoMetadata, setVideoMetadata] = useState<YouTubeVideoMetadata | null>(null);
   const [costEstimates, setCostEstimates] = useState<Record<AnalysisMode, CostEstimate> | null>(null);
   const [fetchingMetadata, setFetchingMetadata] = useState(false);
@@ -92,11 +95,23 @@ const App: React.FC = () => {
     let interval: any;
     if (loading) {
       setLoadingPhase(0);
+      setElapsedSeconds(0);
       interval = setInterval(() => {
         setLoadingPhase(prev => (prev + 1) % LOADING_PHASES.length);
       }, 3500);
     }
     return () => clearInterval(interval);
+  }, [loading]);
+
+  // Timer for analysis duration
+  useEffect(() => {
+    let timer: any;
+    if (loading) {
+      timer = setInterval(() => {
+        setElapsedSeconds(prev => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
   }, [loading]);
 
   // Fetch YouTube metadata when URL changes
@@ -160,8 +175,16 @@ const App: React.FC = () => {
     // Check if user has enough points
     let estimatedCost = 10; // Default base cost
 
-    if (type === 'video' && costEstimates && costEstimates[analysisMode]) {
+    if (type === 'video' && costEstimates && analysisMode && costEstimates[analysisMode]) {
       estimatedCost = costEstimates[analysisMode].pointsCost;
+
+      // Check if video exceeds token limit (1M max, with 50K buffer for prompt)
+      const estimatedInputTokens = costEstimates[analysisMode].estimatedInputTokens;
+      if (estimatedInputTokens > 950000) {
+        const maxMinutes = Math.floor(950000 / 100 / 60); // ~158 min at LOW res
+        setError(`Видеото е твърде дълго за анализ (~${Math.round(estimatedInputTokens / 1000)}K токена). Максималната продължителност е ~${maxMinutes} минути (~2.5 часа).`);
+        return;
+      }
     } else if (type === 'news') {
       estimatedCost = 10; // Fixed cost for news analysis
     }
@@ -174,14 +197,17 @@ const App: React.FC = () => {
     setLoading(true);
     setError(null);
     setAnalysis(null);
+    setStreamingProgress(null);
     try {
       let response;
 
       if (type === 'video') {
         const modelId = 'gemini-2.5-flash';
 
-        // Pass the mode explicitly to pick the right prompt
-        response = await analyzeYouTubeStandard(url, videoMetadata || undefined, modelId, analysisMode);
+        // Pass the mode explicitly to pick the right prompt (fallback to 'standard' if null)
+        response = await analyzeYouTubeStandard(url, videoMetadata || undefined, modelId, analysisMode || 'standard', (status) => {
+          setStreamingProgress(status);
+        });
       } else {
         response = await analyzeNewsLink(url);
       }
@@ -189,6 +215,19 @@ const App: React.FC = () => {
       // Deduct points after successful analysis using REAL usage data
       setAnalysis(response.analysis);
       setUsageData(response.usage);
+
+      // Fire background report synthesis (don't await - runs while user reads other tabs)
+      setReportLoading(true);
+      synthesizeReport(response.analysis)
+        .then(report => {
+          setAnalysis(prev => prev ? { ...prev, synthesizedReport: report } : prev);
+        })
+        .catch(err => {
+          console.error('[Report Synthesis] Background error:', err);
+        })
+        .finally(() => {
+          setReportLoading(false);
+        });
 
       // CRITICAL: Deduct points ONLY after analysis is successfully displayed
       if (userProfile && response.analysis && response.analysis.id) {
@@ -214,6 +253,7 @@ const App: React.FC = () => {
       }
     } finally {
       setLoading(false);
+      setStreamingProgress(null);
     }
   };
 
@@ -226,7 +266,7 @@ const App: React.FC = () => {
     setActiveTab('summary');
     setVideoMetadata(null);
     setCostEstimates(null);
-    setAnalysisMode('standard');
+    setAnalysisMode(null); // Reset to null so user must select again
   };
 
   const handleSaveFullReport = async () => {
@@ -509,8 +549,8 @@ const App: React.FC = () => {
 
               <button
                 onClick={() => handleStartAnalysis('video')}
-                disabled={loading || !youtubeUrl.trim()}
-                className={`w-full p-5 text-[10px] font-black uppercase tracking-[0.2em] transition-all shadow-xl shadow-slate-900/20 ${loading || !youtubeUrl.trim()
+                disabled={loading || !youtubeUrl.trim() || !analysisMode}
+                className={`w-full p-5 text-[10px] font-black uppercase tracking-[0.2em] transition-all shadow-xl shadow-slate-900/20 ${loading || !youtubeUrl.trim() || !analysisMode
                   ? 'bg-slate-400 text-slate-200 cursor-not-allowed'
                   : 'bg-slate-900 text-white hover:bg-black active:scale-[0.98]'
                   }`}
@@ -566,18 +606,32 @@ const App: React.FC = () => {
 
                 const finalTabs = [...baseTabsBefore, ...deepTabs, { id: 'report', label: 'Финален доклад' }];
 
-                return finalTabs.map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
-                    className={`text-[9px] md:text-[10px] font-black uppercase tracking-[0.15em] whitespace-nowrap pb-1 relative transition-all ${activeTab === tab.id ? 'text-amber-900' : 'text-slate-400 hover:text-slate-900'}`}
-                  >
-                    {tab.label}
-                    {activeTab === tab.id && (
-                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-900"></div>
-                    )}
-                  </button>
-                ));
+                return finalTabs.map(tab => {
+                  const isReportTab = tab.id === 'report';
+                  const isDisabled = isReportTab && reportLoading;
+
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => !isDisabled && setActiveTab(tab.id as any)}
+                      disabled={isDisabled}
+                      className={`text-[9px] md:text-[10px] font-black uppercase tracking-[0.15em] whitespace-nowrap pb-1 relative transition-all flex items-center gap-1.5 ${isDisabled
+                        ? 'text-slate-300 cursor-not-allowed'
+                        : activeTab === tab.id
+                          ? 'text-amber-900'
+                          : 'text-slate-400 hover:text-slate-900'
+                        }`}
+                    >
+                      {tab.label}
+                      {isReportTab && reportLoading && (
+                        <span className="inline-block w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin"></span>
+                      )}
+                      {activeTab === tab.id && !isDisabled && (
+                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-900"></div>
+                      )}
+                    </button>
+                  );
+                });
               })()}
             </nav>
 
@@ -750,7 +804,7 @@ const App: React.FC = () => {
                       {isExporting ? 'ГЕНЕРИРАНЕ...' : 'СВАЛИ PNG'}
                     </button>
                   </div>
-                  <ReportView analysis={analysis} reportRef={fullReportRef} />
+                  <ReportView analysis={analysis} reportRef={fullReportRef} reportLoading={reportLoading} />
                 </div>
               )}
             </section>
@@ -764,8 +818,11 @@ const App: React.FC = () => {
             <div className="w-full h-1 bg-slate-100 relative overflow-hidden"><div className="absolute inset-0 bg-slate-900 animate-[loading_2s_infinite]"></div></div>
             <div className="space-y-4">
               <h2 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-[0.3em] serif italic animate-pulse">ОДИТ НА ИСТИННОСТТА В ПРОЦЕС</h2>
+              <div className="font-mono text-3xl md:text-4xl font-black text-slate-800 tracking-[0.15em]">
+                {String(Math.floor(elapsedSeconds / 60)).padStart(2, '0')}:{String(elapsedSeconds % 60).padStart(2, '0')}
+              </div>
               <p className="text-[10px] md:text-[11px] font-black text-amber-900 uppercase tracking-widest leading-relaxed h-12">
-                {LOADING_PHASES[loadingPhase]}
+                {streamingProgress || LOADING_PHASES[loadingPhase]}
               </p>
             </div>
           </div>
@@ -801,177 +858,141 @@ const MultimodalSection: React.FC<{ title: string, content?: string, color: stri
   );
 };
 
-const ReportView: React.FC<{ analysis: VideoAnalysis, reportRef?: React.RefObject<HTMLElement> }> = ({ analysis, reportRef }) => {
+const ReportView: React.FC<{ analysis: VideoAnalysis, reportRef?: React.RefObject<HTMLElement>, reportLoading?: boolean }> = ({ analysis, reportRef, reportLoading }) => {
+  const reportText = analysis.synthesizedReport || analysis.summary.finalInvestigativeReport || '';
+
+  // Parse markdown-like report into structured sections
+  const renderReportContent = (text: string) => {
+    const sections = text.split(/\n(?=# )/).filter(Boolean);
+
+    return sections.map((section, sIdx) => {
+      const lines = section.split('\n');
+      const titleLine = lines[0] || '';
+      const isMainSection = titleLine.startsWith('# ') && !titleLine.startsWith('## ');
+      const sectionTitle = titleLine.replace(/^#+\s*/, '').trim();
+      const bodyLines = lines.slice(1);
+
+      return (
+        <section key={sIdx} className={`mb-10 ${sIdx === 0 ? '' : 'pt-8 border-t border-slate-200'}`}>
+          {sectionTitle && (
+            <h4 className={`text-[9px] font-black uppercase tracking-[0.4em] pb-2 mb-6 border-b ${isMainSection ? 'text-amber-900 border-amber-200' : 'text-slate-700 border-slate-200'
+              }`}>
+              {sectionTitle}
+            </h4>
+          )}
+          <div className={`text-slate-800 text-sm md:text-[15px] leading-relaxed serif ${sIdx === 0 ? 'first-letter:text-5xl first-letter:font-black first-letter:mr-3 first-letter:float-left first-letter:leading-none' : ''}`}>
+            {bodyLines.map((line, lIdx) => {
+              const trimmed = line.trim();
+              if (!trimmed) return null;
+              if (trimmed.startsWith('## ')) {
+                return <h5 key={lIdx} className="text-base md:text-lg font-black text-slate-900 uppercase mt-6 mb-3 tracking-tight">{trimmed.replace(/^##\s*/, '')}</h5>;
+              }
+              if (trimmed.startsWith('### ')) {
+                return <h6 key={lIdx} className="text-sm md:text-base font-black text-slate-800 mt-4 mb-2">{trimmed.replace(/^###\s*/, '')}</h6>;
+              }
+              if (trimmed === '---') {
+                return <hr key={lIdx} className="my-6 border-slate-200" />;
+              }
+              if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+                return <li key={lIdx} className="ml-4 mb-2 list-disc text-slate-700">{renderInlineMarkdown(trimmed.substring(2))}</li>;
+              }
+              if (/^\d+\.\s/.test(trimmed)) {
+                return <li key={lIdx} className="ml-4 mb-2 list-decimal text-slate-700">{renderInlineMarkdown(trimmed.replace(/^\d+\.\s*/, ''))}</li>;
+              }
+              if (trimmed.startsWith('> ')) {
+                return <blockquote key={lIdx} className="border-l-4 border-amber-300 pl-4 italic text-slate-600 my-4">{renderInlineMarkdown(trimmed.substring(2))}</blockquote>;
+              }
+              return <p key={lIdx} className="mb-4 leading-relaxed">{renderInlineMarkdown(trimmed)}</p>;
+            })}
+          </div>
+        </section>
+      );
+    });
+  };
+
+  // Render inline markdown (bold, italic)
+  const renderInlineMarkdown = (text: string) => {
+    const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={i} className="font-black text-slate-900">{part.slice(2, -2)}</strong>;
+      }
+      if (part.startsWith('*') && part.endsWith('*')) {
+        return <em key={i}>{part.slice(1, -1)}</em>;
+      }
+      return part;
+    });
+  };
+
   return (
     <article ref={reportRef} id="full-report-article" className="max-w-[1100px] mx-auto bg-[#fffdfa] p-8 md:p-12 border border-slate-300 shadow-sm relative print:shadow-none print:border-none">
       <header className="mb-12 pb-8 border-b-2 border-slate-900 text-center">
-        <div className="text-[9px] font-black text-amber-900 uppercase tracking-[0.6em] mb-4">КЛАСИФИЦИРАНО РАЗСЛЕДВАЩО ДОСИЕ #{analysis.id}</div>
+        <div className="text-[9px] font-black text-amber-900 uppercase tracking-[0.6em] mb-4">КЛАСИФИЦИРАНО РАЗСЛЕДВАЩО ДОСИЕ #{analysis.id?.substring(0, 8)}</div>
         <h3 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tight uppercase mb-4 serif italic leading-tight">{analysis.videoTitle}</h3>
         <div className="flex justify-center gap-10 text-[8px] font-bold text-slate-400 uppercase tracking-widest">
           <span>ИЗТОЧНИК: {analysis.videoAuthor}</span>
           <span>ДАТА: {new Date(analysis.timestamp).toLocaleString('bg-BG')}</span>
           <span>ДВИГАТЕЛ: DCGE v4.8</span>
         </div>
+        {analysis.synthesizedReport && (
+          <div className="mt-4 text-[8px] font-black text-emerald-700 uppercase tracking-widest">✦ СИНТЕЗИРАН АВТОРСКИ ДОКЛАД ✦</div>
+        )}
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
-        <div className="md:col-span-8 space-y-12">
-          <section>
-            <h4 className="text-[9px] font-black text-amber-900 uppercase tracking-[0.4em] border-b border-amber-100 pb-1 mb-4">I. ГЛАВНО СЛЕДСТВЕНО ЗАКЛЮЧЕНИЕ</h4>
-            <div className="text-slate-900 text-sm md:text-[15px] leading-relaxed serif first-letter:text-5xl first-letter:font-black first-letter:mr-3 first-letter:float-left first-letter:leading-none">
-              {analysis.summary.finalInvestigativeReport.split('\n\n').map((section, idx) => {
-                const lines = section.split('\n');
-                const firstLine = lines[0] || '';
-
-                if (firstLine.startsWith('#')) {
-                  return (
-                    <div key={idx} className="mb-8">
-                      <h5 className="text-base md:text-lg font-black text-slate-900 uppercase mt-6 mb-4 border-b border-slate-200 pb-2">
-                        {firstLine.replace(/^#+\s*/, '')}
-                      </h5>
-                      <div className="space-y-3">
-                        {lines.slice(1).filter(l => l.trim()).map((line, lineIdx) => {
-                          if (line.startsWith('###')) {
-                            return <h6 key={lineIdx} className="text-sm md:text-base font-black text-slate-800 uppercase mt-4 mb-2">{line.replace(/^###\s*/, '')}</h6>;
-                          } else if (line.trim() === '---') {
-                            return <hr key={lineIdx} className="my-4 border-slate-200" />;
-                          } else if (line.trim().startsWith('**') && line.trim().endsWith('**')) {
-                            return <p key={lineIdx} className="font-black text-slate-900 mb-2">{line.replace(/\*\*/g, '')}</p>;
-                          } else if (line.trim()) {
-                            return <p key={lineIdx} className="mb-3 leading-relaxed">{line.trim()}</p>;
-                          }
-                          return null;
-                        })}
-                      </div>
-                    </div>
-                  );
-                } else if (section.trim()) {
-                  return <p key={idx} className="mb-4 leading-relaxed">{section.trim()}</p>;
-                }
-                return null;
-              })}
-            </div>
-          </section>
-
-          <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div>
-              <h4 className="text-[9px] font-black text-slate-900 uppercase tracking-[0.4em] border-b border-slate-200 pb-1 mb-4">II. ГЕОПОЛИТИЧЕСКИ КОНТЕКСТ</h4>
-              <div className="text-slate-700 text-xs md:text-sm leading-relaxed italic border-l-2 border-amber-900 pl-4">
-                {analysis.summary.geopoliticalContext}
-              </div>
-            </div>
-            <div>
-              <h4 className="text-[9px] font-black text-slate-900 uppercase tracking-[0.4em] border-b border-slate-200 pb-1 mb-4">III. НАРАТИВНА АРХИТЕКТУРА</h4>
-              <div className="text-slate-700 text-xs md:text-sm leading-relaxed serif">
-                {analysis.summary.narrativeArchitecture}
-              </div>
-            </div>
-          </section>
-
-          <section>
-            <h4 className="text-[9px] font-black text-slate-900 uppercase tracking-[0.4em] border-b border-slate-200 pb-1 mb-4">IV. ТЕХНИЧЕСКА ЕКСПЕРТИЗА (FORENSICS)</h4>
-            <div className="text-slate-700 text-xs md:text-sm leading-relaxed bg-slate-50 p-6 border border-slate-100">
-              {analysis.summary.technicalForensics}
-            </div>
-          </section>
-
-          <section>
-            <h4 className="text-[9px] font-black text-slate-900 uppercase tracking-[0.4em] border-b border-slate-200 pb-1 mb-4">V. ПСИХО-ЛИНГВИСТИЧЕН АНАЛИЗ</h4>
-            <div className="text-slate-700 text-xs md:text-sm leading-relaxed italic">
-              {analysis.summary.psychoLinguisticAnalysis}
-            </div>
-          </section>
-
-          <section className="bg-amber-50/20 p-8 border border-amber-100">
-            <h4 className="text-[9px] font-black text-amber-900 uppercase tracking-[0.4em] mb-4">VI. СОЦИАЛНО ВЪЗДЕЙСТВИЕ И ПРОГНОЗИ</h4>
-            <div className="text-slate-800 text-xs md:text-sm leading-relaxed serif font-medium">
-              {analysis.summary.socialImpactPrediction}
-            </div>
-          </section>
-
-          <section>
-            <h4 className="text-[9px] font-black text-slate-900 uppercase tracking-[0.4em] border-b border-slate-200 pb-1 mb-4">VII. ИСТОРИЧЕСКА ПРЕЦЕДЕНТНОСТ</h4>
-            <div className="text-slate-700 text-xs md:text-sm leading-relaxed">
-              {analysis.summary.historicalParallel}
-            </div>
-          </section>
-
-          {analysis.analysisMode === 'deep' && (
-            <>
-              <section className="bg-indigo-50/20 p-8 border border-indigo-100">
-                <h4 className="text-[9px] font-black text-indigo-900 uppercase tracking-[0.4em] mb-4">VIII. МУЛТИМОДАЛЕН & ПСИХОЛОГИЧЕСКИ ОДИТ</h4>
-                <div className="grid grid-cols-1 gap-8 text-xs md:text-sm leading-relaxed">
-                  {analysis.visualAnalysis && (
-                    <div>
-                      <h5 className="font-black uppercase text-indigo-900 mb-2">Визуален Анализ:</h5>
-                      <p className="whitespace-pre-wrap serif">{analysis.visualAnalysis}</p>
-                    </div>
-                  )}
-                  {analysis.bodyLanguageAnalysis && (
-                    <div>
-                      <h5 className="font-black uppercase text-indigo-900 mb-2">Език на тялото:</h5>
-                      <p className="whitespace-pre-wrap serif">{analysis.bodyLanguageAnalysis}</p>
-                    </div>
-                  )}
-                  {analysis.deceptionAnalysis && (
-                    <div>
-                      <h5 className="font-black uppercase text-indigo-900 mb-2">Детекция на Измама:</h5>
-                      <p className="whitespace-pre-wrap serif">{analysis.deceptionAnalysis}</p>
-                    </div>
-                  )}
-                  {analysis.psychologicalProfile && (
-                    <div>
-                      <h5 className="font-black uppercase text-indigo-900 mb-2">Психологически Профил:</h5>
-                      <p className="whitespace-pre-wrap serif">{analysis.psychologicalProfile}</p>
-                    </div>
-                  )}
-                </div>
-              </section>
-            </>
-          )}
+      {reportLoading ? (
+        <div className="text-center py-20 animate-pulse">
+          <div className="inline-block w-8 h-8 border-3 border-amber-400 border-t-transparent rounded-full animate-spin mb-6"></div>
+          <h4 className="text-lg font-black text-slate-900 uppercase tracking-widest mb-2">Генериране на доклад</h4>
+          <p className="text-xs text-slate-500 uppercase tracking-wider">Главният редактор подготвя финалния авторски анализ...</p>
         </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
+          <div className="md:col-span-8 space-y-2">
+            {renderReportContent(reportText)}
+          </div>
 
-        <aside className="md:col-span-4 space-y-8">
-          <div className="p-6 bg-slate-900 text-white rounded-sm">
-            <h4 className="text-[8px] font-black text-amber-500 uppercase tracking-widest mb-6 border-b border-white/10 pb-2 text-center">АНАЛИТИЧНИ МЕТРИКИ</h4>
-            <div className="space-y-6">
-              {Object.entries(analysis.summary.detailedStats).map(([key, val], idx) => (
-                <div key={idx}>
-                  <div className="flex justify-between text-[7px] font-black uppercase mb-1">
-                    <span className="opacity-60">{translateMetricName(key)}</span>
-                    <span className="text-amber-500">{Math.round((val as number) * 100)}%</span>
+          <aside className="md:col-span-4 space-y-8">
+            <div className="p-6 bg-slate-900 text-white rounded-sm">
+              <h4 className="text-[8px] font-black text-amber-500 uppercase tracking-widest mb-6 border-b border-white/10 pb-2 text-center">АНАЛИТИЧНИ МЕТРИКИ</h4>
+              <div className="space-y-6">
+                {Object.entries(analysis.summary.detailedStats).map(([key, val], idx) => (
+                  <div key={idx}>
+                    <div className="flex justify-between text-[7px] font-black uppercase mb-1">
+                      <span className="opacity-60">{translateMetricName(key)}</span>
+                      <span className="text-amber-500">{Math.round((val as number) * 100)}%</span>
+                    </div>
+                    <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
+                      <div className="h-full bg-amber-500" style={{ width: `${(val as number) * 100}%` }}></div>
+                    </div>
                   </div>
-                  <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
-                    <div className="h-full bg-amber-500" style={{ width: `${(val as number) * 100}%` }}></div>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
 
-          <div className="p-6 border-2 border-double border-amber-900/30 text-center bg-white shadow-sm">
-            <div className="w-10 h-10 border-2 border-amber-900 rounded-full flex items-center justify-center mx-auto mb-3">
-              <span className="text-amber-900 font-black text-xl">✓</span>
+            <div className="p-6 border-2 border-double border-amber-900/30 text-center bg-white shadow-sm">
+              <div className="w-10 h-10 border-2 border-amber-900 rounded-full flex items-center justify-center mx-auto mb-3">
+                <span className="text-amber-900 font-black text-xl">✓</span>
+              </div>
+              <p className="text-[8px] font-black text-slate-800 uppercase leading-relaxed mb-1 tracking-widest">АВТЕНТИФИЦИРАНО</p>
+              <p className="text-[7px] font-bold text-slate-400 uppercase tracking-tight">Верифицирано срещу глобални данни.</p>
             </div>
-            <p className="text-[8px] font-black text-slate-800 uppercase leading-relaxed mb-1 tracking-widest">АВТЕНТИФИЦИРАНО</p>
-            <p className="text-[7px] font-bold text-slate-400 uppercase tracking-tight">Верифицирано срещу глобални данни.</p>
-          </div>
 
-          <div className="p-6 bg-slate-50 border border-slate-100 rounded-sm">
-            <h4 className="text-[8px] font-black text-slate-900 uppercase mb-4 tracking-widest">СТРАТЕГИЧЕСКО НАМЕРЕНИЕ</h4>
-            <p className="text-[11px] text-slate-600 italic leading-relaxed">
-              {analysis.summary.strategicIntent}
-            </p>
-          </div>
+            <div className="p-6 bg-slate-50 border border-slate-100 rounded-sm">
+              <h4 className="text-[8px] font-black text-slate-900 uppercase mb-4 tracking-widest">СТРАТЕГИЧЕСКО НАМЕРЕНИЕ</h4>
+              <p className="text-[11px] text-slate-600 italic leading-relaxed">
+                {analysis.summary.strategicIntent}
+              </p>
+            </div>
 
-          <div className="p-6 bg-slate-100/50 border border-slate-200 text-[8px] text-slate-400 font-mono leading-tight uppercase rounded-sm">
-            ИД НА ОДИТ (AUDIT_ID): {analysis.id}<br />
-            ВЪЗЕЛ (NODE): SEREZLIEV_G_UNIT<br />
-            СТАТУС (STATUS): FINAL_VERIFICATION<br />
-            ХЕШ (HASH): {Math.random().toString(16).slice(2, 18).toUpperCase()}
-          </div>
-        </aside>
-      </div>
+            <div className="p-6 bg-slate-100/50 border border-slate-200 text-[8px] text-slate-400 font-mono leading-tight uppercase rounded-sm">
+              ИД НА ОДИТ (AUDIT_ID): {analysis.id}<br />
+              ВЪЗЕЛ (NODE): SEREZLIEV_G_UNIT<br />
+              СТАТУС (STATUS): FINAL_VERIFICATION<br />
+              ХЕШ (HASH): {Math.random().toString(16).slice(2, 18).toUpperCase()}
+            </div>
+          </aside>
+        </div>
+      )}
 
       <footer className="mt-20 pt-8 border-t border-slate-200 text-center">
         <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.5em] mb-4">© ФАКТЧЕКЪР AI | ПЪЛЕН МЕДИЕН АНАЛИЗАТОР</div>
