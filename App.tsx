@@ -670,12 +670,18 @@ const App: React.FC = () => {
                     <div key={idx} className="editorial-card p-6 md:p-8 space-y-6 border-t-2 border-t-slate-800">
                       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-4">
                         <span className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest border ${claim.veracity.toLowerCase().includes('невярно') ? 'border-red-700 text-red-700 bg-red-50' : 'border-emerald-700 text-emerald-700 bg-emerald-50'}`}>{claim.veracity}</span>
-                        <div className="flex gap-4 text-[8px] font-black uppercase tracking-widest text-slate-400"><span>Категория: {claim.category}</span><span>Прецизност: {Math.round(claim.confidence * 100)}%</span></div>
+                        <div className="flex gap-4">
+                          <span className="px-3 py-1 text-[8px] font-black uppercase tracking-widest text-amber-800 bg-amber-50 border border-amber-200">Категория: {claim.category}</span>
+                          <span className="px-3 py-1 text-[8px] font-black uppercase tracking-widest text-amber-800 bg-amber-50 border border-amber-200">Прецизност: {Math.round(claim.confidence * 100)}%</span>
+                        </div>
                       </div>
-                      <blockquote className="text-lg md:text-2xl font-black text-slate-900 leading-tight serif italic tracking-tighter">„{claim.quote}“</blockquote>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-xs">
-                        <div className="space-y-2"><h5 className="text-[8px] font-black text-slate-900 uppercase tracking-widest border-b border-slate-900 pb-0.5 inline-block">Логически Одит</h5><p className="text-slate-600 leading-relaxed font-medium">{claim.explanation}</p></div>
-                        <div className="space-y-2"><h5 className="text-[8px] font-black text-amber-900 uppercase tracking-widest border-b border-amber-900 pb-0.5 inline-block">Контекст</h5><p className="text-slate-600 leading-relaxed italic">{claim.missingContext}</p></div>
+                      <blockquote className="text-lg md:text-2xl font-black text-slate-900 leading-tight serif italic tracking-tighter">„{claim.quote}"</blockquote>
+                      <div className="space-y-4">
+                        <h5 className="text-[9px] font-black text-amber-900 uppercase tracking-widest border-b-2 border-amber-900 pb-1 inline-block">Логически Одит</h5>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-xs">
+                          <div className="space-y-2"><h6 className="text-[8px] font-black text-amber-800 uppercase tracking-widest">Фактическа Проверка</h6><p className="text-slate-600 leading-relaxed font-medium">{claim.explanation}</p></div>
+                          <div className="space-y-2"><h6 className="text-[8px] font-black text-amber-800 uppercase tracking-widest">Сравнение и Контекст</h6><p className="text-slate-600 leading-relaxed italic">{claim.missingContext}</p></div>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -718,7 +724,6 @@ const App: React.FC = () => {
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-[11px]">
                             <div>
-                              <p className="font-black uppercase text-slate-400 text-[8px] mb-1 tracking-widest">Въздействие върху аудиторията:</p>
                               <p className="text-slate-700 font-medium leading-relaxed">{m.effect}</p>
                             </div>
                             <div>

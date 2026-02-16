@@ -192,21 +192,30 @@ const getAnalysisPrompt = (url: string, type: 'video' | 'news', mode: AnalysisMo
  */
 const cleanJsonResponse = (text: string): string => {
   let cleaned = text.trim();
+  console.log('[cleanJsonResponse] Input length:', cleaned.length);
 
   // First, try to extract JSON from markdown code blocks
   const jsonBlockMatch = cleaned.match(/```json\s*([\s\S]*?)\s*```/);
   if (jsonBlockMatch) {
+    console.log('[cleanJsonResponse] Extracted from ```json block. Before:', cleaned.length, 'After:', jsonBlockMatch[1].trim().length);
     cleaned = jsonBlockMatch[1].trim();
   } else {
     // Try generic code block
     const codeBlockMatch = cleaned.match(/```[a-z]*\s*([\s\S]*?)\s*```/);
     if (codeBlockMatch) {
+      console.log('[cleanJsonResponse] Extracted from generic code block. Before:', cleaned.length, 'After:', codeBlockMatch[1].trim().length);
       cleaned = codeBlockMatch[1].trim();
+    } else {
+      console.log('[cleanJsonResponse] No code block found');
     }
   }
 
   // Remove any remaining ``` markers
+  const beforeRemoveBackticks = cleaned.length;
   cleaned = cleaned.replace(/```/g, '').trim();
+  if (cleaned.length !== beforeRemoveBackticks) {
+    console.log('[cleanJsonResponse] Removed ``` markers, lost', beforeRemoveBackticks - cleaned.length, 'chars');
+  }
 
   // If text doesn't start with { or [, aggressively search for JSON object/array
   if (!cleaned.startsWith('{') && !cleaned.startsWith('[')) {
@@ -356,13 +365,19 @@ const cleanJsonResponse = (text: string): string => {
     cleaned = result;
   }
 
+  // Log length after sanitizer
+  console.log('[cleanJsonResponse] After sanitizer length:', cleaned.length);
+
   // Remove any trailing text after the JSON (common when Gemini adds explanations)
   const lastBrace = cleaned.lastIndexOf('}');
   const lastBracket = cleaned.lastIndexOf(']');
   const lastJsonChar = Math.max(lastBrace, lastBracket);
   if (lastJsonChar !== -1 && lastJsonChar < cleaned.length - 1) {
+    console.log('[cleanJsonResponse] Removing trailing text:', cleaned.length - lastJsonChar - 1, 'chars');
     cleaned = cleaned.substring(0, lastJsonChar + 1);
   }
+
+  console.log('[cleanJsonResponse] Before parse attempt length:', cleaned.length);
 
   // === TRUNCATED JSON REPAIR ===
   // If the JSON still fails to parse, try to close any open strings and brackets
@@ -370,7 +385,14 @@ const cleanJsonResponse = (text: string): string => {
     JSON.parse(cleaned);
   } catch (e) {
     if (e instanceof SyntaxError) {
+      // Extract position from error message
+      const posMatch = e.message.match(/position (\d+)/);
+      const errPos = posMatch ? parseInt(posMatch[1]) : -1;
       console.warn('[cleanJsonResponse] Attempting to repair JSON...', e.message);
+      if (errPos > 0) {
+        console.warn('[cleanJsonResponse] Error at position', errPos, '/', cleaned.length);
+        console.warn('[cleanJsonResponse] Context around error:', JSON.stringify(cleaned.substring(Math.max(0, errPos - 100), errPos + 100)));
+      }
       let repaired = cleaned;
 
       // Scan to find open structures
@@ -690,6 +712,17 @@ export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTub
       throw new Error('Gemini API върна невалиден JSON формат. Моля, опитайте отново.');
     }
 
+    // Debug: Log which deep analysis fields were returned
+    if (mode === 'deep') {
+      const deepFields = ['visualAnalysis', 'bodyLanguageAnalysis', 'vocalAnalysis', 'deceptionAnalysis', 'humorAnalysis', 'psychologicalProfile', 'culturalSymbolicAnalysis'];
+      const present = deepFields.filter(f => rawResponse[f] && rawResponse[f] !== 'Няма данни');
+      const missing = deepFields.filter(f => !rawResponse[f] || rawResponse[f] === 'Няма данни');
+      console.log(`[Deep Analysis] Fields present: ${present.length}/${deepFields.length}`, present);
+      console.log(`[Deep Analysis] Fields missing:`, missing);
+      console.log(`[Deep Analysis] Response keys:`, Object.keys(rawResponse));
+      console.log(`[Deep Analysis] Response text length:`, data.text.length);
+      console.log(`[Deep Analysis] Cleaned text length:`, cleanedText.length);
+    }
 
     // Extract transcription from Gemini's response (only for Deep mode)
     // Standard mode doesn't generate transcription to save time
