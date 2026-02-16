@@ -162,20 +162,8 @@ app.post('/api/gemini/generate', async (req, res) => {
             usage = response.usageMetadata || { promptTokenCount: 0, candidatesTokenCount: 0 };
         }
 
-        const PRICING = {
-            'flash3': { input: 0.50, output: 3.00, audio: 1.00 },
-            'flash2_5': { input: 0.30, output: 2.50, audio: 1.00 },
-            'pro': { input: 0.50, output: 3.00, audio: 1.00 }
-        };
-
-        const modelId = model || 'gemini-2.5-flash';
-        let selectedPricing = PRICING.flash3;
-
-        if (modelId.includes('2.5-flash')) {
-            selectedPricing = PRICING.flash2_5;
-        } else if (modelId.includes('pro')) {
-            selectedPricing = PRICING.pro;
-        }
+        // Log actual token usage for calibration
+        console.log('[Gemini API] Token Usage:', JSON.stringify(usage));
 
         // === FAIR BILLING VALIDATION ===
         if (!responseText || responseText.length < 10) {
@@ -220,7 +208,6 @@ app.post('/api/gemini/generate', async (req, res) => {
 
         // Use STANDARD pricing for ALL requests (Base Price)
         // Gemini 2.5 Flash ($0.50 Input / $2.00 Output)
-        // This is the "Standard" rate.
         const SELECTED_PRICING = { input: 0.50, output: 2.00, audio: 1.00 };
 
         const BATCH_DISCOUNT = isBatch ? 0.5 : 1.0;
@@ -247,6 +234,8 @@ app.post('/api/gemini/generate', async (req, res) => {
 
         // Minimum points (5 for Standard, 10 for Deep)
         const finalPoints = Math.max(isDeep ? 10 : 5, pointsDeducted);
+
+        console.log(`[Gemini API] Billing: Input=${usage.promptTokenCount} tokens ($${inputCostUSD.toFixed(4)}) | Output=${usage.candidatesTokenCount} tokens ($${outputCostUSD.toFixed(4)}) | Total=$${totalCostUSD.toFixed(4)} | EUR=${totalCostEur.toFixed(4)} | Points=${finalPoints} (isDeep=${isDeep})`);
 
         // DO NOT deduct points here. Deduction is handled by the client AFTER successful UI render.
         res.json({

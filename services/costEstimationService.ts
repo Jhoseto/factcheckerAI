@@ -51,21 +51,45 @@ export const estimateTranscriptTokens = (durationSeconds: number): { input: numb
 
 /**
  * Calculate cost estimate for a given mode and video duration
+ * 
+ * Key factors for accurate estimation:
+ * - Input: ~100 tokens/sec (MEDIA_RESOLUTION_LOW) + prompt overhead
+ * - Output: Highly dependent on mode:
+ *   - Standard: maxOutputTokens=20000, typical ~8-12K output + ~3-5K thinking
+ *   - Deep: maxOutputTokens=65536, typical ~20-35K output + ~5-10K thinking
+ * - Gemini 2.5 Flash uses "thinking" tokens (billed as output) on top of content
  */
 export const calculateCostEstimate = (
     mode: AnalysisMode,
     durationSeconds: number
 ): CostEstimate => {
-    // Estimate tokens with MEDIA_RESOLUTION_LOW:
-    // ~66 tokens/frame (1 FPS) + ~32 tokens/sec audio = ~100 tokens/sec
-    const inputTokens = Math.floor(durationSeconds * 100) + 2000; // + prompt overhead
-
-    // Output: ~4000 tokens base + 150 per minute
     const minutes = durationSeconds / 60;
-    const outputTokens = Math.floor(4000 + (minutes * 150));
+
+    // Input tokens: video (~100 tokens/sec at LOW res) + prompt
+    // Deep prompt is ~6K tokens, standard is ~2K tokens
+    const videoTokens = Math.floor(durationSeconds * 100);
+    const promptOverhead = mode === 'deep' ? 6000 : 2000;
+    const inputTokens = videoTokens + promptOverhead;
+
+    // Output tokens: content + thinking tokens
+    // Standard: ~8K base content + ~150/min, plus ~4K thinking tokens
+    // Deep: ~18K base content + ~250/min (much more detailed), plus ~8K thinking tokens
+    let outputTokens: number;
+    if (mode === 'deep') {
+        // Deep analysis produces massive output: detailed JSON with 7 multimodal fields,
+        // full transcription, extensive claims, quotes, manipulations, plus a huge final report
+        const contentTokens = Math.floor(18000 + (minutes * 250));
+        const thinkingTokens = Math.floor(8000 + (minutes * 100)); // 2.5 Flash thinking overhead
+        outputTokens = Math.min(contentTokens + thinkingTokens, 65536); // Cap at maxOutputTokens
+    } else {
+        const contentTokens = Math.floor(8000 + (minutes * 150));
+        const thinkingTokens = Math.floor(4000 + (minutes * 50));
+        outputTokens = Math.min(contentTokens + thinkingTokens, 20000); // Cap at maxOutputTokens
+    }
+
     const estimatedTokens = inputTokens + outputTokens;
 
-    // Both modes now use Gemini 2.5 Flash for cost estimation
+    // Both modes use Gemini 2.5 Flash
     const modelId = 'gemini-2.5-flash';
 
     // Calculate Costs (pass isDeep so Deep mode gets x3 multiplier)

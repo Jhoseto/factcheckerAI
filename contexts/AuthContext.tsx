@@ -28,7 +28,7 @@ interface AuthContextType {
     login: (email: string, password: string) => Promise<void>;
     loginWithGoogle: () => Promise<void>;
     logout: () => Promise<void>;
-    deductPoints: (amount: number, analysisId: string) => Promise<void>;
+    deductPoints: (amount: number, analysisId: string, metadata?: any) => Promise<void>;
     addPoints: (amount: number, transactionId: string) => Promise<void>;
     refreshProfile: () => Promise<void>;
 }
@@ -98,7 +98,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     // Deduct points (for analysis)
-    const deductPoints = async (amount: number, analysisId: string) => {
+    const deductPoints = async (amount: number, analysisId: string, metadata?: any) => {
         if (!currentUser) throw new Error('Not authenticated');
 
         const userRef = doc(db, 'users', currentUser.uid);
@@ -111,8 +111,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             userId: currentUser.uid,
             type: 'deduction',
             amount: -amount,
-            description: `Analysis #${analysisId}`,
+            description: metadata?.videoTitle ? `Analysis: ${metadata.videoTitle.substring(0, 30)}...` : `Analysis #${analysisId}`,
             analysisId,
+            metadata: metadata || null,
             createdAt: new Date().toISOString()
         });
 

@@ -4,6 +4,7 @@ import { useAuth } from './contexts/AuthContext';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
 import PricingPage from './components/pricing/PricingPage';
+import ExpensesPage from './components/user/ExpensesPage';
 import App from './App';
 
 const AppRouter: React.FC = () => {
@@ -42,6 +43,12 @@ const AppRouter: React.FC = () => {
             <Route
                 path="/pricing"
                 element={currentUser ? <PricingPage /> : <Navigate to="/login" replace />}
+            />
+
+            {/* Expenses & History - requires authentication */}
+            <Route
+                path="/expenses"
+                element={currentUser ? <ExpensesPage /> : <Navigate to="/login" replace />}
             />
 
             {/* Fallback */}
