@@ -22,6 +22,44 @@ const SocialAuditSection: React.FC = () => {
     const [result, setResult] = useState<VideoAnalysis | null>(null);
     const [usage, setUsage] = useState<APIUsage | null>(null);
 
+    // Loading animation state
+    const [loadingPhase, setLoadingPhase] = useState(0);
+    const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+    const LOADING_PHASES = [
+        "Инициализиране на защитена връзка с аналитичните възли...",
+        "Екстракция на социални сигнали и лингвистични структури...",
+        "Семантичен анализ на коментари и реакции...",
+        "Крос-рефериране на твърденията с глобални бази данни...",
+        "Деконструкция на логически заблуди и манипулации...",
+        "Идентифициране на скрити влияния и бот мрежи...",
+        "Изчисляване на индекси за достоверност и обективност...",
+        "Формиране на финална експертна оценка...",
+        "Финализиране на доклада..."
+    ];
+
+    useEffect(() => {
+        let interval: any;
+        if (isLoading) {
+            setLoadingPhase(0);
+            setElapsedSeconds(0);
+            interval = setInterval(() => {
+                setLoadingPhase(prev => (prev + 1) % LOADING_PHASES.length);
+            }, 3500);
+        }
+        return () => clearInterval(interval);
+    }, [isLoading]);
+
+    useEffect(() => {
+        let timer: any;
+        if (isLoading) {
+            timer = setInterval(() => {
+                setElapsedSeconds(prev => prev + 1);
+            }, 1000);
+        }
+        return () => clearInterval(timer);
+    }, [isLoading]);
+
     // Detect platform from URL
     useEffect(() => {
         if (!url) {
@@ -371,6 +409,22 @@ const SocialAuditSection: React.FC = () => {
                     )}
                 </div>
             </div>
+            {isLoading && (
+                <div className="fixed inset-0 bg-white z-[100] flex items-center justify-center px-8">
+                    <div className="text-center space-y-8 max-w-lg w-full">
+                        <div className="w-full h-1 bg-slate-100 relative overflow-hidden"><div className="absolute inset-0 bg-slate-900 animate-[loading_2s_infinite]"></div></div>
+                        <div className="space-y-4">
+                            <h2 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-[0.3em] serif italic animate-pulse">СОЦИАЛЕН ОДИТ В ПРОЦЕС</h2>
+                            <div className="font-mono text-3xl md:text-4xl font-black text-slate-800 tracking-[0.15em]">
+                                {String(Math.floor(elapsedSeconds / 60)).padStart(2, '0')}:{String(elapsedSeconds % 60).padStart(2, '0')}
+                            </div>
+                            <p className="text-[10px] md:text-[11px] font-black text-amber-900 uppercase tracking-widest leading-relaxed h-12">
+                                {LOADING_PHASES[loadingPhase]}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
         </section>
     );
 };

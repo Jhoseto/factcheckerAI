@@ -25,6 +25,7 @@ const LinkAuditPage: React.FC = () => {
     const [url, setUrl] = useState('');
     const [loading, setLoading] = useState(false);
     const [loadingPhase, setLoadingPhase] = useState(0);
+    const [elapsedSeconds, setElapsedSeconds] = useState(0);
     const [streamingStatus, setStreamingStatus] = useState<string | null>(null);
     const [analysis, setAnalysis] = useState<VideoAnalysis | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -39,11 +40,23 @@ const LinkAuditPage: React.FC = () => {
     useEffect(() => {
         let interval: any;
         if (loading) {
+            setLoadingPhase(0);
+            setElapsedSeconds(0);
             interval = setInterval(() => {
                 setLoadingPhase(prev => (prev + 1) % LOADING_PHASES.length);
             }, 3000);
         }
         return () => clearInterval(interval);
+    }, [loading]);
+
+    useEffect(() => {
+        let timer: any;
+        if (loading) {
+            timer = setInterval(() => {
+                setElapsedSeconds(prev => prev + 1);
+            }, 1000);
+        }
+        return () => clearInterval(timer);
     }, [loading]);
 
     const handleStartAnalysis = async () => {
@@ -162,20 +175,23 @@ const LinkAuditPage: React.FC = () => {
                 )}
 
                 {loading && (
-                    <div className="max-w-4xl mx-auto text-center space-y-12 py-20 animate-fadeIn">
-                        <div className="relative inline-block">
-                            <div className="w-24 h-24 border-2 border-slate-100 border-t-amber-900 rounded-full animate-spin"></div>
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="w-16 h-16 border-2 border-slate-100 border-b-amber-900 rounded-full animate-spin-slow"></div>
+                    <div className="fixed inset-0 bg-white z-[100] flex items-center justify-center px-8">
+                        <div className="text-center space-y-8 max-w-lg w-full">
+                            <div className="w-full h-1 bg-slate-100 relative overflow-hidden"><div className="absolute inset-0 bg-slate-900 animate-[loading_2s_infinite]"></div></div>
+                            <div className="space-y-4">
+                                <h2 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-[0.3em] serif italic animate-pulse">ЛИНК ОДИТ В ПРОЦЕС</h2>
+                                <div className="font-mono text-3xl md:text-4xl font-black text-slate-800 tracking-[0.15em]">
+                                    {String(Math.floor(elapsedSeconds / 60)).padStart(2, '0')}:{String(elapsedSeconds % 60).padStart(2, '0')}
+                                </div>
+                                <p className="text-[10px] md:text-[11px] font-black text-amber-900 uppercase tracking-widest leading-relaxed h-12">
+                                    {LOADING_PHASES[loadingPhase]}
+                                </p>
+                                {streamingStatus && (
+                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">
+                                        {streamingStatus}
+                                    </p>
+                                )}
                             </div>
-                        </div>
-                        <div className="space-y-4">
-                            <p className="text-2xl font-black text-slate-900 italic serif tracking-tight">
-                                {LOADING_PHASES[loadingPhase]}
-                            </p>
-                            <p className="text-amber-900 font-bold uppercase tracking-[0.2em] text-[10px] h-4">
-                                {streamingStatus}
-                            </p>
                         </div>
                     </div>
                 )}
