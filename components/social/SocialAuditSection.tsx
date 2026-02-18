@@ -161,7 +161,7 @@ const SocialAuditSection: React.FC = () => {
                 <div className="text-center space-y-4 mb-12">
                     <div className="flex items-center justify-center gap-3 mb-2">
                         <span className="h-[1px] w-8 bg-amber-900/30"></span>
-                        <span className="text-[10px] font-black text-amber-900 uppercase tracking-[0.4em]">ЕКСПЕРТЕН СОЦИАЛЕН ОДИТ</span>
+                        <span className="text-[10px] font-black text-amber-900 uppercase tracking-[0.4em]">ЕКСПЕРТЕН ОДИТ * СОЦИАЛНИ МРЕЖИ</span>
                         <span className="h-[1px] w-8 bg-amber-900/30"></span>
                     </div>
                     <h3 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tight leading-tight italic serif">

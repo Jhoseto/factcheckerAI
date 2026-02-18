@@ -320,7 +320,7 @@ const App: React.FC = () => {
             </div>
           </div>
           <div className="hidden lg:flex justify-center items-center">
-            <ScannerAnimation />
+            <ScannerAnimation size={600} />
           </div>
         </div>
       </div>
@@ -333,7 +333,7 @@ const App: React.FC = () => {
               <div className="text-center space-y-4 mb-12">
                 <div className="flex items-center justify-center gap-3 mb-2">
                   <span className="h-[1px] w-8 bg-amber-900/30"></span>
-                  <span className="text-[10px] font-black text-amber-900 uppercase tracking-[0.4em]">Професионален Видео Одит</span>
+                  <span className="text-[10px] font-black text-amber-900 uppercase tracking-[0.4em]">YouTube Видео Одит</span>
                   <span className="h-[1px] w-8 bg-amber-900/30"></span>
                 </div>
                 <h3 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tight leading-tight italic serif">
