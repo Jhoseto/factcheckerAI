@@ -11,7 +11,7 @@ import { getUserAnalyses, SavedAnalysis } from '../../services/archiveService';
 const ArchivePage: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
-    
+
     const [analyses, setAnalyses] = useState<SavedAnalysis[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<'all' | 'video' | 'link' | 'social'>('all');
@@ -21,7 +21,7 @@ const ArchivePage: React.FC = () => {
 
         const loadAnalyses = async () => {
             try {
-                const data = await getUserAnalyses(user.uid, 100);
+                const data = await getUserAnalyses(user.uid, undefined, 100);
                 setAnalyses(data);
             } catch (error) {
                 console.error('[ArchivePage] Error loading analyses:', error);
@@ -33,8 +33,8 @@ const ArchivePage: React.FC = () => {
         loadAnalyses();
     }, [user]);
 
-    const filteredAnalyses = filter === 'all' 
-        ? analyses 
+    const filteredAnalyses = filter === 'all'
+        ? analyses
         : analyses.filter(a => a.type === filter);
 
     const formatDate = (date: any) => {
@@ -98,11 +98,10 @@ const ArchivePage: React.FC = () => {
                         <button
                             key={f}
                             onClick={() => setFilter(f)}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                filter === f 
-                                    ? 'bg-purple-600 text-white' 
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === f
+                                    ? 'bg-purple-600 text-white'
                                     : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
-                            }`}
+                                }`}
                         >
                             {f === 'all' ? 'Всички' : getTypeLabel(f)}
                         </button>
@@ -121,7 +120,7 @@ const ArchivePage: React.FC = () => {
                 ) : (
                     <div className="space-y-4">
                         {filteredAnalyses.map((analysis) => (
-                            <div 
+                            <div
                                 key={analysis.id}
                                 className="bg-slate-800/50 backdrop-blur rounded-xl p-4 hover:bg-slate-700/50 transition-colors cursor-pointer"
                             >
@@ -129,22 +128,21 @@ const ArchivePage: React.FC = () => {
                                     <div className="flex-1">
                                         <div className="flex items-center gap-2 mb-2">
                                             <span className="text-xl">{getTypeIcon(analysis.type)}</span>
-                                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                                                analysis.type === 'video' ? 'bg-amber-500/20 text-amber-400' :
-                                                analysis.type === 'link' ? 'bg-blue-500/20 text-blue-400' :
-                                                'bg-purple-500/20 text-purple-400'
-                                            }`}>
+                                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${analysis.type === 'video' ? 'bg-amber-500/20 text-amber-400' :
+                                                    analysis.type === 'link' ? 'bg-blue-500/20 text-blue-400' :
+                                                        'bg-purple-500/20 text-purple-400'
+                                                }`}>
                                                 {getTypeLabel(analysis.type)}
                                             </span>
                                             <span className="text-gray-500 text-sm">
                                                 {formatDate(analysis.createdAt)}
                                             </span>
                                         </div>
-                                        
+
                                         <h3 className="text-white font-medium mb-1">
                                             {analysis.title}
                                         </h3>
-                                        
+
                                         {analysis.url && (
                                             <p className="text-gray-400 text-sm truncate mb-2">
                                                 {analysis.url}
@@ -158,10 +156,9 @@ const ArchivePage: React.FC = () => {
                                                     Твърдения: <span className="text-white">{analysis.analysis.claims?.length || 0}</span>
                                                 </span>
                                                 <span className="text-gray-400">
-                                                    Доверие: <span className={`${
-                                                        (analysis.analysis.summary.credibilityIndex || 0) > 0.6 ? 'text-green-400' :
-                                                        (analysis.analysis.summary.credibilityIndex || 0) > 0.4 ? 'text-yellow-400' : 'text-red-400'
-                                                    }`}>
+                                                    Доверие: <span className={`${(analysis.analysis.summary.credibilityIndex || 0) > 0.6 ? 'text-green-400' :
+                                                            (analysis.analysis.summary.credibilityIndex || 0) > 0.4 ? 'text-yellow-400' : 'text-red-400'
+                                                        }`}>
                                                         {Math.round((analysis.analysis.summary.credibilityIndex || 0) * 100)}%
                                                     </span>
                                                 </span>
