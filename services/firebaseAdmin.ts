@@ -108,7 +108,7 @@ export async function addPointsToUser(userId: string, points: number): Promise<v
                 throw new Error(`User ${userId} not found in Firestore`);
             }
 
-            const currentPoints = userDoc.data()?.points || 0;
+            const currentPoints = userDoc.data()?.pointsBalance || 0;
             const newPoints = currentPoints + points;
 
             transaction.update(userRef, {
@@ -139,9 +139,9 @@ export async function addPointsToUser(userId: string, points: number): Promise<v
  * Deduct points from user account
  * @param userId - Firebase user UID
  * @param points - Number of points to deduct
- * @returns True if successful, false if insufficient points
+ * @returns Object with success status and new balance
  */
-export async function deductPointsFromUser(userId: string, points: number): Promise<boolean> {
+export async function deductPointsFromUser(userId: string, points: number): Promise<{ success: boolean; newBalance: number }> {
     try {
         const db = getFirestore();
         const userRef = db.collection('users').doc(userId);
@@ -153,21 +153,21 @@ export async function deductPointsFromUser(userId: string, points: number): Prom
                 throw new Error(`User ${userId} not found in Firestore`);
             }
 
-            const currentPoints = userDoc.data()?.points || 0;
+            const currentPoints = userDoc.data()?.pointsBalance || 0;
 
             if (currentPoints < points) {
                 console.log(`[Firebase Admin] ❌ Insufficient points for user ${userId}: has ${currentPoints}, needs ${points}`);
-                return false;
+                return { success: false, newBalance: currentPoints };
             }
 
             const newPoints = currentPoints - points;
 
             transaction.update(userRef, {
-                points: newPoints,
+                pointsBalance: newPoints,
                 lastPointsUpdate: admin.firestore.FieldValue.serverTimestamp()
             });
 
-            return true;
+            return { success: true, newBalance: newPoints };
         });
 
         if (result) {
@@ -195,7 +195,7 @@ export async function getUserPoints(userId: string): Promise<number> {
             return 0;
         }
 
-        return userDoc.data()?.points || 0;
+        return userDoc.data()?.pointsBalance || 0;
     } catch (error) {
         console.error(`[Firebase Admin] ❌ Failed to get user points:`, error);
         return 0;

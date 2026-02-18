@@ -14,8 +14,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { analysisRateLimiter } from '../middleware/rateLimiter.js';
 import {
     getUserPoints,
-    deductPointsFromUser,
-    recordAnalysisTransaction
+    deductPointsFromUser
 } from '../../services/firebaseAdmin.js';
 import {
     calculateVideoCostInPoints,
