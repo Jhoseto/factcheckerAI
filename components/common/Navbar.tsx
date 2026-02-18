@@ -46,7 +46,7 @@ const Navbar: React.FC = () => {
                             ВИДЕО ОДИТ
                         </button>
                         <button
-                            onClick={() => navigate('/social')}
+                            onClick={() => scrollToSection('social-analysis')}
                             className="bg-purple-900 text-white px-5 py-2 text-[9px] font-black uppercase tracking-[0.2em] hover:bg-purple-950 transition-all shadow-sm"
                         >
                             SOCIAL MEDIA

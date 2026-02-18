@@ -12,6 +12,7 @@ import { useAuth } from './contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import PointsWidget from './components/user/PointsWidget';
 import LinkAuditPage from './components/linkAudit/LinkAuditPage';
+import SocialAuditSection from './components/social/SocialAuditSection';
 import ScannerAnimation from './components/common/ScannerAnimation';
 
 
@@ -675,6 +676,7 @@ const App: React.FC = () => {
         </div>
       </section>
       <LinkAuditPage />
+      <SocialAuditSection />
     </div>
   );
 };
