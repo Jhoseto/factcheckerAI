@@ -14,6 +14,7 @@ RUN npm install --production
 COPY dist ./dist
 COPY server.js ./
 COPY services ./services
+COPY server ./server
 
 # Expose the port
 EXPOSE 8080
