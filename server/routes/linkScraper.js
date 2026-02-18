@@ -5,10 +5,13 @@
 
 import express from 'express';
 import axios from 'axios';
+import { requireAuth } from '../middleware/auth.js';
+import { getUserPoints, deductPointsFromUser } from '../services/firebaseAdmin.js';
+import { getFixedPrice } from '../config/pricing.js';
 
 const router = express.Router();
 
-router.post('/scrape', async (req, res) => {
+router.post('/scrape', requireAuth, async (req, res) => {
     try {
         const { url } = req.body;
         if (!url) return res.status(400).json({ error: 'URL is required' });
@@ -18,6 +21,19 @@ router.post('/scrape', async (req, res) => {
             new URL(url);
         } catch {
             return res.status(400).json({ error: 'Invalid URL format' });
+        }
+
+        const userId = req.userId;
+        const price = getFixedPrice('link'); // Usually 15 points
+
+        // Check balance
+        const currentBalance = await getUserPoints(userId);
+        if (currentBalance < price) {
+            return res.status(403).json({
+                error: 'Insufficient points. Please top up your balance.',
+                code: 'INSUFFICIENT_POINTS',
+                currentBalance
+            });
         }
 
         console.log(`[Scraper] 🌐 Fetching content from: ${url}`);
@@ -89,12 +105,27 @@ router.post('/scrape', async (req, res) => {
         // Limit content length
         const truncatedContent = content.substring(0, 30000);
 
+        // Deduct points
+        const deductResult = await deductPointsFromUser(userId, price);
+        if (!deductResult.success) {
+            return res.status(403).json({
+                error: 'Insufficient points after generation.',
+                code: 'INSUFFICIENT_POINTS',
+                currentBalance: deductResult.newBalance
+            });
+        }
+
         res.json({
             title: ogTitle || title,
             content: truncatedContent,
             metaDescription,
             siteName: new URL(url).hostname.replace('www.', ''),
-            url
+            url,
+            points: {
+                deducted: price,
+                costInPoints: price,
+                newBalance: deductResult.newBalance
+            }
         });
 
     } catch (error) {

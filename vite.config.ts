@@ -62,6 +62,10 @@ export default defineConfig(({ mode }) => {
         '/api/lemonsqueezy': {
           target: 'http://localhost:8080',
           changeOrigin: true
+        },
+        '/api/transactions': {
+          target: 'http://localhost:8080',
+          changeOrigin: true
         }
       }
     },

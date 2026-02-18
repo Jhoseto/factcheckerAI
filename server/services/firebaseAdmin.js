@@ -57,7 +57,7 @@ export function initializeFirebaseAdmin() {
 /**
  * Get Firestore instance
  */
-function getFirestore() {
+export function getFirestore() {
     if (!adminInitialized) {
         initializeFirebaseAdmin();
     }

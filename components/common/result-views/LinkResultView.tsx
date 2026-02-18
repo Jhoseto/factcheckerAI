@@ -62,7 +62,15 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                 {/* Info */}
                 <div className="p-3 bg-slate-50 border border-slate-200 rounded-sm">
                     <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest mb-0.5">Източник</p>
-                    <p className="text-xs font-black text-slate-900 truncate">{new URL(url).hostname}</p>
+                    <p className="text-xs font-black text-slate-900 truncate">
+                        {(() => {
+                            try {
+                                return new URL(url).hostname;
+                            } catch {
+                                return url || 'Неизвестен източник';
+                            }
+                        })()}
+                    </p>
                 </div>
 
                 {/* Action Buttons */}

@@ -36,7 +36,15 @@ export const getUserTransactions = async (userId: string, limitCount: number = 5
         });
 
         if (!response.ok) {
-            throw new Error(`API Error: ${response.statusText}`);
+            let errorMsg = response.statusText;
+            try {
+                const errorData = await response.json();
+                if (errorData.details) errorMsg += `: ${errorData.details}`;
+                else if (errorData.error) errorMsg += `: ${errorData.error}`;
+            } catch (e) {
+                // Ignore JSON parse error, use statusText
+            }
+            throw new Error(`API Error: ${errorMsg}`);
         }
 
         const data = await response.json();

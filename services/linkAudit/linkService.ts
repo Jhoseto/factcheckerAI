@@ -15,15 +15,26 @@ export interface LinkScrapeResponse {
  */
 export const scrapeLink = async (url: string): Promise<LinkScrapeResponse> => {
     try {
+        const user = auth.currentUser;
+        if (!user) throw new Error('User must be logged in');
+
+        const token = await user.getIdToken();
+
         const response = await fetch('/api/link/scrape', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
             body: JSON.stringify({ url })
         });
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.error || 'Failed to scrape link');
+            const errorMessage = error.details
+                ? `${error.error} (${error.details})`
+                : (error.error || 'Failed to scrape link');
+            throw new Error(errorMessage);
         }
 
         return response.json();
