@@ -61,6 +61,7 @@ export interface AnalysisSummary {
   unverifiablePercent: number;
   finalClassification: string;
   overallSummary: string;
+  recommendations?: string;
   totalDuration: string;
   detailedStats: DetailedStats;
   finalInvestigativeReport: string;

@@ -121,7 +121,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             userId: currentUser.uid,
             type: 'deduction',
             amount: -amount,
-            description: metadata?.videoTitle ? `Analysis: ${metadata.videoTitle.substring(0, 30)}...` : `Analysis #${analysisId}`,
+            description: (metadata?.title || metadata?.videoTitle) ? `Анализ: ${(metadata.title || metadata.videoTitle).substring(0, 30)}...` : `Анализ #${analysisId}`,
             analysisId,
             metadata: metadata || null,
             createdAt: new Date().toISOString()

@@ -25,6 +25,79 @@ app.use((req, res, next) => {
 app.use('/api/gemini', express.json({ limit: '50mb' }));
 app.use('/api/lemonsqueezy/checkout', express.json({ limit: '1mb' }));
 app.use('/api/youtube/metadata', express.json({ limit: '1mb' }));
+app.use('/api/link/scrape', express.json({ limit: '1mb' }));
+
+import axios from 'axios';
+
+// === LINK SCRAPER ENDPOINT ===
+app.post('/api/link/scrape', async (req, res) => {
+    try {
+        const { url } = req.body;
+        if (!url) return res.status(400).json({ error: 'URL is required' });
+
+        console.log(`[Scraper] 🌐 Fetching content from: ${url}`);
+
+        const response = await axios.get(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+            },
+            timeout: 10000
+        });
+
+        const html = response.data;
+
+        // Basic extraction logic without external heavy libraries
+        // Extract Title
+        const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+        const title = titleMatch ? titleMatch[1].trim() : 'Link Analysis';
+
+        // Extract main text content (very basic heuristic: look for paragraphs)
+        // Clean up script and style tags first
+        let cleanText = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+        cleanText = cleanText.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+
+        // Extract paragraphs
+        const pMatches = cleanText.match(/<p[^>]*>([\s\S]*?)<\/p>/gi);
+        let content = '';
+
+        if (pMatches) {
+            content = pMatches
+                .map(p => p.replace(/<[^>]*>/g, '').trim())
+                .filter(text => text.length > 40) // Filter out short fragments
+                .join('\n\n');
+        }
+
+        // If no paragraphs found, fallback to body text but stripped of tags
+        if (!content || content.length < 200) {
+            const bodyMatch = cleanText.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+            if (bodyMatch) {
+                content = bodyMatch[1]
+                    .replace(/<[^>]*>/g, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+            } else {
+                content = cleanText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+            }
+        }
+
+        // Limit content length for Gemini safety
+        const truncatedContent = content.substring(0, 30000);
+
+        res.json({
+            title,
+            content: truncatedContent,
+            siteName: new URL(url).hostname.replace('www.', '')
+        });
+
+    } catch (error) {
+        console.error('[Scraper] ❌ Error scraping URL:', error.message);
+        res.status(500).json({
+            error: 'Неуспешно извличане на съдържанието от линка. Моля, опитайте по-късно или проверете дали сайтът позволява достъп.',
+            details: error.message
+        });
+    }
+});
 
 // Initialize Firebase Admin SDK
 try {

@@ -140,6 +140,12 @@ const Navbar: React.FC = () => {
                         </button>
                     )}
 
+                    <button
+                        onClick={() => navigate('/link-audit')}
+                        className="bg-amber-900/10 text-amber-900 border border-amber-900/20 px-5 py-2 text-[9px] font-black uppercase tracking-[0.2em] hover:bg-amber-900 hover:text-white transition-all outline-none"
+                    >
+                        ЛИНК ОДИТ
+                    </button>
                     <button onClick={handleNewAudit} className="bg-slate-900 text-white px-5 py-2 text-[9px] font-black uppercase tracking-[0.2em] hover:bg-black transition-all">НОВ ОДИТ</button>
                 </div>
             </div>

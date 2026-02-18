@@ -6,6 +6,7 @@ import Login from './components/auth/Login';
 import Register from './components/auth/Register';
 import PricingPage from './components/pricing/PricingPage';
 import ExpensesPage from './components/user/ExpensesPage';
+import LinkAuditPage from './components/linkAudit/LinkAuditPage';
 import App from './App';
 
 const AppRouter: React.FC = () => {
@@ -52,6 +53,11 @@ const AppRouter: React.FC = () => {
                 <Route
                     path="/expenses"
                     element={currentUser ? <ExpensesPage /> : <Navigate to="/login" replace />}
+                />
+
+                <Route
+                    path="/link-audit"
+                    element={<LinkAuditPage />}
                 />
 
                 {/* Fallback */}
