@@ -13,6 +13,14 @@ export default defineConfig(({ mode }) => {
           target: 'http://localhost:8080',
           changeOrigin: true
         },
+        '/api/social': {
+          target: 'http://localhost:8080',
+          changeOrigin: true
+        },
+        '/api/link': {
+          target: 'http://localhost:8080',
+          changeOrigin: true
+        },
         // YouTube metadata API - must be before /api/youtube to match first
         '/api/youtube/metadata': {
           target: 'http://localhost:8080',

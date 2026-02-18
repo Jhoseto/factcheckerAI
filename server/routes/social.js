@@ -41,8 +41,8 @@ router.post('/scrape', async (req, res) => {
 
         const platform = detectPlatform(url);
         if (!platform) {
-            return res.status(400).json({ 
-                error: 'Невалидна платформа. Поддържат се Facebook, Twitter/X, и TikTok.' 
+            return res.status(400).json({
+                error: 'Невалидна платформа. Поддържат се Facebook, Twitter/X, и TikTok.'
             });
         }
 
@@ -51,8 +51,9 @@ router.post('/scrape', async (req, res) => {
         // Basic scraping - in production, use official APIs
         const response = await axios.get(url, {
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9,bg;q=0.8',
             },
             timeout: 15000
         });
@@ -62,12 +63,12 @@ router.post('/scrape', async (req, res) => {
         // Extract basic info based on platform
         let postContent = '';
         let author = '';
-        
+
         // Try to extract Open Graph metadata
         const ogTitle = html.match(/<meta property="og:title" content="([^"]+)"/i);
         const ogDescription = html.match(/<meta property="og:description" content="([^"]+)"/i);
         const ogImage = html.match(/<meta property="og:image" content="([^"]+)"/i);
-        
+
         // For Twitter/X, also check Twitter cards
         const twitterTitle = html.match(/<meta name="twitter:title" content="([^"]+)"/i);
         const twitterDesc = html.match(/<meta name="twitter:description" content="([^"]+)"/i);
@@ -76,7 +77,7 @@ router.post('/scrape', async (req, res) => {
         const description = ogDescription?.[1] || twitterDesc?.[1] || '';
 
         // Try to extract author from various meta tags
-        const authorMatch = html.match(/<meta name="author" content="([^"]+)"/i) 
+        const authorMatch = html.match(/<meta name="author" content="([^"]+)"/i)
             || html.match(/<meta property="article:author" content="([^"]+)"/i);
         author = authorMatch?.[1] || 'Unknown';
 
@@ -103,22 +104,22 @@ router.post('/scrape', async (req, res) => {
 
     } catch (error) {
         console.error('[Social Scrape] ❌ Error:', error.message);
-        
+
         // Provide user-friendly error
         if (error.code === 'ENOTFOUND') {
-            return res.status(400).json({ 
-                error: 'URL-то не може да бъде достъпено. Проверете дали е валидно.' 
-            });
-        }
-        
-        if (error.response?.status === 404) {
-            return res.status(404).json({ 
-                error: 'Публикацията не е намерена. Тя може да е била изтрита или да е private.' 
+            return res.status(400).json({
+                error: 'URL-то не може да бъде достъпено. Проверете дали е валидно.'
             });
         }
 
-        res.status(500).json({ 
-            error: 'Грешка при извличане на публикацията. Моля, опитайте по-късно.' 
+        if (error.response?.status === 404) {
+            return res.status(404).json({
+                error: 'Публикацията не е намерена. Тя може да е била изтрита или да е private.'
+            });
+        }
+
+        res.status(500).json({
+            error: 'Грешка при извличане на публикацията. Моля, опитайте по-късно.'
         });
     }
 });

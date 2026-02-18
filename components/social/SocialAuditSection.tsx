@@ -14,7 +14,7 @@ const SocialAuditSection: React.FC = () => {
     const [url, setUrl] = useState('');
     const [platform, setPlatform] = useState<'facebook' | 'twitter' | 'tiktok' | null>(null);
     const [scrapedData, setScrapedData] = useState<SocialScrapeResponse | null>(null);
-    const [analysisType, setAnalysisType] = useState<'post' | 'comments' | 'full'>('post');
+    const [analysisType, setAnalysisType] = useState<'post' | 'comments' | 'full' | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isScraping, setIsScraping] = useState(false);
     const [status, setStatus] = useState('');
@@ -72,6 +72,12 @@ const SocialAuditSection: React.FC = () => {
             setStatus('Публикацията е извлечена успешно!');
         } catch (err: any) {
             setError(err.message || 'Грешка при извличане на публикацията');
+            // Allow manual entry on error
+            setScrapedData({
+                postContent: '',
+                author: 'Unknown',
+                platform: platform || 'facebook'
+            });
         } finally {
             setIsScraping(false);
         }
@@ -201,13 +207,15 @@ const SocialAuditSection: React.FC = () => {
                                         placeholder="https://facebook.com/... или https://x.com/..."
                                         className="flex-1 bg-white px-4 py-3 text-slate-900 font-bold border border-slate-300 focus:border-amber-900 focus:outline-none placeholder:text-slate-300"
                                     />
-                                    <button
-                                        onClick={handleScrape}
-                                        disabled={isScraping || !platform}
-                                        className="px-12 py-4 text-[10px] font-black uppercase tracking-[0.2em] transition-all bg-amber-900 text-white hover:bg-black active:scale-[0.98] disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed disabled:active:scale-100"
-                                    >
-                                        {isScraping ? '...' : 'ОДИТ'}
-                                    </button>
+                                    {!scrapedData && (
+                                        <button
+                                            onClick={handleScrape}
+                                            disabled={isScraping || !platform}
+                                            className="px-12 py-4 text-[10px] font-black uppercase tracking-[0.2em] transition-all bg-amber-900 text-white hover:bg-black active:scale-[0.98] disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed disabled:active:scale-100"
+                                        >
+                                            {isScraping ? '...' : 'ОДИТ'}
+                                        </button>
+                                    )}
                                 </div>
                                 {platform && (
                                     <p className="text-[10px] font-bold text-amber-700 mt-2 uppercase tracking-wider flex items-center gap-2">
@@ -216,16 +224,36 @@ const SocialAuditSection: React.FC = () => {
                                 )}
                             </div>
 
-                            {scrapedData && (
+                            {/* Manual Content Entry / Editing */}
+                            {(scrapedData || error) && (
                                 <div className="animate-fadeIn space-y-8">
                                     <div className="bg-white p-6 border-l-2 border-amber-900 shadow-sm">
-                                        <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Извлечени данни</h4>
-                                        <div className="space-y-2">
-                                            <p className="text-sm text-slate-900 font-bold"><span className="text-slate-500 font-normal">Автор:</span> {scrapedData.author}</p>
-                                            <p className="text-sm text-slate-900 font-bold"><span className="text-slate-500 font-normal">Платформа:</span> {platformNames[scrapedData.platform]}</p>
-                                            <p className="text-sm text-slate-700 italic border-t border-slate-100 pt-2 mt-2 leading-relaxed">
-                                                "{scrapedData.postContent.substring(0, 300)}..."
-                                            </p>
+                                        <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">
+                                            {error ? 'Ръчно въвеждане (Автоматичното извличане не успя)' : 'Извлечени данни'}
+                                        </h4>
+                                        <div className="space-y-4">
+                                            {scrapedData && scrapedData.postContent.length > 0 && (
+                                                <>
+                                                    <p className="text-sm text-slate-900 font-bold"><span className="text-slate-500 font-normal">Автор:</span> {scrapedData.author}</p>
+                                                    <p className="text-sm text-slate-900 font-bold"><span className="text-slate-500 font-normal">Платформа:</span> {platformNames[scrapedData.platform]}</p>
+                                                </>
+                                            )}
+
+                                            <div className="relative">
+                                                <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                                                    Съдържание на публикацията (Може да се редактира)
+                                                </label>
+                                                <textarea
+                                                    value={scrapedData?.postContent || ''}
+                                                    onChange={(e) => setScrapedData(prev => prev ? { ...prev, postContent: e.target.value } : {
+                                                        postContent: e.target.value,
+                                                        author: 'Unknown',
+                                                        platform: platform || 'facebook'
+                                                    })}
+                                                    className="w-full h-32 p-3 text-sm text-slate-700 border border-slate-200 focus:border-amber-900 focus:outline-none font-medium resize-y"
+                                                    placeholder="Ако автоматичното извличане не е пълно или неуспешно, поставете текста на публикацията тук..."
+                                                />
+                                            </div>
                                         </div>
                                     </div>
 
@@ -256,7 +284,7 @@ const SocialAuditSection: React.FC = () => {
 
                                     <button
                                         onClick={handleAnalyze}
-                                        disabled={isLoading}
+                                        disabled={isLoading || !scrapedData?.postContent || !analysisType}
                                         className="w-full bg-amber-900 text-white py-4 font-black uppercase tracking-[0.2em] text-[10px] hover:bg-black transition-all shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         {isLoading ? (

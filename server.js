@@ -26,8 +26,13 @@ app.use('/api/gemini', express.json({ limit: '50mb' }));
 app.use('/api/lemonsqueezy/checkout', express.json({ limit: '1mb' }));
 app.use('/api/youtube/metadata', express.json({ limit: '1mb' }));
 app.use('/api/link/scrape', express.json({ limit: '1mb' }));
+app.use('/api/social', express.json({ limit: '1mb' }));
 
 import axios from 'axios';
+import socialRouter from './server/routes/social.js';
+
+// Register Social Router
+app.use('/api/social', socialRouter);
 
 // === LINK SCRAPER ENDPOINT ===
 app.post('/api/link/scrape', async (req, res) => {
