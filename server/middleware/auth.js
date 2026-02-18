@@ -3,7 +3,7 @@
  * Verifies Firebase ID Token on every protected request
  */
 
-import { verifyToken } from '../../services/firebaseAdmin.js';
+import { verifyToken } from '../services/firebaseAdmin.js';
 
 /**
  * Express middleware that verifies Bearer token and attaches userId to req

@@ -69,7 +69,7 @@ function getFirestore() {
  * @param idToken - Firebase ID Token
  * @returns User UID or null
  */
-export async function verifyToken(idToken: string): Promise<string | null> {
+export async function verifyToken(idToken) {
     if (!adminInitialized) {
         const success = initializeFirebaseAdmin();
         if (!success) {
@@ -82,7 +82,7 @@ export async function verifyToken(idToken: string): Promise<string | null> {
         return decodedToken.uid;
     } catch (error) {
         console.error('[Firebase Admin] Token verification failed:', error);
-        return null; // This causes 401 in server.js
+        return null;
     }
 }
 
@@ -91,7 +91,7 @@ export async function verifyToken(idToken: string): Promise<string | null> {
  * @param userId - Firebase user UID
  * @param points - Number of points to add
  */
-export async function addPointsToUser(userId: string, points: number): Promise<void> {
+export async function addPointsToUser(userId, points) {
     if (!adminInitialized) {
         console.warn('[Firebase Admin] ⚠️  Cannot add points - not initialized');
         return;
@@ -141,7 +141,7 @@ export async function addPointsToUser(userId: string, points: number): Promise<v
  * @param points - Number of points to deduct
  * @returns Object with success status and new balance
  */
-export async function deductPointsFromUser(userId: string, points: number): Promise<{ success: boolean; newBalance: number }> {
+export async function deductPointsFromUser(userId, points) {
     try {
         const db = getFirestore();
         const userRef = db.collection('users').doc(userId);
@@ -186,7 +186,7 @@ export async function deductPointsFromUser(userId: string, points: number): Prom
  * @param userId - Firebase user UID
  * @returns Current points balance
  */
-export async function getUserPoints(userId: string): Promise<number> {
+export async function getUserPoints(userId) {
     try {
         const db = getFirestore();
         const userDoc = await db.collection('users').doc(userId).get();

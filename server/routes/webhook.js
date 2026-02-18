@@ -7,7 +7,7 @@
 
 import express from 'express';
 import crypto from 'crypto';
-import { addPointsToUser } from '../../services/firebaseAdmin.js';
+import { addPointsToUser } from '../services/firebaseAdmin.js';
 
 const router = express.Router();
 

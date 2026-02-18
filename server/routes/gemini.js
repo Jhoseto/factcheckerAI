@@ -15,7 +15,7 @@ import { analysisRateLimiter } from '../middleware/rateLimiter.js';
 import {
     getUserPoints,
     deductPointsFromUser
-} from '../../services/firebaseAdmin.js';
+} from '../services/firebaseAdmin.js';
 import {
     calculateVideoCostInPoints,
     getFixedPrice,

@@ -12,7 +12,7 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createProxyMiddleware } from 'http-proxy-middleware';
-import { initializeFirebaseAdmin } from '../services/firebaseAdmin.js';
+import { initializeFirebaseAdmin } from './services/firebaseAdmin.js';
 import { globalRateLimiter } from './middleware/rateLimiter.js';
 
 // Route modules
