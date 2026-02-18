@@ -1,50 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { PRICING_TIERS } from '../../config/pricingConfig';
 
-// Pricing tiers with Lemon Squeezy variant IDs
-const pricingTiers = [
-    {
-        id: 'starter',
-        name: 'Starter',
-        price: 5,
-        points: 500,
-        bonus: 0,
-        popular: false,
-        variantId: '1302428', // Lemon Squeezy variant ID
-        features: ['500 точки', 'Базов анализ', 'Email поддръжка']
-    },
-    {
-        id: 'standard',
-        name: 'Standard',
-        price: 15,
-        points: 1700,
-        bonus: 200,
-        popular: true,
-        variantId: '1302435', // Lemon Squeezy variant ID
-        features: ['1500 + 200 bonus точки', 'Разширен анализ', 'Приоритетна поддръжка', 'История на анализи']
-    },
-    {
-        id: 'professional',
-        name: 'Professional',
-        price: 44,
-        points: 5500,
-        bonus: 1000,
-        popular: false,
-        variantId: '1302443', // Lemon Squeezy variant ID
-        features: ['4500 + 1000 bonus точки', 'Пълен анализ', 'VIP поддръжка', 'API достъп', 'Експорт на доклади']
-    },
-    {
-        id: 'enterprise',
-        name: 'Enterprise',
-        price: 99,
-        points: 13000,
-        bonus: 3000,
-        popular: false,
-        variantId: '1302446', // Lemon Squeezy variant ID
-        features: ['10000 + 3000 bonus точки', 'Неограничен анализ', 'Dedicated поддръжка', 'Custom интеграции', 'Бял етикет']
-    }
-];
+// Use PRICING_TIERS from centralized config
+const pricingTiers = PRICING_TIERS.map(tier => ({
+    ...tier,
+    price: tier.priceEur,
+    points: tier.totalPoints,
+    bonus: tier.bonusPoints
+}));
 
 const PricingPage: React.FC = () => {
     const [loading, setLoading] = useState<string | null>(null);

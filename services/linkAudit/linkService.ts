@@ -35,6 +35,7 @@ export const scrapeLink = async (url: string): Promise<LinkScrapeResponse> => {
 
 /**
  * Performs Deep Analysis on a news link/article content
+ * Uses server-side billing - passes serviceType for fixed price calculation
  */
 export const analyzeLinkDeep = async (
     url: string,
@@ -61,6 +62,7 @@ export const analyzeLinkDeep = async (
                 prompt: prompt,
                 mode: 'deep',
                 enableGoogleSearch: true,
+                serviceType: 'linkArticle', // Fixed price for link analysis (12 points)
                 systemInstruction: 'You are a professional fact-checker. You MUST answer in Bulgarian language only.'
             })
         });
@@ -69,20 +71,21 @@ export const analyzeLinkDeep = async (
             const errorData = await response.json();
             const error = new Error(errorData.error || 'Analysis failed');
             (error as any).status = response.status;
+            (error as any).code = errorData.code;
             throw error;
         }
 
         const data = await response.json();
         const rawAnalysis = JSON.parse(cleanJsonResponse(data.text));
 
-        // Note: We use 10 points fixed cost for link analysis (per user request or logic)
-        // Or we deduct based on actual token usage if implemented in server.js
+        // Server returns points info including newBalance after server-side deduction
         const usage: APIUsage = {
             promptTokens: data.usageMetadata?.promptTokenCount || 0,
             candidatesTokens: data.usageMetadata?.candidatesTokenCount || 0,
             totalTokens: data.usageMetadata?.totalTokenCount || 0,
             estimatedCostUSD: 0,
-            pointsCost: 10 // Fixed 10 points for link analysis
+            pointsCost: data.points?.costInPoints || 12,
+            newBalance: data.points?.newBalance // Updated balance from server
         };
 
         return {

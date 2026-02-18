@@ -8,8 +8,9 @@ import {
     onAuthStateChanged,
     updateProfile
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, increment } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../services/firebase';
+import { WELCOME_BONUS_POINTS } from '../config/pricingConfig';
 
 interface UserProfile {
     uid: string;
@@ -28,9 +29,10 @@ interface AuthContextType {
     login: (email: string, password: string) => Promise<void>;
     loginWithGoogle: () => Promise<void>;
     logout: () => Promise<void>;
-    deductPoints: (amount: number, analysisId: string, metadata?: any) => Promise<void>;
-    addPoints: (amount: number, transactionId: string) => Promise<void>;
     refreshProfile: () => Promise<void>;
+    // NOTE: Points are now deducted SERVER-SIDE.
+    // These methods only update the local UI state after server confirms deduction.
+    updateLocalBalance: (newBalance: number) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -55,7 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     email: user.email || '',
                     displayName: user.displayName || 'User',
                     photoURL: user.photoURL || undefined,
-                    pointsBalance: 100, // Welcome bonus: 100 points
+                    pointsBalance: WELCOME_BONUS_POINTS,
                     createdAt: new Date().toISOString()
                 };
                 await setDoc(doc(db, 'users', user.uid), newProfile);
@@ -64,24 +66,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 await setDoc(doc(db, 'transactions', `${user.uid}_welcome`), {
                     userId: user.uid,
                     type: 'bonus',
-                    amount: 100,
-                    description: 'Начален бонус при регистрация',
+                    amount: WELCOME_BONUS_POINTS,
+                    description: `Начален бонус при регистрация (${WELCOME_BONUS_POINTS} точки)`,
                     createdAt: new Date().toISOString()
                 });
 
                 setUserProfile(newProfile);
-                console.log(`[Auth] ✅ New user created with 100 points welcome bonus: ${user.uid}`);
+                console.log(`[Auth] ✅ New user created with ${WELCOME_BONUS_POINTS} points welcome bonus: ${user.uid}`);
             }
         } catch (error) {
-            console.error('Error loading user profile:', error);
+            console.error('[Auth] Error loading user profile:', error);
         }
     };
 
-    // Refresh profile data
+    // Refresh profile data from Firestore (call after server-side operations)
     const refreshProfile = async () => {
         if (currentUser) {
             await loadUserProfile(currentUser);
         }
+    };
+
+    // Update local balance immediately (optimistic UI update)
+    // Called after server confirms deduction via response.points.newBalance
+    const updateLocalBalance = (newBalance: number) => {
+        setUserProfile(prev => prev ? { ...prev, pointsBalance: newBalance } : prev);
     };
 
     // Sign up with email and password
@@ -107,51 +115,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUserProfile(null);
     };
 
-    // Deduct points (for analysis)
-    const deductPoints = async (amount: number, analysisId: string, metadata?: any) => {
-        if (!currentUser) throw new Error('Not authenticated');
-
-        const userRef = doc(db, 'users', currentUser.uid);
-        await updateDoc(userRef, {
-            pointsBalance: increment(-amount)
-        });
-
-        // Record transaction
-        await setDoc(doc(db, 'transactions', `${currentUser.uid}_${Date.now()}`), {
-            userId: currentUser.uid,
-            type: 'deduction',
-            amount: -amount,
-            description: (metadata?.title || metadata?.videoTitle) ? `Анализ: ${(metadata.title || metadata.videoTitle).substring(0, 30)}...` : `Анализ #${analysisId}`,
-            analysisId,
-            metadata: metadata || null,
-            createdAt: new Date().toISOString()
-        });
-
-        await refreshProfile();
-    };
-
-    // Add points (after purchase)
-    const addPoints = async (amount: number, transactionId: string) => {
-        if (!currentUser) throw new Error('Not authenticated');
-
-        const userRef = doc(db, 'users', currentUser.uid);
-        await updateDoc(userRef, {
-            pointsBalance: increment(amount)
-        });
-
-        // Record transaction
-        await setDoc(doc(db, 'transactions', transactionId), {
-            userId: currentUser.uid,
-            type: 'purchase',
-            amount,
-            description: `Purchased ${amount} points`,
-            paymentIntentId: transactionId,
-            createdAt: new Date().toISOString()
-        });
-
-        await refreshProfile();
-    };
-
     // Auth state listener
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -175,9 +138,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         loginWithGoogle,
         logout,
-        deductPoints,
-        addPoints,
-        refreshProfile
+        refreshProfile,
+        updateLocalBalance
     };
 
     return (

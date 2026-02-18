@@ -3,8 +3,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { scrapeLink, analyzeLinkDeep } from '../../services/linkAudit/linkService';
+import { saveAnalysis } from '../../services/archiveService';
+import { validateNewsUrl } from '../../services/validation';
 import { VideoAnalysis, APIUsage } from '../../types';
-import ReliabilityChart from '../ReliabilityChart';
+import ReliabilityGauge from './ReliabilityGauge';
+import MetricBlock from '../common/MetricBlock';
+import { FIXED_PRICES } from '../../config/pricingConfig';
 
 const LOADING_PHASES = [
     "Установяване на криптирана връзка със сайта...",
@@ -17,28 +21,6 @@ const LOADING_PHASES = [
     "Формиране на финален одит доклад..."
 ];
 
-const MetricBlock: React.FC<{ label: string; value: number; color: string }> = ({ label, value, color }) => {
-    const val = Math.round(value > 1 ? value : value * 100);
-    const colorMap: any = {
-        blue: 'bg-amber-900',
-        emerald: 'bg-emerald-700',
-        orange: 'bg-orange-700',
-        red: 'bg-red-700'
-    };
-
-    return (
-        <div className="editorial-card p-4 md:p-5 border-t-2 border-t-slate-800">
-            <p className="text-[8px] md:text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">{label}</p>
-            <div className="flex items-baseline gap-1">
-                <span className="text-xl md:text-2xl font-black text-slate-900 tracking-tighter">{val}%</span>
-            </div>
-            <div className="w-full h-1 bg-slate-100 mt-2 overflow-hidden">
-                <div className={`h-full ${colorMap[color] || 'bg-amber-900'} transition-all duration-1000`} style={{ width: `${val}%` }} />
-            </div>
-        </div>
-    );
-};
-
 const LinkAuditPage: React.FC = () => {
     const [url, setUrl] = useState('');
     const [loading, setLoading] = useState(false);
@@ -48,8 +30,11 @@ const LinkAuditPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'summary' | 'claims' | 'manipulation' | 'report'>('summary');
 
-    const { currentUser, userProfile, deductPoints, refreshProfile } = useAuth();
+    const { currentUser, userProfile, updateLocalBalance, refreshProfile } = useAuth();
     const navigate = useNavigate();
+
+    // Fixed price for link/article analysis
+    const LINK_AUDIT_PRICE = FIXED_PRICES.linkArticle;
 
     useEffect(() => {
         let interval: any;
@@ -63,8 +48,22 @@ const LinkAuditPage: React.FC = () => {
 
     const handleStartAnalysis = async () => {
         if (!url.trim()) return;
+        
+        // Validate URL
+        const validation = validateNewsUrl(url);
+        if (!validation.valid) {
+            setError(validation.error || 'Невалиден URL адрес');
+            return;
+        }
+
         if (!currentUser) {
             navigate('/login');
+            return;
+        }
+
+        // Check balance before starting (server also checks, but we show user-friendly message)
+        if (userProfile && userProfile.pointsBalance < LINK_AUDIT_PRICE) {
+            setError(`Недостатъчно точки! Нужни са ${LINK_AUDIT_PRICE} точки. Моля, купете точки от Pricing страницата.`);
             return;
         }
 
@@ -77,23 +76,40 @@ const LinkAuditPage: React.FC = () => {
             // 1. Scrape content
             const scraped = await scrapeLink(url);
 
-            // 2. Analyze
+            // 2. Analyze (server-side billing - points deducted AFTER successful generation)
             const { analysis: result, usage } = await analyzeLinkDeep(url, scraped.content, (status) => {
                 setStreamingStatus(status);
             });
 
-            // 3. Deduct points (fixed 10 for links)
-            await deductPoints(10, result.id, {
-                title: scraped.title,
-                author: scraped.siteName,
-                url: url
-            });
+            // 3. Update local balance from server response (server already deducted points)
+            if (usage?.newBalance !== undefined) {
+                updateLocalBalance(usage.newBalance);
+            } else {
+                // Fallback: refresh from Firestore
+                await refreshProfile();
+            }
 
             setAnalysis(result);
-            await refreshProfile();
+            
+            // Save to archive
+            try {
+                await saveAnalysis(user.uid, 'link', result.videoTitle || 'Link Analysis', result, url);
+            } catch (saveErr) {
+                console.error('[LinkAudit] Failed to save to archive:', saveErr);
+            }
         } catch (e: any) {
             console.error('[LinkAudit] ❌ Error:', e);
-            setError(e.message || 'Възникна грешка при анализа. Моля, опитайте отново.');
+            
+            // Handle specific error codes
+            if (e.code === 'INSUFFICIENT_POINTS') {
+                setError('Недостатъчно точки за анализ. Моля, закупете точки от Pricing страницата.');
+            } else if (e.statusCode === 401 || e.code === 'API_KEY_ERROR') {
+                setError('Грешка при свързване със сървъра. Моля, опитайте по-късно.');
+            } else if (e.code === 'RATE_LIMIT') {
+                setError('Много заявки за кратко време. Моля, изчакайте 1-2 минути и опитайте отново.');
+            } else {
+                setError(e.message || 'Възникна грешка при анализа. Моля, опитайте отново.');
+            }
         } finally {
             setLoading(false);
             setStreamingStatus(null);
@@ -101,9 +117,8 @@ const LinkAuditPage: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 selection:bg-amber-900 selection:text-white pb-20">
-            {/* Header / Hero */}
-            <div className="max-w-7xl mx-auto px-4 pt-12">
+        <section id="link-analysis" className="py-20 border-t border-slate-200 bg-[#f9f9f9] selection:bg-amber-900 selection:text-white">
+            <div className="max-w-7xl mx-auto px-4">
                 <div className="text-center space-y-4 mb-12">
                     <div className="flex items-center justify-center gap-3 mb-2">
                         <span className="h-[1px] w-8 bg-amber-900/30"></span>
@@ -123,7 +138,7 @@ const LinkAuditPage: React.FC = () => {
                 <div className="max-w-3xl mx-auto editorial-card p-2 mb-12 flex flex-col md:flex-row gap-2">
                     <input
                         type="url"
-                        placeholder="https://news-site.com/article-url..."
+                        placeholder="https://news-site.bg/ime-na-statiata..."
                         className="flex-1 bg-transparent px-6 py-4 text-slate-900 font-bold focus:outline-none placeholder:text-slate-300"
                         value={url}
                         onChange={(e) => setUrl(e.target.value)}
@@ -177,17 +192,26 @@ const LinkAuditPage: React.FC = () => {
                             <div className="lg:col-span-8 space-y-6">
                                 <div className="editorial-card p-10 flex flex-col md:flex-row items-center gap-10 bg-white">
                                     <div className="w-48 h-48 flex-shrink-0">
-                                        <ReliabilityChart score={analysis.summary.detailedStats.factualAccuracy} />
+                                        <ReliabilityGauge score={analysis.summary.detailedStats.factualAccuracy} />
                                     </div>
                                     <div className="space-y-6 text-center md:text-left">
                                         <div className="space-y-2">
-                                            <p className="text-[10px] font-black text-amber-900 uppercase tracking-widest">Генерална оценка</p>
+                                            <p className="text-[10px] font-black text-amber-900 uppercase tracking-widest">{analysis.videoAuthor} • Генерална оценка</p>
                                             <h2 className="text-4xl font-black text-slate-900 tracking-tighter serif italic leading-tight">
-                                                {analysis.summary.finalClassification === 'ACCURATE' ? 'Достоверно' :
-                                                    analysis.summary.finalClassification === 'MOSTLY_ACCURATE' ? 'Предимно точно' :
-                                                        analysis.summary.finalClassification === 'MIXED' ? 'Смесени данни' :
-                                                            analysis.summary.finalClassification === 'MISLEADING' ? 'Подвеждащо' : 'Невярно'}
+                                                {analysis.videoTitle}
                                             </h2>
+                                            <div className="flex items-center gap-2 mb-4">
+                                                <span className={`px-3 py-1 text-[10px] font-black text-white uppercase tracking-widest
+                                                    ${analysis.summary.finalClassification === 'ACCURATE' ? 'bg-emerald-700' :
+                                                        analysis.summary.finalClassification === 'MOSTLY_ACCURATE' ? 'bg-emerald-600' :
+                                                            analysis.summary.finalClassification === 'MIXED' ? 'bg-amber-600' :
+                                                                analysis.summary.finalClassification === 'MISLEADING' ? 'bg-orange-700' : 'bg-red-800'}`}>
+                                                    {analysis.summary.finalClassification === 'ACCURATE' ? 'Достоверно' :
+                                                        analysis.summary.finalClassification === 'MOSTLY_ACCURATE' ? 'Предимно точно' :
+                                                            analysis.summary.finalClassification === 'MIXED' ? 'Смесени данни' :
+                                                                analysis.summary.finalClassification === 'MISLEADING' ? 'Подвеждащо' : 'Невярно'}
+                                                </span>
+                                            </div>
                                         </div>
                                         <p className="text-slate-600 font-medium leading-relaxed italic text-sm border-l-2 border-slate-200 pl-4">
                                             "{analysis.summary.overallSummary.substring(0, 300)}..."
@@ -219,7 +243,7 @@ const LinkAuditPage: React.FC = () => {
                                         <div className="space-y-1">
                                             <p className="text-[9px] font-bold text-amber-500 uppercase">Цена на одит</p>
                                             <div className="flex items-center gap-1">
-                                                <span className="text-xl font-black text-white">10</span>
+                                                <span className="text-xl font-black text-white">{LINK_AUDIT_PRICE}</span>
                                                 <span className="text-[10px] font-bold text-slate-400 uppercase">точки</span>
                                             </div>
                                         </div>
@@ -229,7 +253,7 @@ const LinkAuditPage: React.FC = () => {
                         </div>
 
                         {/* Navigation Tabs */}
-                        <div className="flex border-b border-slate-200 mb-8 overflow-x-auto no-scrollbar scroll-smooth">
+                        <div className="flex border-b border-slate-200 mb-8 overflow-x-auto no-scrollbar scroll-smooth sticky top-[72px] md:top-[92px] z-40 bg-[#f9f9f9]/95 backdrop-blur-md py-2 transition-all duration-300">
                             {(['summary', 'claims', 'manipulation', 'report'] as const).map(tab => (
                                 <button
                                     key={tab}
@@ -321,7 +345,7 @@ const LinkAuditPage: React.FC = () => {
                     </div>
                 )}
             </div>
-        </div>
+        </section>
     );
 };
 

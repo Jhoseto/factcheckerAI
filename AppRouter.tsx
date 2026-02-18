@@ -7,6 +7,8 @@ import Register from './components/auth/Register';
 import PricingPage from './components/pricing/PricingPage';
 import ExpensesPage from './components/user/ExpensesPage';
 import LinkAuditPage from './components/linkAudit/LinkAuditPage';
+import SocialAuditPage from './components/social/SocialAuditPage';
+import ArchivePage from './components/archive/ArchivePage';
 import App from './App';
 
 const AppRouter: React.FC = () => {
@@ -55,10 +57,18 @@ const AppRouter: React.FC = () => {
                     element={currentUser ? <ExpensesPage /> : <Navigate to="/login" replace />}
                 />
 
+                {/* Archive - saved analyses */}
                 <Route
-                    path="/link-audit"
-                    element={<LinkAuditPage />}
+                    path="/archive"
+                    element={currentUser ? <ArchivePage /> : <Navigate to="/login" replace />}
                 />
+
+                {/* Social Media Audit - requires authentication */}
+                <Route
+                    path="/social"
+                    element={currentUser ? <SocialAuditPage /> : <Navigate to="/login" replace />}
+                />
+
 
                 {/* Fallback */}
                 <Route path="*" element={<Navigate to="/" replace />} />

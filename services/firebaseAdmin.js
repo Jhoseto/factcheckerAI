@@ -1,3 +1,11 @@
+/**
+ * Firebase Admin SDK Service
+ * Server-side Firebase operations for secure points management
+ *
+ * ВАЖНО: Всички операции с точки използват полето `pointsBalance` в Firestore.
+ * Не се използва `points` — само `pointsBalance`.
+ */
+
 import admin from 'firebase-admin';
 import { readFileSync } from 'fs';
 import path from 'path';
@@ -6,44 +14,30 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Initialize Firebase Admin SDK
 let adminInitialized = false;
 
 export function initializeFirebaseAdmin() {
-    if (adminInitialized) {
-        return true;
-    }
+    if (adminInitialized) return true;
 
     try {
-        // Priority 1: Check for JSON in environment variable (Cloud Run best practice)
-        if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-            const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
-            admin.initializeApp({
-                credential: admin.credential.cert(serviceAccount)
-            });
-        }
-        // Priority 2: Try to load service account from file
-        else {
-            const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './firebase-service-account.json';
-            const absolutePath = path.resolve(__dirname, '..', serviceAccountPath);
+        const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './firebase-service-account.json';
+        const absolutePath = path.resolve(__dirname, '..', serviceAccountPath);
 
-            let serviceAccount;
-            try {
-                serviceAccount = JSON.parse(readFileSync(absolutePath, 'utf8'));
-                admin.initializeApp({
-                    credential: admin.credential.cert(serviceAccount)
-                });
-            } catch (fileError) {
-                // File not found. Check if default credentials work (Cloud Run).
-                if (process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.K_SERVICE) {
-                    admin.initializeApp(); // Use Default Application Credentials
-                } else {
-                    throw fileError;
-                }
+        let serviceAccount;
+        try {
+            serviceAccount = JSON.parse(readFileSync(absolutePath, 'utf8'));
+            admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+        } catch (fileError) {
+            if (process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.K_SERVICE) {
+                console.log('[Firebase Admin] File not found, trying default credentials...');
+                admin.initializeApp();
+            } else {
+                throw fileError;
             }
         }
 
         adminInitialized = true;
+        console.log('[Firebase Admin] ✅ Initialized successfully');
         return true;
     } catch (error) {
         console.warn('[Firebase Admin] ⚠️  Not initialized:', error.message);
@@ -51,90 +45,48 @@ export function initializeFirebaseAdmin() {
     }
 }
 
-/**
- * Get Firestore instance
- */
 function getFirestore() {
-    if (!adminInitialized) {
-        initializeFirebaseAdmin();
-    }
+    if (!adminInitialized) initializeFirebaseAdmin();
     return admin.firestore();
 }
 
 /**
  * Verify Firebase ID Token
- * @param idToken - Firebase ID Token
- * @returns User UID or null
  */
 export async function verifyToken(idToken) {
     if (!adminInitialized) {
         const success = initializeFirebaseAdmin();
-        if (!success) {
-            console.error('[Firebase Admin] Cannot verify token: Admin not initialized');
-            return null;
-        }
+        if (!success) return null;
     }
     try {
         const decodedToken = await admin.auth().verifyIdToken(idToken);
         return decodedToken.uid;
     } catch (error) {
-        console.error('[Firebase Admin] Token verification failed:', error);
+        console.error('[Firebase Admin] Token verification failed:', error.message);
         return null;
     }
 }
 
 /**
- * Add points to user account
- * @param userId - Firebase user UID
- * @param points - Number of points to add
+ * Get user points balance
+ * Reads from `pointsBalance` field (canonical field name)
  */
-export async function addPointsToUser(userId, points) {
-    if (!adminInitialized) {
-        return;
-    }
-
+export async function getUserPoints(userId) {
     try {
         const db = getFirestore();
-        const userRef = db.collection('users').doc(userId);
-
-        await db.runTransaction(async (transaction) => {
-            const userDoc = await transaction.get(userRef);
-
-            if (!userDoc.exists) {
-                throw new Error(`User ${userId} not found in Firestore`);
-            }
-
-            const currentPoints = userDoc.data()?.pointsBalance || 0;
-            const newPoints = currentPoints + points;
-
-            transaction.update(userRef, {
-                pointsBalance: newPoints,
-                lastPointsUpdate: admin.firestore.FieldValue.serverTimestamp()
-            });
-
-            // Record transaction in history
-            const transactionId = `${userId}_${Date.now()}`;
-            const transactionRef = db.collection('transactions').doc(transactionId);
-            transaction.set(transactionRef, {
-                userId: userId,
-                type: 'purchase',
-                amount: points,
-                description: `Зареждане на ${points} точки`,
-                createdAt: new Date().toISOString()
-            });
-        });
-
+        const userDoc = await db.collection('users').doc(userId).get();
+        if (!userDoc.exists) return 0;
+        return userDoc.data()?.pointsBalance || 0;
     } catch (error) {
-        console.error(`[Firebase Admin] ❌ Failed to add points:`, error);
-        throw error;
+        console.error('[Firebase Admin] ❌ Failed to get user points:', error.message);
+        return 0;
     }
 }
 
 /**
- * Deduct points from user account
- * @param userId - Firebase user UID
- * @param points - Number of points to deduct
- * @returns True if successful, false if insufficient points
+ * Deduct points from user account (server-side, atomic)
+ * Uses `pointsBalance` field exclusively.
+ * Returns { success: boolean, newBalance: number }
  */
 export async function deductPointsFromUser(userId, points) {
     try {
@@ -143,51 +95,121 @@ export async function deductPointsFromUser(userId, points) {
 
         const result = await db.runTransaction(async (transaction) => {
             const userDoc = await transaction.get(userRef);
+            if (!userDoc.exists) throw new Error(`User ${userId} not found`);
 
-            if (!userDoc.exists) {
-                throw new Error(`User ${userId} not found in Firestore`);
+            const currentBalance = userDoc.data()?.pointsBalance || 0;
+            if (currentBalance < points) {
+                return { success: false, newBalance: currentBalance };
             }
 
-            const currentPoints = userDoc.data()?.pointsBalance || 0;
-
-            if (currentPoints < points) {
-                return false;
-            }
-
-            const newPoints = currentPoints - points;
-
+            const newBalance = currentBalance - points;
             transaction.update(userRef, {
-                pointsBalance: newPoints,
+                pointsBalance: newBalance,
                 lastPointsUpdate: admin.firestore.FieldValue.serverTimestamp()
             });
 
-            return true;
+            return { success: true, newBalance };
         });
+
+        if (result.success) {
+            console.log(`[Firebase Admin] ✅ Deducted ${points} points from user ${userId}. New balance: ${result.newBalance}`);
+        } else {
+            console.log(`[Firebase Admin] ❌ Insufficient points for user ${userId}`);
+        }
 
         return result;
     } catch (error) {
-        console.error(`[Firebase Admin] ❌ Failed to deduct points:`, error);
+        console.error('[Firebase Admin] ❌ Failed to deduct points:', error.message);
         throw error;
     }
 }
 
 /**
- * Get user points balance
- * @param userId - Firebase user UID
- * @returns Current points balance
+ * Add points to user account (after purchase)
+ * Uses `pointsBalance` field exclusively.
+ * Idempotent: checks processedOrders to prevent double-crediting.
  */
-export async function getUserPoints(userId) {
+export async function addPointsToUser(userId, points, orderId = null) {
+    if (!adminInitialized) {
+        console.warn('[Firebase Admin] ⚠️  Cannot add points - not initialized');
+        return;
+    }
+
     try {
         const db = getFirestore();
-        const userDoc = await db.collection('users').doc(userId).get();
+        const userRef = db.collection('users').doc(userId);
 
-        if (!userDoc.exists) {
-            return 0;
-        }
+        await db.runTransaction(async (transaction) => {
+            // ── Idempotency check ──────────────────────────────────────────────
+            if (orderId) {
+                const orderRef = db.collection('processedOrders').doc(orderId);
+                const orderDoc = await transaction.get(orderRef);
+                if (orderDoc.exists) {
+                    console.log(`[Firebase Admin] ⚠️  Order ${orderId} already processed. Skipping.`);
+                    return; // Already processed — do nothing
+                }
+                // Mark order as processed
+                transaction.set(orderRef, {
+                    userId,
+                    points,
+                    processedAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+            }
 
-        return userDoc.data()?.pointsBalance || 0;
+            // ── Add points ────────────────────────────────────────────────────
+            const userDoc = await transaction.get(userRef);
+            if (!userDoc.exists) {
+                throw new Error(`User ${userId} not found in Firestore`);
+            }
+
+            const currentBalance = userDoc.data()?.pointsBalance || 0;
+            const newBalance = currentBalance + points;
+
+            transaction.update(userRef, {
+                pointsBalance: newBalance,
+                lastPointsUpdate: admin.firestore.FieldValue.serverTimestamp()
+            });
+
+            // ── Record transaction ────────────────────────────────────────────
+            const transactionId = orderId || `${userId}_${Date.now()}`;
+            const transactionRef = db.collection('transactions').doc(transactionId);
+            transaction.set(transactionRef, {
+                userId,
+                type: 'purchase',
+                amount: points,
+                description: `Зареждане на ${points} точки`,
+                orderId: orderId || null,
+                createdAt: new Date().toISOString()
+            });
+        });
+
+        console.log(`[Firebase Admin] ✅ Added ${points} points to user ${userId}`);
     } catch (error) {
-        console.error(`[Firebase Admin] ❌ Failed to get user points:`, error);
-        return 0;
+        console.error('[Firebase Admin] ❌ Failed to add points:', error.message);
+        throw error;
+    }
+}
+
+/**
+ * Record analysis transaction (called after successful analysis + deduction)
+ */
+export async function recordAnalysisTransaction(userId, points, analysisId, metadata = {}) {
+    try {
+        const db = getFirestore();
+        const transactionId = `${userId}_${analysisId}`;
+        await db.collection('transactions').doc(transactionId).set({
+            userId,
+            type: 'deduction',
+            amount: -points,
+            description: metadata.videoTitle
+                ? `Анализ: ${metadata.videoTitle.substring(0, 50)}`
+                : `Анализ #${analysisId}`,
+            analysisId,
+            metadata: metadata || null,
+            createdAt: new Date().toISOString()
+        });
+    } catch (error) {
+        // Non-critical — log but don't throw
+        console.error('[Firebase Admin] ⚠️  Failed to record transaction:', error.message);
     }
 }

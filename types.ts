@@ -107,7 +107,8 @@ export interface APIUsage {
   candidatesTokens: number;
   totalTokens: number;
   estimatedCostUSD: number; // Internal tracking only
-  pointsCost: number; // User-facing cost in points
+  pointsCost: number;       // User-facing cost in points
+  newBalance?: number;      // Updated balance after server-side deduction
 }
 
 export interface AnalysisResponse {

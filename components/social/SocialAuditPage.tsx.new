@@ -1,0 +1,400 @@
+1:/**
+2: * Social Media Audit Page
+3: * Analyzes Facebook, Twitter/X, TikTok posts
+4: */
+5:
+6:import React, { useState, useEffect } from 'react';
+7:import { useNavigate } from 'react-router-dom';
+8:import { useAuth } from '../../contexts/AuthContext';
+9:import { analyzeSocialPost, scrapeSocialPost, SocialScrapeResponse } from '../../services/socialService';
+10:import { saveAnalysis } from '../../services/archiveService';
+11:import { analyzeLinkArticle } from '../../services/linkAudit/linkService';
+12:import ScannerAnimation from '../common/ScannerAnimation';
+13:import MetricBlock from '../common/MetricBlock';
+14:import { VideoAnalysis, APIUsage } from '../../types';
+15:
+16:const SocialAuditPage: React.FC = () => {
+17:    const navigate = useNavigate();
+18:    const { user, pointsBalance, updateLocalBalance } = useAuth();
+19:    
+20:    const [url, setUrl] = useState('');
+21:    const [platform, setPlatform] = useState<'facebook' | 'twitter' | 'tiktok' | null>(null);
+22:    const [scrapedData, setScrapedData] = useState<SocialScrapeResponse | null>(null);
+23:    const [analysisType, setAnalysisType] = useState<'post' | 'comments' | 'full'>('post');
+24:    const [isLoading, setIsLoading] = useState(false);
+25:    const [isScraping, setIsScraping] = useState(false);
+26:    const [status, setStatus] = useState('');
+27:    const [error, setError] = useState('');
+28:    const [result, setResult] = useState<VideoAnalysis | null>(null);
+29:    const [usage, setUsage] = useState<APIUsage | null>(null);
+30:
+31:    // Detect platform from URL
+32:    useEffect(() => {
+33:        if (!url) {
+34:            setPlatform(null);
+35:            return;
+36:        }
+37:        
+38:        const urlLower = url.toLowerCase();
+39:        if (urlLower.includes('facebook.com') || urlLower.includes('fb.watch')) {
+40:            setPlatform('facebook');
+41:        } else if (urlLower.includes('twitter.com') || urlLower.includes('x.com')) {
+42:            setPlatform('twitter');
+43:        } else if (urlLower.includes('tiktok.com')) {
+44:            setPlatform('tiktok');
+45:        } else {
+46:            setPlatform(null);
+47:        }
+48:    }, [url]);
+49:
+50:    const validateUrl = (url: string): boolean => {
+51:        if (!url) return false;
+52:        const urlLower = url.toLowerCase();
+53:        return urlLower.includes('facebook.com') || 
+54:               urlLower.includes('fb.watch') ||
+55:               urlLower.includes('twitter.com') || 
+56:               urlLower.includes('x.com') ||
+57:               urlLower.includes('tiktok.com');
+58:    };
+59:
+60:    const handleScrape = async () => {
+61:        if (!user) {
+62:            setError('Трябва да сте логнати');
+63:            return;
+64:        }
+65:
+66:        if (!validateUrl(url)) {
+67:            setError('Моля, въведете валиден URL от Facebook, Twitter/X или TikTok');
+68:            return;
+69:        }
+70:
+71:        setIsScraping(true);
+72:        setError('');
+73:        setScrapedData(null);
+74:
+75:        try {
+76:            const data = await scrapeSocialPost(url);
+77:            setScrapedData(data);
+78:            setStatus('Публикацията е извлечена успешно!');
+79:        } catch (err: any) {
+80:            setError(err.message || 'Грешка при извличане на публикацията');
+81:        } finally {
+82:            setIsScraping(false);
+83:        }
+84:    };
+85:
+86:    const handleAnalyze = async () => {
+87:        if (!user) {
+88:            setError('Трябва да сте логнати');
+89:            return;
+90:        }
+91:
+92:        if (!scrapedData) {
+93:            setError('Първо извлечете публикацията');
+94:            return;
+95:        }
+96:
+97:        setIsLoading(true);
+98:        setError('');
+99:        setStatus('Анализирам...');
+100:
+101:        try {
+102:            const { analysis, usage: apiUsage } = await analyzeSocialPost(
+103:                url,
+104:                scrapedData,
+105:                analysisType,
+106:                (progress) => setStatus(progress)
+107:            );
+108:
+109:            setResult(analysis);
+110:            setUsage(apiUsage);
+111:            
+112:            // Save to archive
+113:            try {
+114:                await saveAnalysis(user.uid, 'social', analysis.videoTitle || 'Social Media Analysis', analysis, url);
+115:            } catch (saveErr) {
+116:                console.error('[SocialAudit] Failed to save to archive:', saveErr);
+117:            }
+118:            
+119:            // Update local balance from server response
+120:            if (apiUsage.newBalance !== undefined) {
+121:                updateLocalBalance(apiUsage.newBalance);
+122:            }
+123:            
+124:            setStatus('Анализът завърши успешно!');
+125:        } catch (err: any) {
+126:            console.error('[SocialAudit] Error:', err);
+127:            if (err.message?.includes('недостатъчно')) {
+128:                setError(err.message);
+129:            } else {
+130:                setError(err.message || 'Грешка при анализ');
+131:            }
+132:        } finally {
+133:            setIsLoading(false);
+134:        }
+135:    };
+136:
+137:    const resetForm = () => {
+138:        setUrl('');
+139:        setScrapedData(null);
+140:        setResult(null);
+141:        setUsage(null);
+142:        setError('');
+143:        setStatus('');
+144:    };
+145:
+146:    const platformIcons: Record<string, string> = {
+147:        facebook: '📘',
+148:        twitter: '🐦',
+149:        tiktok: '🎵'
+150:    };
+151:
+152:    const platformNames: Record<string, string> = {
+153:        facebook: 'Facebook',
+154:        twitter: 'Twitter/X',
+155:        tiktok: 'TikTok'
+156:    };
+157:
+158:    const pointsCost = analysisType === 'full' ? 20 : analysisType === 'comments' ? 15 : 8;
+159:
+160:    return (
+161:        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4 md:p-8">
+162:            <div className="max-w-4xl mx-auto">
+163:                {/* Header */}
+164:                <div className="text-center mb-8">
+165:                    <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
+166:                        🔍 Аудит на Социални Медии
+167:                    </h1>
+168:                    <p className="text-gray-300">
+169:                        Анализирайте факти и манипулации във Facebook, Twitter/X и TikTok
+170:                    </p>
+171:                </div>
+172:
+173:                {/* Error Display */}
+174:                {error && (
+175:                    <div className="bg-red-500/20 border border-red-500 text-red-200 px-4 py-3 rounded-lg mb-6">
+176:                        {error}
+177:                    </div>
+178:                )}
+179:
+180:                {/* Status Display */}
+181:                {status && !error && (
+182:                    <div className="bg-blue-500/20 border border-blue-500 text-blue-200 px-4 py-3 rounded-lg mb-6">
+183:                        {status}
+184:                    </div>
+185:                )}
+186:
+187:                {!result ? (
+188:                    /* Input Form */
+189:                    <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 mb-6">
+190:                        <div className="mb-6">
+191:                            <label className="block text-white mb-2 font-medium">
+192:                                URL на публикацията
+193:                            </label>
+194:                            <div className="flex gap-2">
+195:                                <input
+196:                                    type="url"
+197:                                    value={url}
+198:                                    onChange={(e) => setUrl(e.target.value)}
+199:                                    placeholder="https://facebook.com/... или https://x.com/... или https://tiktok.com/..."
+200:                                    className="flex-1 bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:border-purple-500 focus:outline-none"
+201:                                />
+202:                                <button
+203:                                    onClick={handleScrape}
+204:                                    disabled={isScraping || !platform}
+205:                                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+206:                                >
+207:                                    {isScraping ? '...' : 'Извлечи'}
+208:                                </button>
+209:                            </div>
+210:                            {platform && (
+211:                                <p className="text-sm text-green-400 mt-2">
+212:                                    {platformIcons[platform]} Разпозната платформа: {platformNames[platform]}
+213:                                </p>
+214:                            )}
+215:                        </div>
+216:
+217:                        {scrapedData && (
+218:                            <>
+219:                                <div className="bg-slate-700/50 rounded-lg p-4 mb-6">
+220:                                    <h3 className="text-white font-medium mb-2">Извлечени данни:</h3>
+221:                                    <p className="text-gray-300 text-sm mb-2">
+222:                                        <strong>Автор:</strong> {scrapedData.author}
+223:                                    </p>
+224:                                    <p className="text-gray-300 text-sm mb-2">
+225:                                        <strong>Платформа:</strong> {platformIcons[scrapedData.platform]} {platformNames[scrapedData.platform]}
+226:                                    </p>
+227:                                    <p className="text-gray-300 text-sm line-clamp-4">
+228:                                        <strong>Съдържание:</strong> {scrapedData.postContent.substring(0, 300)}...
+229:                                    </p>
+230:                                </div>
+231:
+232:                                <div className="mb-6">
+233:                                    <label className="block text-white mb-2 font-medium">
+234:                                        Тип анализ
+235:                                    </label>
+236:                                    <div className="grid grid-cols-3 gap-3">
+237:                                        <button
+238:                                            onClick={() => setAnalysisType('post')}
+239:                                            className={`p-3 rounded-lg border ${
+240:                                                analysisType === 'post' 
+241:                                                    ? 'border-purple-500 bg-purple-500/20 text-white' 
+242:                                                    : 'border-slate-600 text-gray-300 hover:border-slate-500'
+243:                                            }`}
+244:                                        >
+245:                                            <div className="font-medium">Пост</div>
+246:                                            <div className="text-sm">{pointsCost} т.</div>
+247:                                        </button>
+248:                                        <button
+249:                                            onClick={() => setAnalysisType('comments')}
+250:                                            className={`p-3 rounded-lg border ${
+251:                                                analysisType === 'comments' 
+252:                                                    ? 'border-purple-500 bg-purple-500/20 text-white' 
+253:                                                    : 'border-slate-600 text-gray-300 hover:border-slate-500'
+254:                                            }`}
+255:                                        >
+256:                                            <div className="font-medium">Коментари</div>
+257:                                            <div className="text-sm">15 т.</div>
+258:                                        </button>
+259:                                        <button
+260:                                            onClick={() => setAnalysisType('full')}
+261:                                            className={`p-3 rounded-lg border ${
+262:                                                analysisType === 'full' 
+263:                                                    ? 'border-purple-500 bg-purple-500/20 text-white' 
+264:                                                    : 'border-slate-600 text-gray-300 hover:border-slate-500'
+265:                                            }`}
+266:                                        >
+267:                                            <div className="font-medium">Пълен</div>
+268:                                            <div className="text-sm">20 т.</div>
+269:                                        </button>
+270:                                    </div>
+271:                                </div>
+272:
+273:                                <button
+274:                                    onClick={handleAnalyze}
+275:                                    disabled={isLoading}
+276:                                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-4 rounded-lg font-bold text-lg disabled:opacity-50 transition-all"
+277:                                >
+278:                                    {isLoading ? (
+279:                                        <span className="flex items-center justify-center gap-2">
+280:                                            <ScannerAnimation size={24} />
+281:                                            Анализирам...
+282:                                        </span>
+283:                                    ) : (
+284:                                        `Анализирай за ${analysisType === 'full' ? 20 : analysisType === 'comments' ? 15 : 8} точки`
+285:                                    )}
+286:                                </button>
+287:                            </>
+288:                        )}
+289:                    </div>
+290:                ) : (
+291:                    /* Results Display */
+292:                    <div className="space-y-6">
+293:                        <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6">
+294:                            <div className="flex justify-between items-center mb-6">
+295:                                <h2 className="text-2xl font-bold text-white">Резултати от анализа</h2>
+296:                                <button
+297:                                    onClick={resetForm}
+298:                                    className="text-purple-400 hover:text-purple-300"
+299:                                >
+300:                                    ↺ Нов анализ
+301:                                </button>
+302:                            </div>
+303:
+304:                            {/* Summary Stats */}
+305:                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+306:                                <MetricBlock
+307:                                    label="Доверие"
+308:                                    value={`${Math.round(result.summary.credibilityIndex * 100)}%`}
+309:                                    color={result.summary.credibilityIndex > 0.6 ? 'green' : result.summary.credibilityIndex > 0.4 ? 'yellow' : 'red'}
+310:                                />
+311:                                <MetricBlock
+312:                                    label="Манипулация"
+313:                                    value={`${Math.round(result.summary.manipulationIndex * 100)}%`}
+314:                                    color={result.summary.manipulationIndex < 0.3 ? 'green' : result.summary.manipulationIndex < 0.6 ? 'yellow' : 'red'}
+315:                                />
+316:                                <MetricBlock
+317:                                    label="Твърдения"
+318:                                    value={String(result.claims.length)}
+319:                                    color="blue"
+320:                                />
+321:                                <MetricBlock
+322:                                    label="Класификация"
+323:                                    value={result.summary.finalClassification === 'MIXED' ? 'Смесено' : 
+324:                                           result.summary.finalClassification === 'TRUE' ? 'Вярно' : 
+325:                                           result.summary.finalClassification === 'FALSE' ? 'Невярно' : 'Непроверимо'}
+326:                                    color={result.summary.finalClassification === 'TRUE' ? 'green' : 
+327:                                           result.summary.finalClassification === 'MIXED' ? 'yellow' : 'red'}
+328:                                />
+329:                            </div>
+330:
+331:                            {/* Usage Info */}
+332:                            {usage && (
+333:                                <div className="bg-slate-700/30 rounded-lg p-4 mb-6">
+334:                                    <h3 className="text-white font-medium mb-2">Информация за разхода</h3>
+335:                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+336:                                        <div>
+337:                                            <span className="text-gray-400">Точки изразходвани:</span>
+338:                                            <span className="text-white ml-2">{usage.pointsCost}</span>
+339:                                        </div>
+340:                                        <div>
+341:                                            <span className="text-gray-400">Token-и:</span>
+342:                                            <span className="text-white ml-2">{usage.totalTokens}</span>
+343:                                        </div>
+344:                                        <div>
+345:                                            <span className="text-gray-400">Нов баланс:</span>
+346:                                            <span className="text-green-400 ml-2">{usage.newBalance ?? 'N/A'}</span>
+347:                                        </div>
+348:                                    </div>
+349:                                </div>
+350:                            )}
+351:
+352:                            {/* Claims */}
+353:                            {result.claims.length > 0 && (
+354:                                <div className="mb-6">
+355:                                    <h3 className="text-xl font-bold text-white mb-4">🔍 Идентифицирани твърдения</h3>
+356:                                    <div className="space-y-3">
+357:                                        {result.claims.map((claim, idx) => (
+358:                                            <div key={idx} className="bg-slate-700/30 rounded-lg p-4">
+359:                                                <div className="flex items-start gap-3">
+360:                                                    <div className={`px-2 py-1 rounded text-xs font-medium ${
+361:                                                        claim.veracity === 'вярно' ? 'bg-green-500/20 text-green-400' :
+362:                                                        claim.veracity === 'невярно' ? 'bg-red-500/20 text-red-400' :
+363:                                                        'bg-yellow-500/20 text-yellow-400'
+364:                                                    }`}>
+365:                                                        {claim.veracity}
+366:                                                    </div>
+367:                                                    <div className="flex-1">
+368:                                                        <p className="text-gray-200 text-sm mb-2">"{claim.quote}"</p>
+369:                                                        <p className="text-gray-400 text-sm">{claim.explanation}</p>
+370:                                                    </div>
+371:                                                </div>
+372:                                            </div>
+373:                                        ))}
+374:                                    </div>
+375:                                </div>
+376:                            )}
+377:
+378:                            {/* Overall Summary */}
+379:                            <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-lg p-6">
+380:                                <h3 className="text-xl font-bold text-white mb-3">Обобщение</h3>
+381:                                <p className="text-gray-300 leading-relaxed">
+382:                                    {result.summary.overallSummary || result.summary.finalInvestigativeReport}
+383:                                </p>
+384:                            </div>
+385:                        </div>
+386:                    </div>
+387:                )}
+388:            </div>
+389:        </div>
+390:    );
+391:};
+392:
+393:export default SocialAuditPage;
+394:
+395:        </div>
+396:    );
+397:};
+398:
+399:export default SocialAuditPage;
+400:
