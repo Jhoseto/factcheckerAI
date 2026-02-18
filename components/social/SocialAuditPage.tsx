@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { analyzeSocialPost, scrapeSocialPost, SocialScrapeResponse } from '../../services/socialService';
 import { saveAnalysis } from '../../services/archiveService';
-import { analyzeLinkArticle } from '../../services/linkAudit/linkService';
+
 import ScannerAnimation from '../common/ScannerAnimation';
 import MetricBlock from '../common/MetricBlock';
 import { VideoAnalysis, APIUsage } from '../../types';
@@ -16,7 +16,7 @@ import { VideoAnalysis, APIUsage } from '../../types';
 const SocialAuditPage: React.FC = () => {
     const navigate = useNavigate();
     const { user, pointsBalance, updateLocalBalance } = useAuth();
-    
+
     const [url, setUrl] = useState('');
     const [platform, setPlatform] = useState<'facebook' | 'twitter' | 'tiktok' | null>(null);
     const [scrapedData, setScrapedData] = useState<SocialScrapeResponse | null>(null);
@@ -34,7 +34,7 @@ const SocialAuditPage: React.FC = () => {
             setPlatform(null);
             return;
         }
-        
+
         const urlLower = url.toLowerCase();
         if (urlLower.includes('facebook.com') || urlLower.includes('fb.watch')) {
             setPlatform('facebook');
@@ -50,11 +50,11 @@ const SocialAuditPage: React.FC = () => {
     const validateUrl = (url: string): boolean => {
         if (!url) return false;
         const urlLower = url.toLowerCase();
-        return urlLower.includes('facebook.com') || 
-               urlLower.includes('fb.watch') ||
-               urlLower.includes('twitter.com') || 
-               urlLower.includes('x.com') ||
-               urlLower.includes('tiktok.com');
+        return urlLower.includes('facebook.com') ||
+            urlLower.includes('fb.watch') ||
+            urlLower.includes('twitter.com') ||
+            urlLower.includes('x.com') ||
+            urlLower.includes('tiktok.com');
     };
 
     const handleScrape = async () => {
@@ -108,19 +108,19 @@ const SocialAuditPage: React.FC = () => {
 
             setResult(analysis);
             setUsage(apiUsage);
-            
+
             // Save to archive
             try {
                 await saveAnalysis(user.uid, 'social', analysis.videoTitle || 'Social Media Analysis', analysis, url);
             } catch (saveErr) {
                 console.error('[SocialAudit] Failed to save to archive:', saveErr);
             }
-            
+
             // Update local balance from server response
             if (apiUsage.newBalance !== undefined) {
                 updateLocalBalance(apiUsage.newBalance);
             }
-            
+
             setStatus('ÐÐ½Ð°Ð»Ð¸Ð·ÑŠÑ‚ Ð·Ð°Ð²ÑŠÑ€ÑˆÐ¸ ÑƒÑÐ¿ÐµÑˆÐ½Ð¾!');
         } catch (err: any) {
             console.error('[SocialAudit] Error:', err);
@@ -236,33 +236,30 @@ const SocialAuditPage: React.FC = () => {
                                     <div className="grid grid-cols-3 gap-3">
                                         <button
                                             onClick={() => setAnalysisType('post')}
-                                            className={`p-3 rounded-lg border ${
-                                                analysisType === 'post' 
-                                                    ? 'border-purple-500 bg-purple-500/20 text-white' 
+                                            className={`p-3 rounded-lg border ${analysisType === 'post'
+                                                    ? 'border-purple-500 bg-purple-500/20 text-white'
                                                     : 'border-slate-600 text-gray-300 hover:border-slate-500'
-                                            }`}
+                                                }`}
                                         >
                                             <div className="font-medium">ÐŸÐ¾ÑÑ‚</div>
                                             <div className="text-sm">{pointsCost} Ñ‚.</div>
                                         </button>
                                         <button
                                             onClick={() => setAnalysisType('comments')}
-                                            className={`p-3 rounded-lg border ${
-                                                analysisType === 'comments' 
-                                                    ? 'border-purple-500 bg-purple-500/20 text-white' 
+                                            className={`p-3 rounded-lg border ${analysisType === 'comments'
+                                                    ? 'border-purple-500 bg-purple-500/20 text-white'
                                                     : 'border-slate-600 text-gray-300 hover:border-slate-500'
-                                            }`}
+                                                }`}
                                         >
                                             <div className="font-medium">ÐšÐ¾Ð¼ÐµÐ½Ñ‚Ð°Ñ€Ð¸</div>
                                             <div className="text-sm">15 Ñ‚.</div>
                                         </button>
                                         <button
                                             onClick={() => setAnalysisType('full')}
-                                            className={`p-3 rounded-lg border ${
-                                                analysisType === 'full' 
-                                                    ? 'border-purple-500 bg-purple-500/20 text-white' 
+                                            className={`p-3 rounded-lg border ${analysisType === 'full'
+                                                    ? 'border-purple-500 bg-purple-500/20 text-white'
                                                     : 'border-slate-600 text-gray-300 hover:border-slate-500'
-                                            }`}
+                                                }`}
                                         >
                                             <div className="font-medium">ÐŸÑŠÐ»ÐµÐ½</div>
                                             <div className="text-sm">20 Ñ‚.</div>
@@ -320,11 +317,11 @@ const SocialAuditPage: React.FC = () => {
                                 />
                                 <MetricBlock
                                     label="ÐšÐ»Ð°ÑÐ¸Ñ„Ð¸ÐºÐ°Ñ†Ð¸Ñ"
-                                    value={result.summary.finalClassification === 'MIXED' ? 'Ð¡Ð¼ÐµÑÐµÐ½Ð¾' : 
-                                           result.summary.finalClassification === 'TRUE' ? 'Ð’ÑÑ€Ð½Ð¾' : 
-                                           result.summary.finalClassification === 'FALSE' ? 'ÐÐµÐ²ÑÑ€Ð½Ð¾' : 'ÐÐµÐ¿Ñ€Ð¾Ð²ÐµÑ€Ð¸Ð¼Ð¾'}
-                                    color={result.summary.finalClassification === 'TRUE' ? 'green' : 
-                                           result.summary.finalClassification === 'MIXED' ? 'yellow' : 'red'}
+                                    value={result.summary.finalClassification === 'MIXED' ? 'Ð¡Ð¼ÐµÑÐµÐ½Ð¾' :
+                                        result.summary.finalClassification === 'TRUE' ? 'Ð’ÑÑ€Ð½Ð¾' :
+                                            result.summary.finalClassification === 'FALSE' ? 'ÐÐµÐ²ÑÑ€Ð½Ð¾' : 'ÐÐµÐ¿Ñ€Ð¾Ð²ÐµÑ€Ð¸Ð¼Ð¾'}
+                                    color={result.summary.finalClassification === 'TRUE' ? 'green' :
+                                        result.summary.finalClassification === 'MIXED' ? 'yellow' : 'red'}
                                 />
                             </div>
 
@@ -357,11 +354,10 @@ const SocialAuditPage: React.FC = () => {
                                         {result.claims.map((claim, idx) => (
                                             <div key={idx} className="bg-slate-700/30 rounded-lg p-4">
                                                 <div className="flex items-start gap-3">
-                                                    <div className={`px-2 py-1 rounded text-xs font-medium ${
-                                                        claim.veracity === 'Ð²ÑÑ€Ð½Ð¾' ? 'bg-green-500/20 text-green-400' :
-                                                        claim.veracity === 'Ð½ÐµÐ²ÑÑ€Ð½Ð¾' ? 'bg-red-500/20 text-red-400' :
-                                                        'bg-yellow-500/20 text-yellow-400'
-                                                    }`}>
+                                                    <div className={`px-2 py-1 rounded text-xs font-medium ${claim.veracity === 'Ð²ÑÑ€Ð½Ð¾' ? 'bg-green-500/20 text-green-400' :
+                                                            claim.veracity === 'Ð½ÐµÐ²ÑÑ€Ð½Ð¾' ? 'bg-red-500/20 text-red-400' :
+                                                                'bg-yellow-500/20 text-yellow-400'
+                                                        }`}>
                                                         {claim.veracity}
                                                     </div>
                                                     <div className="flex-1">

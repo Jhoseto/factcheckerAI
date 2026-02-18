@@ -48,7 +48,7 @@ const LinkAuditPage: React.FC = () => {
 
     const handleStartAnalysis = async () => {
         if (!url.trim()) return;
-        
+
         // Validate URL
         const validation = validateNewsUrl(url);
         if (!validation.valid) {
@@ -90,16 +90,16 @@ const LinkAuditPage: React.FC = () => {
             }
 
             setAnalysis(result);
-            
+
             // Save to archive
             try {
-                await saveAnalysis(user.uid, 'link', result.videoTitle || 'Link Analysis', result, url);
+                await saveAnalysis(currentUser.uid, 'link', result.videoTitle || 'Link Analysis', result, url);
             } catch (saveErr) {
                 console.error('[LinkAudit] Failed to save to archive:', saveErr);
             }
         } catch (e: any) {
             console.error('[LinkAudit] ❌ Error:', e);
-            
+
             // Handle specific error codes
             if (e.code === 'INSUFFICIENT_POINTS') {
                 setError('Недостатъчно точки за анализ. Моля, закупете точки от Pricing страницата.');
@@ -128,10 +128,6 @@ const LinkAuditPage: React.FC = () => {
                     <h1 className="text-4xl md:text-6xl font-black text-slate-900 tracking-tight leading-tight italic serif">
                         Анализирай <span className="text-amber-900">всяка</span> статия
                     </h1>
-                    <p className="text-slate-500 max-w-2xl mx-auto text-sm md:text-base font-medium">
-                        Поставете линк към новина или статия за дълбок анализ на достоверността,
-                        логическите заблуди и манипулативните техники.
-                    </p>
                 </div>
 
                 {/* Input Section */}
