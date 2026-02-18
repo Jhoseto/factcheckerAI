@@ -65,11 +65,28 @@ try {
 // API Routes
 // ─────────────────────────────────────────────────────────────────────────────
 app.use('/api/gemini', geminiRouter);
-app.use('/api/youtube', youtubeRouter);
 app.use('/api/link', linkScraperRouter);
 app.use('/api/lemonsqueezy', checkoutRouter);
 app.use('/api/lemonsqueezy', webhookRouter);
 app.use('/api/social', socialRouter);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// YouTube Proxy & Routes
+// ─────────────────────────────────────────────────────────────────────────────
+const youtubeProxy = createProxyMiddleware({
+    target: 'https://www.youtube.com',
+    changeOrigin: true,
+    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+    pathRewrite: { '^/api/youtube': '' }
+});
+
+// Priority: Metadata API first, then Proxy
+app.use('/api/youtube', (req, res, next) => {
+    if (req.path.startsWith('/metadata')) {
+        return youtubeRouter(req, res, next);
+    }
+    youtubeProxy(req, res, next);
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // YouTube oEmbed Proxy
