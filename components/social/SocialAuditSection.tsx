@@ -206,7 +206,7 @@ const SocialAuditSection: React.FC = () => {
                                         disabled={isScraping || !platform}
                                         className="px-12 py-4 text-[10px] font-black uppercase tracking-[0.2em] transition-all bg-amber-900 text-white hover:bg-black active:scale-[0.98] disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed disabled:active:scale-100"
                                     >
-                                        {isScraping ? '...' : 'ИЗВЛЕЧИ'}
+                                        {isScraping ? '...' : 'ОДИТ'}
                                     </button>
                                 </div>
                                 {platform && (

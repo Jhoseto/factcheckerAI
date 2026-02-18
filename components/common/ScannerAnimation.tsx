@@ -30,6 +30,10 @@ const ScannerAnimation: React.FC<ScannerAnimationProps> = ({ size = 320, classNa
         'СВЪРЗАНОСТ',
         'ДЪЛБОЧИНА',
         'ЛОГИКА',
+        'ПОЗИЦИЯ',
+        'МАНИПУЛАЦИЯ',
+        'ОРИЕНТИРИ',
+        'ВЕРИФИКАЦИЯ',
         'СМИСЪЛ'
     ];
 
