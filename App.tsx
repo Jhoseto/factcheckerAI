@@ -350,16 +350,15 @@ const App: React.FC = () => {
                   placeholder="Поставете YouTube линк..."
                   className="flex-1 bg-transparent px-6 py-4 text-slate-900 font-bold focus:outline-none placeholder:text-slate-300"
                 />
-                <div className="flex items-center bg-slate-50 border-x border-slate-100 px-4">
-                  {fetchingMetadata && <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-900 rounded-full animate-spin"></div>}
-                </div>
+                {fetchingMetadata && (
+                  <div className="flex items-center bg-slate-50 border-x border-slate-100 px-4">
+                    <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-900 rounded-full animate-spin"></div>
+                  </div>
+                )}
                 <button
                   onClick={() => handleStartAnalysis()}
                   disabled={loading || !youtubeUrl.trim() || !analysisMode}
-                  className={`px-12 py-4 text-[10px] font-black uppercase tracking-[0.2em] transition-all ${loading || !youtubeUrl.trim() || !analysisMode
-                    ? 'bg-slate-400 text-slate-200 cursor-not-allowed'
-                    : 'bg-amber-900 text-white hover:bg-black active:scale-[0.98]'
-                    }`}
+                  className="px-12 py-4 text-[10px] font-black uppercase tracking-[0.2em] transition-all bg-amber-900 text-white hover:bg-black active:scale-[0.98] disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed disabled:active:scale-100"
                 >
                   {loading ? '...' : 'Одит'}
                 </button>

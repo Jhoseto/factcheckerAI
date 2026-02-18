@@ -105,7 +105,7 @@ const SocialAuditSection: React.FC = () => {
 
             // Save to archive
             try {
-                await saveAnalysis(currentUser.uid, 'social', analysis.videoTitle || 'Social Media Analysis', analysis, url);
+                await saveAnalysis(currentUser.uid, 'social', result.videoTitle || 'Анализ на социална мрежа', result, url);
             } catch (saveErr) {
                 console.error('[SocialAudit] Failed to save to archive:', saveErr);
             }
@@ -156,16 +156,16 @@ const SocialAuditSection: React.FC = () => {
     const pointsCost = analysisType === 'full' ? 20 : analysisType === 'comments' ? 15 : 8;
 
     return (
-        <section id="social-analysis" className="py-20 border-t border-slate-200 bg-white selection:bg-purple-900 selection:text-white">
+        <section id="social-analysis" className="py-20 border-t border-slate-200 bg-white selection:bg-amber-900 selection:text-white">
             <div className="max-w-7xl mx-auto px-4">
                 <div className="text-center space-y-4 mb-12">
                     <div className="flex items-center justify-center gap-3 mb-2">
-                        <span className="h-[1px] w-8 bg-purple-900/30"></span>
-                        <span className="text-[10px] font-black text-purple-900 uppercase tracking-[0.4em]">Social Media Intelligence</span>
-                        <span className="h-[1px] w-8 bg-purple-900/30"></span>
+                        <span className="h-[1px] w-8 bg-amber-900/30"></span>
+                        <span className="text-[10px] font-black text-amber-900 uppercase tracking-[0.4em]">ЕКСПЕРТЕН СОЦИАЛЕН ОДИТ</span>
+                        <span className="h-[1px] w-8 bg-amber-900/30"></span>
                     </div>
                     <h3 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tight leading-tight italic serif">
-                        Анализирай <span className="text-purple-900">социални</span> мрежи
+                        Анализирай <span className="text-amber-900">социални</span> мрежи
                     </h3>
                 </div>
 
@@ -181,7 +181,7 @@ const SocialAuditSection: React.FC = () => {
 
                     {/* Status Display */}
                     {status && !error && (
-                        <div className="max-w-3xl mx-auto mb-8 p-4 bg-purple-50/50 border border-purple-100 text-purple-900 text-center rounded-sm">
+                        <div className="max-w-3xl mx-auto mb-8 p-4 bg-amber-50/50 border border-amber-100 text-amber-900 text-center rounded-sm">
                             <span className="text-xs font-black uppercase tracking-widest">{status}</span>
                         </div>
                     )}
@@ -199,18 +199,18 @@ const SocialAuditSection: React.FC = () => {
                                         value={url}
                                         onChange={(e) => setUrl(e.target.value)}
                                         placeholder="https://facebook.com/... или https://x.com/..."
-                                        className="flex-1 bg-white px-4 py-3 text-slate-900 font-bold border border-slate-300 focus:border-purple-900 focus:outline-none placeholder:text-slate-300"
+                                        className="flex-1 bg-white px-4 py-3 text-slate-900 font-bold border border-slate-300 focus:border-amber-900 focus:outline-none placeholder:text-slate-300"
                                     />
                                     <button
                                         onClick={handleScrape}
                                         disabled={isScraping || !platform}
-                                        className="bg-purple-900 text-white px-8 py-3 font-black uppercase tracking-widest hover:bg-purple-950 disabled:bg-slate-300 disabled:text-slate-400 transition-all text-[10px]"
+                                        className="px-12 py-4 text-[10px] font-black uppercase tracking-[0.2em] transition-all bg-amber-900 text-white hover:bg-black active:scale-[0.98] disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed disabled:active:scale-100"
                                     >
                                         {isScraping ? '...' : 'ИЗВЛЕЧИ'}
                                     </button>
                                 </div>
                                 {platform && (
-                                    <p className="text-[10px] font-bold text-purple-700 mt-2 uppercase tracking-wider flex items-center gap-2">
+                                    <p className="text-[10px] font-bold text-amber-700 mt-2 uppercase tracking-wider flex items-center gap-2">
                                         {platformIcons[platform]} Разпозната платформа: {platformNames[platform]}
                                     </p>
                                 )}
@@ -218,7 +218,7 @@ const SocialAuditSection: React.FC = () => {
 
                             {scrapedData && (
                                 <div className="animate-fadeIn space-y-8">
-                                    <div className="bg-white p-6 border-l-2 border-purple-900 shadow-sm">
+                                    <div className="bg-white p-6 border-l-2 border-amber-900 shadow-sm">
                                         <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Извлечени данни</h4>
                                         <div className="space-y-2">
                                             <p className="text-sm text-slate-900 font-bold"><span className="text-slate-500 font-normal">Автор:</span> {scrapedData.author}</p>
@@ -243,12 +243,12 @@ const SocialAuditSection: React.FC = () => {
                                                     key={type.id}
                                                     onClick={() => setAnalysisType(type.id as any)}
                                                     className={`p-4 border-2 transition-all text-center space-y-1 ${analysisType === type.id
-                                                            ? 'border-purple-900 bg-purple-50'
-                                                            : 'border-slate-200 bg-white hover:border-purple-200'
+                                                        ? 'border-amber-900 bg-amber-50'
+                                                        : 'border-slate-200 bg-white hover:border-amber-200'
                                                         }`}
                                                 >
                                                     <div className="text-[10px] font-black uppercase tracking-widest text-slate-900">{type.label}</div>
-                                                    <div className="text-xl font-black text-purple-900">{type.cost} <span className="text-[9px] text-slate-400 uppercase font-bold">т.</span></div>
+                                                    <div className="text-xl font-black text-amber-900">{type.cost} <span className="text-[9px] text-slate-400 uppercase font-bold">т.</span></div>
                                                 </button>
                                             ))}
                                         </div>
@@ -257,7 +257,7 @@ const SocialAuditSection: React.FC = () => {
                                     <button
                                         onClick={handleAnalyze}
                                         disabled={isLoading}
-                                        className="w-full bg-purple-900 text-white py-4 font-black uppercase tracking-[0.2em] text-xs hover:bg-black transition-all shadow-md active:translate-y-px disabled:opacity-50"
+                                        className="w-full bg-amber-900 text-white py-4 font-black uppercase tracking-[0.2em] text-[10px] hover:bg-black transition-all shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         {isLoading ? (
                                             <span className="flex items-center justify-center gap-3">
@@ -278,7 +278,7 @@ const SocialAuditSection: React.FC = () => {
                                 <h2 className="text-2xl font-black text-slate-900 serif italic">Резултати от анализа</h2>
                                 <button
                                     onClick={resetForm}
-                                    className="text-[9px] font-black text-purple-900 uppercase tracking-widest hover:text-purple-700 transition-colors"
+                                    className="text-[9px] font-black text-amber-900 uppercase tracking-widest hover:text-amber-700 transition-colors"
                                 >
                                     ↺ НОВ АНАЛИЗ
                                 </button>
@@ -303,7 +303,7 @@ const SocialAuditSection: React.FC = () => {
                                 <div className="editorial-card p-4 border-t-2 border-t-slate-800">
                                     <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-1">Оценка</p>
                                     <span className={`text-sm font-black uppercase tracking-tight ${result.summary.finalClassification === 'TRUE' ? 'text-emerald-700' :
-                                            result.summary.finalClassification === 'FALSE' ? 'text-red-700' : 'text-amber-700'
+                                        result.summary.finalClassification === 'FALSE' ? 'text-red-700' : 'text-amber-700'
                                         }`}>
                                         {result.summary.finalClassification === 'TRUE' ? 'ВЯРНО' :
                                             result.summary.finalClassification === 'FALSE' ? 'НЕВЯРНО' : 'СМЕСЕНО'}
@@ -333,8 +333,8 @@ const SocialAuditSection: React.FC = () => {
                             )}
 
                             {/* Overall Summary */}
-                            <div className="bg-purple-50/50 p-8 border border-purple-100">
-                                <h3 className="text-[9px] font-black text-purple-900 uppercase tracking-widest mb-4">Обобщение</h3>
+                            <div className="bg-amber-50/50 p-8 border border-amber-100">
+                                <h3 className="text-[9px] font-black text-amber-900 uppercase tracking-widest mb-4">Обобщение</h3>
                                 <p className="text-slate-800 leading-relaxed serif font-medium">
                                     {result.summary.overallSummary || result.summary.finalInvestigativeReport}
                                 </p>

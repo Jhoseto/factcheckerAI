@@ -144,7 +144,7 @@ const LinkAuditPage: React.FC = () => {
                     <button
                         onClick={handleStartAnalysis}
                         disabled={loading || !url.trim()}
-                        className="bg-amber-900 text-white px-10 py-4 font-black uppercase tracking-widest hover:bg-black transition-all active:scale-95 disabled:opacity-50"
+                        className="px-12 py-4 text-[10px] font-black uppercase tracking-[0.2em] transition-all bg-amber-900 text-white hover:bg-black active:scale-[0.98] disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed disabled:active:scale-100"
                     >
                         {loading ? 'Анализира се...' : 'Одит'}
                     </button>
