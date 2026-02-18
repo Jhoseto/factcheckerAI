@@ -51,7 +51,7 @@ const MIN_POINTS = {
 const FIXED_PRICES = {
   linkArticle: 12,        // Анализ на уеб статия / новина
   socialPost: 12,         // Анализ на пост (FB / Twitter / TikTok)
-  comment,    // Анализ на коментари (до 50 коментара)
+  comment: 5,    // Анализ на коментари (до 50 коментара)
   socialFullAudit: 20,    // Пост + коментари заедно
   compareMode: 5,         // Допълнителна такса за Compare Mode
 };

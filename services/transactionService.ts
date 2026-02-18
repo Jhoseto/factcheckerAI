@@ -1,11 +1,6 @@
-import {
-    collection,
-    query,
-    where,
-    getDocs,
-    Timestamp
-} from 'firebase/firestore';
-import { db } from './firebase';
+// Firestore imports removed as we now use Server API
+// import { collection, query, where, getDocs } from 'firebase/firestore';
+// import { db } from './firebase';
 
 export interface Transaction {
     id: string;
@@ -25,28 +20,33 @@ export interface Transaction {
     };
 }
 
+import { auth } from './firebase';
+
 export const getUserTransactions = async (userId: string, limitCount: number = 50): Promise<Transaction[]> => {
     try {
-        // Query only by userId to avoid composite index requirements
-        // We will sort and limit client-side
-        const q = query(
-            collection(db, 'transactions'),
-            where('userId', '==', userId)
-        );
+        const user = auth.currentUser;
+        if (!user) throw new Error('User not authenticated');
 
-        const querySnapshot = await getDocs(q);
-        const transactions = querySnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        } as Transaction));
+        const token = await user.getIdToken();
 
-        // Sort by createdAt desc (newest first)
-        transactions.sort((a, b) => {
-            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        const response = await fetch('/api/transactions', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
         });
 
-        // Return limited results
-        return transactions.slice(0, limitCount);
+        if (!response.ok) {
+            throw new Error(`API Error: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        const transactions: Transaction[] = data.transactions || [];
+
+        // Client-side sort/limit is still fine, though server does it too.
+        // Server limits to 50 hardcoded in my route, but logic might change.
+        // We'll return what the server gave us.
+        return transactions;
+
     } catch (error) {
         console.error('Error fetching transactions:', error);
         throw error;

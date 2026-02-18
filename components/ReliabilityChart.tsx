@@ -15,17 +15,27 @@ const ReliabilityChart: React.FC<Props> = ({ data, claims, totalDuration }) => {
 
   const processedData = useMemo(() => {
     if (!data || !Array.isArray(data)) return [];
-    // Използвай пълните цитати от claims вместо скъсените събития
+
     return data.map((p, idx) => {
-      // Намери съответния claim за този timestamp
-      const matchingClaim = claims.find((c, cIdx) => cIdx === idx);
-      const fullQuote = matchingClaim ? matchingClaim.quote : (p.event || 'Няма данни за събитие');
+      // Find matching claim by loose text matching if event exists, otherwise fallback to index if available
+      let matchingClaim = undefined;
+
+      if (p.event) {
+        matchingClaim = claims.find(c => c.quote.includes(p.event?.substring(0, 20) || '') || p.event?.includes(c.quote.substring(0, 20)));
+      }
+
+      // Fallback to index if no text match found, but only if index is within bounds
+      if (!matchingClaim && idx < claims.length) {
+        matchingClaim = claims[idx];
+      }
+
+      const fullQuote = matchingClaim ? matchingClaim.quote : (p.event || 'Събитие от времевата линия');
 
       return {
         index: idx,
         label: p.time,
         reliability: Math.round(p.reliability > 1 ? p.reliability : p.reliability * 100),
-        event: fullQuote, // Използвай пълния цитат
+        event: fullQuote,
         isAnomaly: (p.reliability < 0.4 || p.reliability > 0.9),
         claim: matchingClaim
       };
@@ -84,12 +94,13 @@ const ReliabilityChart: React.FC<Props> = ({ data, claims, totalDuration }) => {
           </div>
         </div>
 
-        <div className="w-full h-[250px] md:h-[400px]">
+        <div className="w-full h-[300px] md:h-[400px] relative">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               data={processedData}
-              onMouseMove={(e) => e.activePayload && setHoveredPoint(e.activePayload[0].payload)}
+              onMouseMove={(e: any) => e.activePayload && setHoveredPoint(e.activePayload[0].payload)}
               onMouseLeave={() => setHoveredPoint(null)}
+              margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
             >
               <defs>
                 <linearGradient id="colorRel" x1="0" y1="0" x2="0" y2="1">

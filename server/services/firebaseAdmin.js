@@ -22,7 +22,7 @@ export function initializeFirebaseAdmin() {
     try {
         // Try to load service account from file
         const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './firebase-service-account.json';
-        const absolutePath = path.resolve(__dirname, '..', serviceAccountPath);
+        const absolutePath = path.resolve(__dirname, '../../firebase-service-account.json');
 
         // If GOOGLE_APPLICATION_CREDENTIALS is set (Cloud Run), let Firebase Admin usage default auth
         // BUT we need to call initializeApp() anyway.

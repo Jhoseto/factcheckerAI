@@ -1,0 +1,30 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Users: Users can read/write their own profile
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Analyses: 
+    // - Create: Auth user can create if userId matches their uid
+    // - Read/Update/Delete: Auth user can access their own docs
+    match /analyses/{analysisId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
+    // Public Reports: Anyone can read, Auth users can create
+    match /public_reports/{reportId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+    }
+
+    // Transactions: Users can read their own, create (for welcome bonus)
+    match /transactions/{transactionId} {
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+  }
+}

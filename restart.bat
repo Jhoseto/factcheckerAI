@@ -15,7 +15,7 @@ timeout /t 2 /nobreak >nul
 
 echo.
 echo [2/3] Starting backend server...
-start "Backend Server" cmd /k "node server.js"
+start "Backend Server" cmd /k "npm start"
 timeout /t 3 /nobreak >nul
 
 echo.

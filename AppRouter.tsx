@@ -9,6 +9,7 @@ import ExpensesPage from './components/user/ExpensesPage';
 import LinkAuditPage from './components/linkAudit/LinkAuditPage';
 
 import ArchivePage from './components/archive/ArchivePage';
+import ReportPage from './components/report/ReportPage';
 import App from './App';
 
 const AppRouter: React.FC = () => {
@@ -62,6 +63,10 @@ const AppRouter: React.FC = () => {
                     path="/archive"
                     element={currentUser ? <ArchivePage /> : <Navigate to="/login" replace />}
                 />
+
+                {/* Shared Report - Publicly accessible */}
+                <Route path="/analysis-result" element={<ReportPage />} />
+                <Route path="/report/:id" element={<ReportPage />} />
 
 
 

@@ -22,9 +22,11 @@ import linkScraperRouter from './routes/linkScraper.js';
 import checkoutRouter from './routes/checkout.js';
 import webhookRouter from './routes/webhook.js';
 import socialRouter from './routes/social.js';
+import transactionsRouter from './routes/transactions.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
 
 const app = express();
 const port = process.env.PORT || 8080;
@@ -69,6 +71,7 @@ app.use('/api/link', linkScraperRouter);
 app.use('/api/lemonsqueezy', checkoutRouter);
 app.use('/api/lemonsqueezy', webhookRouter);
 app.use('/api/social', socialRouter);
+app.use('/api/transactions', transactionsRouter);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // YouTube Proxy & Routes
