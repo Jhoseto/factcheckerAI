@@ -36,6 +36,7 @@ function getAI() {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper: validate and clean JSON response
+// Enhanced for Deep mode with Google Search tools
 // ─────────────────────────────────────────────────────────────────────────────
 function validateJsonResponse(responseText, serviceType = 'link') {
     if (!responseText || responseText.length < 10) {
@@ -44,26 +45,159 @@ function validateJsonResponse(responseText, serviceType = 'link') {
     
     let trimmed = responseText.trim();
     
-    // Extraction strategies
-    const jsonMatch = trimmed.match(/```json\s*([\s\S]*?)\s*```/);
-    if (jsonMatch) {
-        trimmed = jsonMatch[1].trim();
+    // Step 1: Remove function call artifacts (Google Search tool responses)
+    // Function calls look like: "function_call" or "tool_calls" sections
+    // Remove any text before the first JSON object that looks like function call output
+    trimmed = trimmed.replace(/```json\s*/g, '').replace(/\s*```/g, '');
+    
+    // Step 2: Try to extract JSON from markdown code blocks first
+    const jsonBlockMatch = trimmed.match(/```json\s*([\s\S]*?)\s*```/);
+    if (jsonBlockMatch) {
+        trimmed = jsonBlockMatch[1].trim();
     } else {
-        const firstBrace = trimmed.indexOf('{');
-        const lastBrace = trimmed.lastIndexOf('}');
-        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-            trimmed = trimmed.substring(firstBrace, lastBrace + 1);
+        // Step 3: Find the largest JSON object in the text
+        // This handles cases where there's text before/after JSON
+        const jsonStart = trimmed.search(/[{\[]/);
+        if (jsonStart !== -1) {
+            const startChar = trimmed[jsonStart];
+            const endChar = startChar === '{' ? '}' : ']';
+            let depth = 0;
+            let jsonEnd = -1;
+            let inString = false;
+            let escapeNext = false;
+            
+            // Properly track depth considering strings (which can contain { } [ ])
+            for (let i = jsonStart; i < trimmed.length; i++) {
+                const char = trimmed[i];
+                
+                if (escapeNext) {
+                    escapeNext = false;
+                    continue;
+                }
+                
+                if (char === '\\') {
+                    escapeNext = true;
+                    continue;
+                }
+                
+                if (char === '"' && !escapeNext) {
+                    inString = !inString;
+                    continue;
+                }
+                
+                if (!inString) {
+                    if (char === startChar) depth++;
+                    else if (char === endChar) {
+                        depth--;
+                        if (depth === 0) {
+                            jsonEnd = i;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            if (jsonEnd !== -1) {
+                trimmed = trimmed.substring(jsonStart, jsonEnd + 1);
+            } else {
+                // Fallback: use last brace/bracket
+                const lastBrace = trimmed.lastIndexOf('}');
+                const lastBracket = trimmed.lastIndexOf(']');
+                const lastEnd = Math.max(lastBrace, lastBracket);
+                if (lastEnd > jsonStart) {
+                    trimmed = trimmed.substring(jsonStart, lastEnd + 1);
+                }
+            }
         }
     }
-
+    
+    // Step 4: Clean up common JSON issues
+    // Remove trailing commas
+    trimmed = trimmed.replace(/,(\s*[}\]])/g, '$1');
+    
+    // Remove single-line comments (be careful with URLs)
+    trimmed = trimmed.replace(/([^:])\/\/[^\n]*/g, '$1');
+    
+    // Remove multi-line comments
+    trimmed = trimmed.replace(/\/\*[\s\S]*?\*\//g, '');
+    
+    // Step 5: Sanitize control characters and fix string escaping
+    let sanitized = '';
+    let inString = false;
+    let escapeNext = false;
+    
+    for (let i = 0; i < trimmed.length; i++) {
+        const ch = trimmed[i];
+        const code = trimmed.charCodeAt(i);
+        
+        // Handle escape sequences
+        if (inString && ch === '\\') {
+            sanitized += ch;
+            i++;
+            if (i < trimmed.length) {
+                sanitized += trimmed[i];
+            }
+            continue;
+        }
+        
+        // Handle quotes
+        if (ch === '"') {
+            if (!inString) {
+                inString = true;
+                sanitized += ch;
+            } else {
+                // Check if this is a closing quote or internal quote
+                let lookAhead = i + 1;
+                while (lookAhead < trimmed.length && /\s/.test(trimmed[lookAhead])) {
+                    lookAhead++;
+                }
+                const nextChar = lookAhead < trimmed.length ? trimmed[lookAhead] : '';
+                
+                if (nextChar === ':' || nextChar === ',' || nextChar === '}' || nextChar === ']' || nextChar === '') {
+                    inString = false;
+                    sanitized += ch;
+                } else {
+                    // Internal quote - escape it
+                    sanitized += '\\"';
+                }
+            }
+            continue;
+        }
+        
+        // Handle control characters in strings
+        if (inString && code < 0x20) {
+            switch (code) {
+                case 0x0A: sanitized += '\\n'; break;
+                case 0x0D: sanitized += '\\r'; break;
+                case 0x09: sanitized += '\\t'; break;
+                case 0x08: sanitized += '\\b'; break;
+                case 0x0C: sanitized += '\\f'; break;
+                default: sanitized += '\\u' + code.toString(16).padStart(4, '0'); break;
+            }
+            continue;
+        }
+        
+        sanitized += ch;
+    }
+    
+    trimmed = sanitized.trim();
+    
+    // Step 6: Try to parse
     try {
         const parsed = safeJsonParse(trimmed);
 
         if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-            // Video analysis - flexible validation
+            // Video analysis - flexible validation (title optional; client has videoMetadata)
             if (serviceType === 'video') {
-                const hasMinFields = (parsed.videoTitle || parsed.title) && (parsed.summary || parsed.factualClaims || parsed.claims);
+                const hasSummary = parsed.summary && typeof parsed.summary === 'string' && parsed.summary.length > 10;
+                const hasContent = (Array.isArray(parsed.factualClaims) && parsed.factualClaims.length > 0) ||
+                    (Array.isArray(parsed.claims) && parsed.claims.length > 0) ||
+                    (Array.isArray(parsed.quotes) && parsed.quotes.length > 0) ||
+                    (Array.isArray(parsed.manipulationTechniques) && parsed.manipulationTechniques.length > 0) ||
+                    (parsed.overallAssessment && parsed.detailedMetrics);
+                const hasMinFields = hasSummary && (hasContent || parsed.overallAssessment);
                 if (!hasMinFields) {
+                    console.log('[validateJsonResponse] Video response missing required fields. Keys:', Object.keys(parsed));
                     return { valid: false, code: 'AI_INCOMPLETE_RESPONSE', parsed };
                 }
                 return { valid: true, parsed };
@@ -81,6 +215,8 @@ function validateJsonResponse(responseText, serviceType = 'link') {
 
         return { valid: true, parsed };
     } catch (e) {
+        console.error('[validateJsonResponse] JSON parse failed:', e.message);
+        console.error('[validateJsonResponse] First 500 chars of cleaned text:', trimmed.substring(0, 500));
         return { valid: false, code: 'AI_JSON_PARSE_ERROR', error: e.message };
     }
 }
@@ -335,11 +471,22 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
 
         sendSSE('progress', { status: 'Изпращане на заявка към AI...' });
 
+        // Enhanced system instruction for Deep mode with tools
+        let enhancedSystemInstruction = systemInstruction;
+        if (isDeepMode && tools) {
+            enhancedSystemInstruction = (systemInstruction || '') + 
+                '\n\nCRITICAL: After using Google Search tools, you MUST respond with a complete, valid JSON object. ' +
+                'Do not include any text before or after the JSON. The JSON must start with { and end with }. ' +
+                'All tool results should be integrated into the JSON response, not returned separately.';
+        } else if (!systemInstruction) {
+            enhancedSystemInstruction = 'You are a professional fact-checker. Respond ONLY with valid JSON.';
+        }
+        
         const stream = await ai.models.generateContentStream({
             model: model || 'gemini-2.5-flash',
             contents,
             config: {
-                systemInstruction: systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON.',
+                systemInstruction: enhancedSystemInstruction,
                 temperature: 0.7,
                 maxOutputTokens: isDeepMode ? 65536 : 50000,
                 responseMimeType: tools ? undefined : 'application/json',
@@ -351,8 +498,17 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
         let fullText = '';
         let streamUsage = null;
         let chunkCount = 0;
+        let functionCallCount = 0;
 
         for await (const chunk of stream) {
+            // Handle function calls (Google Search tool invocations)
+            if (chunk.functionCalls && chunk.functionCalls.length > 0) {
+                functionCallCount += chunk.functionCalls.length;
+                sendSSE('progress', { status: `Търсене в Google (${functionCallCount} заявки)...` });
+                // Function calls are handled automatically by Gemini, we just track them
+                continue;
+            }
+            
             const chunkText = chunk.text || '';
             if (chunkText) {
                 fullText += chunkText;
@@ -361,7 +517,12 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
                     sendSSE('progress', { status: `Анализиране (${Math.round(fullText.length / 1024)} KB)...` });
                 }
             }
-        if (chunk.usageMetadata) streamUsage = chunk.usageMetadata;
+            if (chunk.usageMetadata) streamUsage = chunk.usageMetadata;
+        }
+        
+        // Log if we had function calls (for debugging)
+        if (functionCallCount > 0) {
+            console.log(`[Gemini Stream] Processed ${functionCallCount} function calls (Google Search)`);
         }
 
         clearInterval(heartbeat);
@@ -369,11 +530,28 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
         const usage = streamUsage || { promptTokenCount: 0, candidatesTokenCount: 0, totalTokenCount: 0 };
 
         // ── Validate response ─────────────────────────────────────────────────
+        console.log(`[Gemini Stream] Response length: ${fullText.length} chars`);
+        console.log(`[Gemini Stream] First 200 chars: ${fullText.substring(0, 200)}`);
+        console.log(`[Gemini Stream] Last 200 chars: ${fullText.substring(Math.max(0, fullText.length - 200))}`);
+        
         const validation = validateJsonResponse(fullText, serviceType || 'video');
         if (!validation.valid) {
-            sendSSE('error', { error: 'AI върна невалиден формат. Никакви точки не бяха таксувани.', code: validation.code });
+            console.error(`[Gemini Stream] ❌ Validation failed: ${validation.code}`);
+            if (validation.error) {
+                console.error(`[Gemini Stream] Parse error: ${validation.error}`);
+            }
+            // Log a sample of what we got for debugging
+            const sample = fullText.substring(0, 1000);
+            console.error(`[Gemini Stream] Response sample (first 1000 chars):`, sample);
+            sendSSE('error', { 
+                error: 'AI върна невалиден формат. Никакви точки не бяха таксувани.', 
+                code: validation.code,
+                details: validation.error || 'Unknown validation error'
+            });
             return res.end();
         }
+        
+        console.log(`[Gemini Stream] ✅ Validation successful. Parsed keys:`, Object.keys(validation.parsed || {}));
 
         // ── Calculate cost ────────────────────────────────────────────────────
         const promptTokens = usage.promptTokenCount || 0;
@@ -408,7 +586,18 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             description = isDeepMode ? 'Дълбок видео анализ' : 'Стандартен видео анализ';
         }
 
-        const deductResult = await deductPointsFromUser(userId, finalPoints, description);
+        // Extract metadata for transaction record (video title, author, etc.)
+        const metadata = req.body.metadata || {};
+        // For video analysis, include video metadata in transaction
+        if (serviceType === 'video' || !serviceType) {
+            metadata.videoTitle = metadata.title || metadata.videoTitle;
+            metadata.videoAuthor = metadata.author || metadata.videoAuthor;
+            metadata.videoId = metadata.videoId;
+            metadata.videoDuration = metadata.duration;
+            metadata.thumbnailUrl = metadata.thumbnailUrl; // If available from YouTube API
+        }
+
+        const deductResult = await deductPointsFromUser(userId, finalPoints, description, metadata);
         if (!deductResult.success) {
             sendSSE('error', { error: 'Insufficient points after generation.', code: 'INSUFFICIENT_POINTS' });
             return res.end();

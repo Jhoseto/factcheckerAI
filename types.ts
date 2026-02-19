@@ -125,6 +125,7 @@ export interface YouTubeVideoMetadata {
   author: string;
   duration: number; // in seconds
   durationFormatted: string; // e.g., "39:25"
+  thumbnailUrl?: string; // YouTube thumbnail URL
 }
 
 export interface CostEstimate {

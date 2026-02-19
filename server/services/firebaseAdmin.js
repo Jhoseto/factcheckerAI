@@ -181,9 +181,12 @@ export async function deductPointsFromUser(userId, points, description = 'Изп
                 createdAt: new Date().toISOString(),
                 metadata: {
                     ...metadata,
-                    // If it's a link analysis, store title in videoTitle to match frontend component logic
-                    videoTitle: metadata.title || null,
-                    videoAuthor: metadata.siteName || null
+                    // For video analysis: preserve video metadata
+                    videoTitle: metadata.videoTitle || metadata.title || null,
+                    videoAuthor: metadata.videoAuthor || metadata.author || metadata.siteName || null,
+                    videoId: metadata.videoId || null,
+                    videoDuration: metadata.videoDuration || metadata.duration || null,
+                    thumbnailUrl: metadata.thumbnailUrl || null
                 }
             });
 
