@@ -128,7 +128,9 @@ const callGeminiStreamAPI = async (payload: any, token: string, onProgress?: (st
     buffer = eventBlocks.pop() || '';
 
     for (const block of eventBlocks) {
-      if (!block.trim()) continue;
+      const trimmedBlock = block.trim();
+      if (!trimmedBlock) continue;
+      if (trimmedBlock.startsWith(':')) continue; // Ignore SSE comments/heartbeats
 
       let eventType = '';
       let eventData = '';

@@ -37,61 +37,44 @@ function getAI() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper: validate and clean JSON response
 // ─────────────────────────────────────────────────────────────────────────────
-function validateJsonResponse(responseText) {
+function validateJsonResponse(responseText, serviceType = 'link') {
     if (!responseText || responseText.length < 10) {
         return { valid: false, code: 'AI_EMPTY_RESPONSE' };
     }
+    
     let trimmed = responseText.trim();
+    
+    // Extraction strategies
     const jsonMatch = trimmed.match(/```json\s*([\s\S]*?)\s*```/);
-    if (jsonMatch) trimmed = jsonMatch[1].trim();
-    else {
+    if (jsonMatch) {
+        trimmed = jsonMatch[1].trim();
+    } else {
         const firstBrace = trimmed.indexOf('{');
         const lastBrace = trimmed.lastIndexOf('}');
-        if (firstBrace !== -1 && lastBrace !== -1) {
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
             trimmed = trimmed.substring(firstBrace, lastBrace + 1);
         }
     }
-    if (!((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']')))) {
-        if (!trimmed.includes('{') && !trimmed.includes('[')) {
-            return { valid: false, code: 'AI_INVALID_FORMAT' };
-        }
-    }
 
-    // Additional validation: Check if JSON is complete and valid
     try {
-        // Use safeJsonParse to attempt repair of truncated/malformed JSON
         const parsed = safeJsonParse(trimmed);
 
-        // Check if it's an object (not array) and has required fields for analysis
         if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-            // For link/article analysis, check for critical fields
+            // Video analysis - flexible validation
+            if (serviceType === 'video') {
+                const hasMinFields = (parsed.videoTitle || parsed.title) && (parsed.summary || parsed.factualClaims || parsed.claims);
+                if (!hasMinFields) {
+                    return { valid: false, code: 'AI_INCOMPLETE_RESPONSE', parsed };
+                }
+                return { valid: true, parsed };
+            }
+
+            // Link/Article analysis - stricter validation
             const hasTitle = parsed.title && parsed.title.length > 5;
             const hasSiteName = parsed.siteName && parsed.siteName.length > 0;
             const hasSummary = parsed.summary && parsed.summary.length > 20;
-            const hasOverallAssessment = parsed.overallAssessment;
-            const hasDetailedMetrics = parsed.detailedMetrics && typeof parsed.detailedMetrics === 'object';
 
-            // Check if the response looks complete (has at least some key fields)
-            const hasMinRequiredFields = hasTitle && hasSiteName && hasSummary;
-
-            // Check for truncated content indicators (summary ending abruptly)
-            let isTruncated = false;
-            if (parsed.summary) {
-                // Check if summary ends with incomplete sentence or gets cut off
-                const summary = parsed.summary;
-                // Check for incomplete endings - more comprehensive check
-                if (summary.endsWith('...') ||
-                    summary.endsWith(',') ||
-                    summary.endsWith(' ')) {
-                    isTruncated = true;
-                }
-            }
-
-            // Check if we have at least the core analysis fields
-            const hasAnalysisData = hasOverallAssessment && hasDetailedMetrics;
-
-            // CRITICAL: Must have analysis data, not just basic metadata
-            if (!hasMinRequiredFields || isTruncated || !hasAnalysisData) {
+            if (!hasTitle || !hasSiteName || !hasSummary) {
                 return { valid: false, code: 'AI_INCOMPLETE_RESPONSE', parsed };
             }
         }
@@ -208,7 +191,7 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
             }
 
             // ── Validate response ─────────────────────────────────────────────────
-            lastValidation = validateJsonResponse(responseText);
+            lastValidation = validateJsonResponse(responseText, serviceType || 'video');
             if (lastValidation.valid) {
                 break; // Success, exit retry loop
             }
@@ -317,6 +300,11 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
         res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
     };
 
+    // Heartbeat to prevent 5-min proxy timeouts (Cloudflare/Nginx)
+    const heartbeat = setInterval(() => {
+        res.write(': heartbeat\n\n');
+    }, 30000);
+
     try {
         const ai = getAI();
         const userId = req.userId;
@@ -373,13 +361,15 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
                     sendSSE('progress', { status: `Анализиране (${Math.round(fullText.length / 1024)} KB)...` });
                 }
             }
-            if (chunk.usageMetadata) streamUsage = chunk.usageMetadata;
+        if (chunk.usageMetadata) streamUsage = chunk.usageMetadata;
         }
+
+        clearInterval(heartbeat);
 
         const usage = streamUsage || { promptTokenCount: 0, candidatesTokenCount: 0, totalTokenCount: 0 };
 
         // ── Validate response ─────────────────────────────────────────────────
-        const validation = validateJsonResponse(fullText);
+        const validation = validateJsonResponse(fullText, serviceType || 'video');
         if (!validation.valid) {
             sendSSE('error', { error: 'AI върна невалиден формат. Никакви точки не бяха таксувани.', code: validation.code });
             return res.end();
@@ -438,6 +428,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
         res.end();
 
     } catch (error) {
+        clearInterval(heartbeat);
         console.error('[Gemini Stream API] Error:', error?.message || error);
         try {
             sendSSE('error', { error: error.message || 'Failed to generate content', code: 'UNKNOWN_ERROR' });

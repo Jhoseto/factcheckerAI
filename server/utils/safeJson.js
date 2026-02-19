@@ -23,6 +23,17 @@ export function safeJsonParse(jsonString) {
             clean += ']'.repeat(openBrackets - closeBrackets);
         }
 
+        // 4. Try to fix missing closing quote on last property if truncated
+        if (clean.split('"').length % 2 === 0) {
+            clean += '"';
+            // Re-run bracket closing if we added a quote
+            const openBracesNew = (clean.match(/{/g) || []).length;
+            const closeBracesNew = (clean.match(/}/g) || []).length;
+            if (openBracesNew > closeBracesNew) {
+                clean += '}'.repeat(openBracesNew - closeBracesNew);
+            }
+        }
+
         try {
             return JSON.parse(clean);
         } catch (e2) {
