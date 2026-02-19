@@ -99,7 +99,7 @@ const ExpensesPage: React.FC = () => {
                     </div>
                     <div className="bg-slate-100 rounded-sm px-4 py-2 border border-slate-200">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-2">Баланс</span>
-                        <span className="text-xl font-black text-slate-900">{userProfile?.points?.toLocaleString() || 0}</span>
+                        <span className="text-xl font-black text-slate-900">{userProfile?.pointsBalance?.toLocaleString() ?? 0}</span>
                     </div>
                 </div>
             </div>

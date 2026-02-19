@@ -48,6 +48,18 @@ router.get('/metadata', async (req, res) => {
         const videoId = extractVideoId(videoUrl);
         if (!videoId) return res.status(400).json({ error: 'Invalid YouTube URL' });
 
+        // Mock mode for E2E testing — return fake metadata without calling YouTube API
+        if (process.env.MOCK_GEMINI === 'true') {
+            return res.json({
+                videoId,
+                title: 'E2E Test Video — Mock Metadata',
+                author: 'E2E Test Channel',
+                duration: 600,
+                durationFormatted: '10:00',
+                thumbnailUrl: '',
+            });
+        }
+
         const apiKey = process.env.VITE_YOUTUBE_API_KEY || process.env.YOUTUBE_API_KEY;
         if (!apiKey) return res.status(500).json({ error: 'YouTube API key not configured' });
 

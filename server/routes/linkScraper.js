@@ -6,10 +6,11 @@
 import express from 'express';
 import axios from 'axios';
 import { requireAuth } from '../middleware/auth.js';
-import { getUserPoints, deductPointsFromUser } from '../services/firebaseAdmin.js';
-import { getFixedPrice } from '../config/pricing.js';
+import { getUserPoints } from '../services/firebaseAdmin.js';
 
 const router = express.Router();
+
+// Scrape е без такса; точки се проверяват и приспадат само при анализ (link/gemini).
 
 router.post('/scrape', requireAuth, async (req, res) => {
     try {
@@ -24,18 +25,6 @@ router.post('/scrape', requireAuth, async (req, res) => {
         }
 
         const userId = req.userId;
-        const price = getFixedPrice('linkArticle'); // Usually 15 points
-
-        // Check balance
-        const currentBalance = await getUserPoints(userId);
-        if (currentBalance < price) {
-            return res.status(403).json({
-                error: 'Insufficient points. Please top up your balance.',
-                code: 'INSUFFICIENT_POINTS',
-                currentBalance
-            });
-        }
-
 
         const response = await axios.get(url, {
             headers: {

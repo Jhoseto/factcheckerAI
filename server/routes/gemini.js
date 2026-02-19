@@ -18,8 +18,7 @@ import {
 } from '../services/firebaseAdmin.js';
 import {
     calculateVideoCostInPoints,
-    getFixedPrice,
-    logBilling
+    getFixedPrice
 } from '../config/pricing.js';
 import { safeJsonParse } from '../utils/safeJson.js';
 
@@ -360,16 +359,6 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
             finalPoints = calculateVideoCostInPoints(promptTokens, candidatesTokens, isDeepMode, isBatch, model);
         }
 
-        logBilling(
-            'generate',
-            promptTokens,
-            candidatesTokens,
-            (promptTokens / 1e6) * 0.50 + (candidatesTokens / 1e6) * 2.00,
-            ((promptTokens / 1e6) * 0.50 + (candidatesTokens / 1e6) * 2.00) * 0.95,
-            finalPoints,
-            isDeepMode
-        );
-
         // ── Deduct points SERVER-SIDE ─────────────────────────────────────────
         // Only deduct if we are ready to send success response
         if (lastValidation.valid) {
@@ -627,4 +616,5 @@ router.post('/synthesize-report', requireAuth, async (req, res) => {
     }
 });
 
+export { validateJsonResponse };
 export default router;

@@ -194,7 +194,7 @@ const getAnalysisPrompt = (url: string, type: 'video' | 'news', mode: AnalysisMo
  * Clean JSON response from markdown code blocks and fix common issues
  * Handles cases where Gemini adds text before/after JSON like "Here is a JSON response: {...}"
  */
-const cleanJsonResponse = (text: string): string => {
+export const cleanJsonResponse = (text: string): string => {
   let cleaned = text.trim();
 
   // First, try to extract JSON from markdown code blocks
