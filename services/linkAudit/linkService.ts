@@ -51,6 +51,7 @@ export const scrapeLink = async (url: string): Promise<LinkScrapeResponse> => {
 export const analyzeLinkDeep = async (
     url: string,
     content: string,
+    title: string, // Added title parameter
     onProgress?: (status: string) => void
 ): Promise<{ analysis: VideoAnalysis; usage: APIUsage }> => {
     try {
@@ -73,8 +74,9 @@ export const analyzeLinkDeep = async (
                 prompt: prompt,
                 mode: 'deep',
                 enableGoogleSearch: true,
-                serviceType: 'linkArticle', // Fixed price for link analysis (12 points)
-                systemInstruction: 'You are a professional fact-checker. You MUST answer in Bulgarian language only.'
+                serviceType: 'linkArticle',
+                systemInstruction: 'You are a professional fact-checker. You MUST answer in Bulgarian language only.',
+                metadata: { title } // Pass title in metadata
             })
         });
 
@@ -86,17 +88,38 @@ export const analyzeLinkDeep = async (
             throw error;
         }
 
-        const data = await response.json();
-        const rawAnalysis = JSON.parse(cleanJsonResponse(data.text));
+        const data = await response.text(); // Get raw text first
+        let jsonData;
+        try {
+            jsonData = JSON.parse(data);
+        } catch (parseErr) {
+            console.error('[LinkService] ❌ Failed to parse API response:', data.substring(0, 500) + '...');
+            throw new Error('Получен е невалиден отговор от сървъра.');
+        }
+
+        const cleanedText = cleanJsonResponse(jsonData.text);
+        let rawAnalysis;
+        try {
+            rawAnalysis = JSON.parse(cleanedText);
+        } catch (innerParseErr) {
+            console.error('[LinkService] ❌ Failed to parse inner Gemini JSON:', cleanedText.substring(0, 500) + '...');
+            // Try to salvage if it's a markdown code block issue
+            const fallbackClean = cleanedText.replace(/```json/g, '').replace(/```/g, '').trim();
+            try {
+                rawAnalysis = JSON.parse(fallbackClean);
+            } catch (finalErr) {
+                throw new Error('AI генерира невалиден JSON формат. Моля, опитайте отново.');
+            }
+        }
 
         // Server returns points info including newBalance after server-side deduction
         const usage: APIUsage = {
-            promptTokens: data.usageMetadata?.promptTokenCount || 0,
-            candidatesTokens: data.usageMetadata?.candidatesTokenCount || 0,
-            totalTokens: data.usageMetadata?.totalTokenCount || 0,
+            promptTokens: jsonData.usageMetadata?.promptTokenCount || 0,
+            candidatesTokens: jsonData.usageMetadata?.candidatesTokenCount || 0,
+            totalTokens: jsonData.usageMetadata?.totalTokenCount || 0,
             estimatedCostUSD: 0,
-            pointsCost: data.points?.costInPoints || 12,
-            newBalance: data.points?.newBalance // Updated balance from server
+            pointsCost: jsonData.points?.costInPoints || 12,
+            newBalance: jsonData.points?.newBalance // Updated balance from server
         };
 
         return {
@@ -105,6 +128,7 @@ export const analyzeLinkDeep = async (
         };
 
     } catch (error: any) {
+        console.error('[LinkService] ❌ Analysis error:', error);
         throw handleApiError(error);
     }
 };
@@ -113,8 +137,24 @@ export const analyzeLinkDeep = async (
  * Utility to clean Gemini JSON response
  */
 const cleanJsonResponse = (text: string): string => {
-    const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/{[\s\S]*}/);
-    return jsonMatch ? jsonMatch[1] || jsonMatch[0] : text;
+    if (!text) return '{}';
+
+    // 1. Try to find JSON inside markdown code blocks
+    const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
+    if (jsonMatch && jsonMatch[1]) {
+        return jsonMatch[1].trim();
+    }
+
+    // 2. Try to find the first '{' and last '}'
+    const startIndex = text.indexOf('{');
+    const endIndex = text.lastIndexOf('}');
+
+    if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+        return text.substring(startIndex, endIndex + 1);
+    }
+
+    // 3. Fallback: return original text if no brackets found (likely will fail parsing, but worth a try if it's bare)
+    return text.trim();
 };
 
 /**

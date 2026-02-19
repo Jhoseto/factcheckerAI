@@ -34,28 +34,38 @@ router.get('/', async (req, res) => {
         // Query: where userId == userId
         // NOTE: We do NOT use orderBy/limit here to avoid "Missing Index" errors (500).
         // Sorting and limiting is done in-memory.
+        console.log(`[Transactions API] Fetching transactions for user: ${userId}`);
         const snapshot = await transactionsRef
             .where('userId', '==', userId)
             .get();
 
+        console.log(`[Transactions API] Found ${snapshot.size} documents`);
+
         let transactions = [];
         snapshot.forEach(doc => {
             const data = doc.data();
-            // Handle Timestamp conversion if necessary (robustness)
-            if (data.createdAt && typeof data.createdAt.toDate === 'function') {
-                data.createdAt = data.createdAt.toDate().toISOString();
+            let createdAt = data.createdAt;
+
+            // Handle Firestore Timestamp
+            if (createdAt && typeof createdAt.toDate === 'function') {
+                createdAt = createdAt.toDate().toISOString();
+            }
+            // Handle timestamp field if createdAt is missing
+            if (!createdAt && data.timestamp && typeof data.timestamp.toDate === 'function') {
+                createdAt = data.timestamp.toDate().toISOString();
             }
 
             transactions.push({
                 id: doc.id,
-                ...data
+                ...data,
+                createdAt: createdAt || new Date().toISOString() // Fallback
             });
         });
 
         // In-memory Sort (Newest first)
         transactions.sort((a, b) => {
-            const dateA = new Date(a.createdAt || 0).getTime();
-            const dateB = new Date(b.createdAt || 0).getTime();
+            const dateA = new Date(a.createdAt).getTime();
+            const dateB = new Date(b.createdAt).getTime();
             return dateB - dateA;
         });
 

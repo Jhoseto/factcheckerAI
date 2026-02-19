@@ -141,10 +141,12 @@ export async function addPointsToUser(userId, points) {
  * @param points - Number of points to deduct
  * @returns Object with success status and new balance
  */
-export async function deductPointsFromUser(userId, points) {
+export async function deductPointsFromUser(userId, points, description = 'Използване на услуги', metadata = {}) {
+    console.log(`[Firebase Admin] deductPointsFromUser called: userId=${userId}, points=${points}, desc=${description}`);
     try {
         const db = getFirestore();
         const userRef = db.collection('users').doc(userId);
+        const transactionRef = db.collection('transactions').doc(); // Auto-ID
 
         const result = await db.runTransaction(async (transaction) => {
             const userDoc = await transaction.get(userRef);
@@ -157,21 +159,39 @@ export async function deductPointsFromUser(userId, points) {
 
             if (currentPoints < points) {
                 console.log(`[Firebase Admin] ❌ Insufficient points for user ${userId}: has ${currentPoints}, needs ${points}`);
-                return { success: false, newBalance: currentPoints };
+                // Return explicit failure object instead of throwing, to handle gracefully
+                return { success: false, newBalance: currentPoints, error: 'insufficient_points' };
             }
 
             const newPoints = currentPoints - points;
 
+            // 1. Update User Balance
             transaction.update(userRef, {
                 pointsBalance: newPoints,
                 lastPointsUpdate: admin.firestore.FieldValue.serverTimestamp()
             });
 
+            // 2. Create Transaction Record
+            transaction.set(transactionRef, {
+                userId: userId,
+                type: 'deduction', // Changed back from 'usage' to match frontend
+                amount: -points, // Negative for deduction
+                description: description,
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                createdAt: new Date().toISOString(),
+                metadata: {
+                    ...metadata,
+                    // If it's a link analysis, store title in videoTitle to match frontend component logic
+                    videoTitle: metadata.title || null,
+                    videoAuthor: metadata.siteName || null
+                }
+            });
+
             return { success: true, newBalance: newPoints };
         });
 
-        if (result) {
-            console.log(`[Firebase Admin] ✅ Deducted ${points} points from user ${userId}`);
+        if (result.success) {
+            console.log(`[Firebase Admin] ✅ Deducted ${points} points from user ${userId}. New balance: ${result.newBalance}`);
         }
 
         return result;

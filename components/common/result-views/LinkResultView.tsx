@@ -220,14 +220,19 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                             {analysis.manipulations.map((tech, idx) => (
                                 <div key={idx} className="editorial-card p-6 md:p-8 space-y-4 border-l-4 bg-white hover:shadow-lg transition-shadow"
                                     style={{ borderLeftColor: tech.severity > 0.7 ? '#dc2626' : tech.severity > 0.4 ? '#d97706' : '#f59e0b' }}>
-                                    <div className="flex justify-between items-start">
+                                    <div className="flex justify-between items-start mb-3">
                                         <h4 className="text-lg font-black text-slate-900 uppercase tracking-tight italic serif">{tech.technique}</h4>
-                                        <div className="bg-slate-50 px-3 py-1 rounded-full border border-slate-200">
+                                        <div className="flex-shrink-0 bg-slate-50 px-3 py-1 rounded-full border border-slate-200">
                                             <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Тежест: {Math.round(tech.severity * 100)}%</span>
                                         </div>
                                     </div>
-                                    <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mt-2">{tech.logic.substring(0, 100)}...</p>
                                     <p className="text-sm text-slate-700 leading-relaxed font-medium">{tech.logic}</p>
+                                    {tech.effect && (
+                                        <div className="mt-4 p-4 bg-slate-50 border-l-2 border-slate-300">
+                                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Въздействие</p>
+                                            <p className="text-xs font-bold text-slate-800">{tech.effect}</p>
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>

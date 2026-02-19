@@ -91,7 +91,7 @@ const LinkAuditPage: React.FC = () => {
             const scraped = await scrapeLink(url);
 
             // 2. Analyze (server-side billing - points deducted AFTER successful generation)
-            const { analysis: result, usage } = await analyzeLinkDeep(url, scraped.content, (status) => {
+            const { analysis: result, usage } = await analyzeLinkDeep(url, scraped.content, scraped.title, (status) => {
                 setStreamingStatus(status);
             });
 

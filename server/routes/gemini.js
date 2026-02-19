@@ -21,6 +21,7 @@ import {
     getFixedPrice,
     logBilling
 } from '../config/pricing.js';
+import { safeJsonParse } from '../utils/safeJson.js';
 
 const router = express.Router();
 
@@ -55,15 +56,59 @@ function validateJsonResponse(responseText) {
             return { valid: false, code: 'AI_INVALID_FORMAT' };
         }
     }
-    return { valid: true };
+
+    // Additional validation: Check if JSON is complete and valid
+    try {
+        // Use safeJsonParse to attempt repair of truncated/malformed JSON
+        const parsed = safeJsonParse(trimmed);
+
+        // Check if it's an object (not array) and has required fields for analysis
+        if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+            // For link/article analysis, check for critical fields
+            const hasTitle = parsed.title && parsed.title.length > 5;
+            const hasSiteName = parsed.siteName && parsed.siteName.length > 0;
+            const hasSummary = parsed.summary && parsed.summary.length > 20;
+            const hasOverallAssessment = parsed.overallAssessment;
+            const hasDetailedMetrics = parsed.detailedMetrics && typeof parsed.detailedMetrics === 'object';
+
+            // Check if the response looks complete (has at least some key fields)
+            const hasMinRequiredFields = hasTitle && hasSiteName && hasSummary;
+
+            // Check for truncated content indicators (summary ending abruptly)
+            let isTruncated = false;
+            if (parsed.summary) {
+                // Check if summary ends with incomplete sentence or gets cut off
+                const summary = parsed.summary;
+                // Check for incomplete endings - more comprehensive check
+                if (summary.endsWith('...') ||
+                    summary.endsWith(',') ||
+                    summary.endsWith(' ')) {
+                    isTruncated = true;
+                }
+            }
+
+            // Check if we have at least the core analysis fields
+            const hasAnalysisData = hasOverallAssessment && hasDetailedMetrics;
+
+            // CRITICAL: Must have analysis data, not just basic metadata
+            if (!hasMinRequiredFields || isTruncated || !hasAnalysisData) {
+                return { valid: false, code: 'AI_INCOMPLETE_RESPONSE', parsed };
+            }
+        }
+
+        return { valid: true, parsed };
+    } catch (e) {
+        return { valid: false, code: 'AI_JSON_PARSE_ERROR', error: e.message };
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/gemini/generate — Standard (non-video) generation
 // ─────────────────────────────────────────────────────────────────────────────
 router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
-    req.setTimeout(900000);
-    res.setTimeout(900000);
+    // Increase timeout to 15 minutes for deep analysis
+    req.setTimeout(15 * 60 * 1000);
+    res.setTimeout(15 * 60 * 1000);
 
     try {
         const ai = getAI();
@@ -104,49 +149,82 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
             contents.push({ role: 'user', parts: [{ text: prompt }] });
         }
 
-        // ── Generate ──────────────────────────────────────────────────────────
+        // ── Generate with retry for incomplete responses ──────────────────────────
         let responseText = '';
         let usage = null;
+        // Reduce max retries to avoid long waits (7+ mins). 
+        // We rely on safeJsonParse to fix minor truncations.
+        const maxRetries = 1;
+        let lastValidation = null;
 
-        if (videoUrl) {
-            const stream = await ai.models.generateContentStream({
-                model: model || 'gemini-2.5-flash',
-                contents,
-                config: {
-                    systemInstruction: systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON.',
-                    temperature: 0.7,
-                    maxOutputTokens: isDeepMode ? 65536 : 20000,
-                    responseMimeType: tools ? undefined : 'application/json',
-                    mediaResolution: 'MEDIA_RESOLUTION_LOW',
-                    tools
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+            if (videoUrl) {
+                const stream = await ai.models.generateContentStream({
+                    model: model || 'gemini-2.5-flash',
+                    contents,
+                    config: {
+                        systemInstruction: systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON. Complete ALL fields in the response.',
+                        temperature: 0.7,
+                        maxOutputTokens: isDeepMode ? 65536 : 20000,
+                        responseMimeType: tools ? undefined : 'application/json',
+                        mediaResolution: 'MEDIA_RESOLUTION_LOW',
+                        tools
+                    }
+                });
+                responseText = ''; // Reset for new attempt
+                for await (const chunk of stream) {
+                    if (chunk.text) responseText += chunk.text;
+                    if (chunk.usageMetadata) usage = chunk.usageMetadata;
                 }
-            });
-            for await (const chunk of stream) {
-                if (chunk.text) responseText += chunk.text;
-                if (chunk.usageMetadata) usage = chunk.usageMetadata;
+            } else {
+                // Add instruction to complete the response on retry attempts
+                const retryInstruction = attempt > 0 ? ". ВНИМАНИЕ: Предишният отговор беше непълен или невалиден JSON. Уверете се, че затваряте всички скоби и кавички. Попълнете всички полета." : "";
+
+                const enrichedContents = [...contents];
+                if (retryInstruction && attempt > 0) {
+                    // Add retry instruction to the last user message
+                    const lastUserMsg = enrichedContents[enrichedContents.length - 1];
+                    // Clone deep to avoid mutating original for next retry
+                    const msgClone = JSON.parse(JSON.stringify(lastUserMsg));
+                    if (msgClone.role === 'user') {
+                        msgClone.parts[0].text += retryInstruction;
+                    }
+                    enrichedContents[enrichedContents.length - 1] = msgClone;
+                }
+
+                const response = await ai.models.generateContent({
+                    model: model || 'gemini-2.5-flash',
+                    contents: enrichedContents,
+                    config: {
+                        systemInstruction: systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON. Complete ALL fields in the response. Do not truncate!',
+                        temperature: 0.7,
+                        maxOutputTokens: isDeepMode ? 65536 : 20000,
+                        responseMimeType: tools ? undefined : 'application/json',
+                        tools
+                    }
+                });
+                responseText = response.text || '';
+                usage = response.usageMetadata || { promptTokenCount: 0, candidatesTokenCount: 0 };
             }
-        } else {
-            const response = await ai.models.generateContent({
-                model: model || 'gemini-2.5-flash',
-                contents,
-                config: {
-                    systemInstruction: systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON.',
-                    temperature: 0.7,
-                    maxOutputTokens: isDeepMode ? 65536 : 20000,
-                    responseMimeType: tools ? undefined : 'application/json',
-                    tools
-                }
-            });
-            responseText = response.text || '';
-            usage = response.usageMetadata || { promptTokenCount: 0, candidatesTokenCount: 0 };
+
+            // ── Validate response ─────────────────────────────────────────────────
+            lastValidation = validateJsonResponse(responseText);
+            if (lastValidation.valid) {
+                break; // Success, exit retry loop
+            }
+
+            console.log(`[Gemini] Attempt ${attempt + 1} failed validation: ${lastValidation.code}. Retrying...`);
+
+            // If this was the last attempt, don't retry
+            if (attempt >= maxRetries) {
+                break;
+            }
         }
 
-        // ── Validate response ─────────────────────────────────────────────────
-        const validation = validateJsonResponse(responseText);
-        if (!validation.valid) {
+        if (!lastValidation.valid) {
             return res.status(500).json({
-                error: 'AI върна невалиден формат. Никакви точки не бяха таксувани.',
-                code: validation.code
+                error: 'AI генерира непълен отговор. Моля, опитайте отново.',
+                code: lastValidation.code
             });
         }
 
@@ -172,26 +250,46 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
         );
 
         // ── Deduct points SERVER-SIDE ─────────────────────────────────────────
-        const deductResult = await deductPointsFromUser(userId, finalPoints);
-        if (!deductResult.success) {
-            return res.status(403).json({
-                error: 'Insufficient points after generation.',
-                code: 'INSUFFICIENT_POINTS',
-                currentBalance: deductResult.newBalance
-            });
-        }
-
-        // ── Return result ─────────────────────────────────────────────────────
-        res.json({
-            text: responseText,
-            usageMetadata: usage,
-            points: {
-                deducted: finalPoints,
-                costInPoints: finalPoints,
-                newBalance: deductResult.newBalance,
-                isDeep: isDeepMode
+        // Only deduct if we are ready to send success response
+        if (lastValidation.valid) {
+            let description = 'Анализ на съдържание';
+            if (serviceType === 'linkArticle') {
+                description = 'Анализ на статия (Линк)';
+            } else if (serviceType === 'text') {
+                description = 'Текстов анализ';
+            } else {
+                description = isDeepMode ? 'Дълбок видео анализ' : 'Стандартен видео анализ';
             }
-        });
+
+            // Extract metadata if exists (e.g. for link analysis title)
+            const metadata = req.body.metadata || {};
+
+            console.log(`[Gemini API] 🟢 Initiating deduction for user ${userId}: ${finalPoints} points ("${description}")`);
+            const deductResult = await deductPointsFromUser(userId, finalPoints, description, metadata);
+            if (!deductResult.success) {
+                return res.status(403).json({
+                    error: 'Insufficient points after generation.',
+                    code: 'INSUFFICIENT_POINTS',
+                    currentBalance: deductResult.newBalance
+                });
+            }
+
+            // Update balance in response object
+            res.json({
+                text: responseText,
+                usageMetadata: usage,
+                points: {
+                    deducted: finalPoints,
+                    costInPoints: finalPoints,
+                    newBalance: deductResult.newBalance,
+                    isDeep: isDeepMode
+                }
+            });
+        } else {
+            // Should verify validation logic doesn't already handle this
+            // Use exiting error block
+            throw new Error('Unexpected validation state');
+        }
 
     } catch (error) {
         console.error('[Gemini API] Error:', error.message);
@@ -310,7 +408,17 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
 
         // ── Deduct points SERVER-SIDE ─────────────────────────────────────────
         sendSSE('progress', { status: 'Финализиране и таксуване...' });
-        const deductResult = await deductPointsFromUser(userId, finalPoints);
+
+        let description = 'Анализ на съдържание';
+        if (serviceType === 'linkArticle') {
+            description = 'Анализ на статия (Линк)';
+        } else if (serviceType === 'text') {
+            description = 'Текстов анализ';
+        } else {
+            description = isDeepMode ? 'Дълбок видео анализ' : 'Стандартен видео анализ';
+        }
+
+        const deductResult = await deductPointsFromUser(userId, finalPoints, description);
         if (!deductResult.success) {
             sendSSE('error', { error: 'Insufficient points after generation.', code: 'INSUFFICIENT_POINTS' });
             return res.end();

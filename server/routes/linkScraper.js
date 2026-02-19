@@ -24,7 +24,7 @@ router.post('/scrape', requireAuth, async (req, res) => {
         }
 
         const userId = req.userId;
-        const price = getFixedPrice('link'); // Usually 15 points
+        const price = getFixedPrice('linkArticle'); // Usually 15 points
 
         // Check balance
         const currentBalance = await getUserPoints(userId);
@@ -105,7 +105,8 @@ router.post('/scrape', requireAuth, async (req, res) => {
         // Limit content length
         const truncatedContent = content.substring(0, 30000);
 
-        // Deduct points
+        // Deduct points - REMOVED to prevent double billing. Scraping is now included in analysis cost.
+        /*
         const deductResult = await deductPointsFromUser(userId, price);
         if (!deductResult.success) {
             return res.status(403).json({
@@ -114,6 +115,11 @@ router.post('/scrape', requireAuth, async (req, res) => {
                 currentBalance: deductResult.newBalance
             });
         }
+        */
+
+        // Return current balance without deduction
+        const userPoints = await getUserPoints(userId);
+
 
         res.json({
             title: ogTitle || title,
@@ -122,9 +128,9 @@ router.post('/scrape', requireAuth, async (req, res) => {
             siteName: new URL(url).hostname.replace('www.', ''),
             url,
             points: {
-                deducted: price,
-                costInPoints: price,
-                newBalance: deductResult.newBalance
+                deducted: 0,
+                costInPoints: 0,
+                newBalance: userPoints
             }
         });
 
