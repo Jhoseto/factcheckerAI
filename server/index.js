@@ -35,7 +35,8 @@ const port = process.env.PORT || 8080;
 // Security Headers
 // ─────────────────────────────────────────────────────────────────────────────
 app.use((req, res, next) => {
-    res.setHeader('Cross-Origin-Opener-Policy', 'unsafe-none');
+    // Allow popups for Firebase Auth (Google sign-in) while maintaining security
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
     next();
 });
 
