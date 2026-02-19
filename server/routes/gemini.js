@@ -197,7 +197,6 @@ function validateJsonResponse(responseText, serviceType = 'link') {
                     (parsed.overallAssessment && parsed.detailedMetrics);
                 const hasMinFields = hasSummary && (hasContent || parsed.overallAssessment);
                 if (!hasMinFields) {
-                    console.log('[validateJsonResponse] Video response missing required fields. Keys:', Object.keys(parsed));
                     return { valid: false, code: 'AI_INCOMPLETE_RESPONSE', parsed };
                 }
                 return { valid: true, parsed };
@@ -216,7 +215,6 @@ function validateJsonResponse(responseText, serviceType = 'link') {
         return { valid: true, parsed };
     } catch (e) {
         console.error('[validateJsonResponse] JSON parse failed:', e.message);
-        console.error('[validateJsonResponse] First 500 chars of cleaned text:', trimmed.substring(0, 500));
         return { valid: false, code: 'AI_JSON_PARSE_ERROR', error: e.message };
     }
 }
@@ -332,8 +330,6 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                 break; // Success, exit retry loop
             }
 
-            console.log(`[Gemini] Attempt ${attempt + 1} failed validation: ${lastValidation.code}. Retrying...`);
-
             // If this was the last attempt, don't retry
             if (attempt >= maxRetries) {
                 break;
@@ -383,7 +379,6 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
             // Extract metadata if exists (e.g. for link analysis title)
             const metadata = req.body.metadata || {};
 
-            console.log(`[Gemini API] 🟢 Initiating deduction for user ${userId}: ${finalPoints} points ("${description}")`);
             const deductResult = await deductPointsFromUser(userId, finalPoints, description, metadata);
             if (!deductResult.success) {
                 return res.status(403).json({
@@ -520,29 +515,14 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             if (chunk.usageMetadata) streamUsage = chunk.usageMetadata;
         }
         
-        // Log if we had function calls (for debugging)
-        if (functionCallCount > 0) {
-            console.log(`[Gemini Stream] Processed ${functionCallCount} function calls (Google Search)`);
-        }
-
         clearInterval(heartbeat);
 
         const usage = streamUsage || { promptTokenCount: 0, candidatesTokenCount: 0, totalTokenCount: 0 };
 
         // ── Validate response ─────────────────────────────────────────────────
-        console.log(`[Gemini Stream] Response length: ${fullText.length} chars`);
-        console.log(`[Gemini Stream] First 200 chars: ${fullText.substring(0, 200)}`);
-        console.log(`[Gemini Stream] Last 200 chars: ${fullText.substring(Math.max(0, fullText.length - 200))}`);
-        
         const validation = validateJsonResponse(fullText, serviceType || 'video');
         if (!validation.valid) {
-            console.error(`[Gemini Stream] ❌ Validation failed: ${validation.code}`);
-            if (validation.error) {
-                console.error(`[Gemini Stream] Parse error: ${validation.error}`);
-            }
-            // Log a sample of what we got for debugging
-            const sample = fullText.substring(0, 1000);
-            console.error(`[Gemini Stream] Response sample (first 1000 chars):`, sample);
+            console.error(`[Gemini Stream] Validation failed: ${validation.code}`, validation.error || '');
             sendSSE('error', { 
                 error: 'AI върна невалиден формат. Никакви точки не бяха таксувани.', 
                 code: validation.code,
@@ -550,8 +530,6 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             });
             return res.end();
         }
-        
-        console.log(`[Gemini Stream] ✅ Validation successful. Parsed keys:`, Object.keys(validation.parsed || {}));
 
         // ── Calculate cost ────────────────────────────────────────────────────
         const promptTokens = usage.promptTokenCount || 0;
@@ -640,7 +618,6 @@ router.post('/synthesize-report', requireAuth, async (req, res) => {
         const { prompt } = req.body;
         if (!prompt) return res.status(400).json({ error: 'Missing prompt' });
 
-        console.log('[Report Synthesis] Starting text-only generation...');
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -654,7 +631,6 @@ router.post('/synthesize-report', requireAuth, async (req, res) => {
             reportText = response.candidates[0].content.parts[0].text;
         }
 
-        console.log('[Report Synthesis] Complete. Length:', reportText.length);
         res.json({ report: reportText });
     } catch (error) {
         console.error('[Report Synthesis] Error:', error?.message || error);

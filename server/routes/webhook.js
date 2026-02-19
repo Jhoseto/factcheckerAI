@@ -29,7 +29,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
                 return res.status(401).json({ error: 'Invalid signature' });
             }
         } else {
-            console.warn('[Webhook] ⚠️  No webhook secret configured — skipping signature check');
+            // No webhook secret — skipping signature check
         }
 
         // ── Parse event ───────────────────────────────────────────────────────
@@ -46,7 +46,6 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         const eventName = event?.meta?.event_name;
         const status = event?.data?.attributes?.status;
 
-        console.log(`[Webhook] Received event: ${eventName}, status: ${status}`);
 
         // ── Process paid orders ───────────────────────────────────────────────
         if (
@@ -74,19 +73,16 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
                 return res.json({ received: true, warning: 'Missing userId or points' });
             }
 
-            console.log(`[Webhook] Processing order ${orderId}: ${points} points for user ${userId}`);
 
             try {
                 // addPointsToUser is idempotent — checks processedOrders
                 await addPointsToUser(userId, points, orderId);
-                console.log(`[Webhook] ✅ Successfully credited ${points} points to user ${userId}`);
             } catch (error) {
                 console.error(`[Webhook] ❌ Failed to add points for user ${userId}:`, error.message);
                 // Return 500 so Lemon Squeezy retries — but addPointsToUser is idempotent
                 return res.status(500).json({ error: 'Failed to credit points' });
             }
         } else {
-            console.log(`[Webhook] Ignoring event: ${eventName} (status: ${status})`);
         }
 
         res.json({ received: true });

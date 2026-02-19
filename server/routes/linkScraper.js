@@ -36,7 +36,6 @@ router.post('/scrape', requireAuth, async (req, res) => {
             });
         }
 
-        console.log(`[Scraper] 🌐 Fetching content from: ${url}`);
 
         const response = await axios.get(url, {
             headers: {

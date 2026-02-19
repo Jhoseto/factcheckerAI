@@ -34,12 +34,10 @@ router.get('/', async (req, res) => {
         // Query: where userId == userId
         // NOTE: We do NOT use orderBy/limit here to avoid "Missing Index" errors (500).
         // Sorting and limiting is done in-memory.
-        console.log(`[Transactions API] Fetching transactions for user: ${userId}`);
         const snapshot = await transactionsRef
             .where('userId', '==', userId)
             .get();
 
-        console.log(`[Transactions API] Found ${snapshot.size} documents`);
 
         let transactions = [];
         snapshot.forEach(doc => {

@@ -100,8 +100,8 @@ function getFixedPrice(serviceType) {
 /**
  * Логва billing информация
  */
-function logBilling(label, promptTokens, candidatesTokens, costUSD, costEUR, points, isDeep) {
-  console.log(`[Billing] ${label}: Input=${promptTokens} tokens ($${costUSD.toFixed(4)}) | EUR=${costEUR.toFixed(4)} | Points=${points} | isDeep=${isDeep}`);
+function logBilling() {
+  // Billing logging disabled; use console.error in catch blocks for errors only.
 }
 
 export {

@@ -72,7 +72,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 });
 
                 setUserProfile(newProfile);
-                console.log(`[Auth] ✅ New user created with ${WELCOME_BONUS_POINTS} points welcome bonus: ${user.uid}`);
             }
         } catch (error) {
             console.error('[Auth] Error loading user profile:', error);

@@ -46,7 +46,6 @@ router.post('/scrape', async (req, res) => {
             });
         }
 
-        console.log(`[Social Scrape] Fetching from ${platform}: ${url}`);
 
         // Basic scraping - in production, use official APIs
         const response = await axios.get(url, {
@@ -98,7 +97,6 @@ router.post('/scrape', async (req, res) => {
             scrapedAt: new Date().toISOString()
         };
 
-        console.log(`[Social Scrape] ✅ Success: ${platform} - ${author}`);
 
         res.json(result);
 

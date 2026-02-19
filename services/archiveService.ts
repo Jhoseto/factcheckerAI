@@ -57,7 +57,6 @@ export const saveAnalysis = async (
             createdAt: Timestamp.fromDate(new Date())
         });
 
-        console.log('[ArchiveService] Analysis saved:', docRef.id);
         return docRef.id;
     } catch (error) {
         console.error('[ArchiveService] Error saving analysis:', error);
@@ -170,7 +169,6 @@ export const savePublicReport = async (analysisId: string, data: any): Promise<s
 export const deleteAnalysis = async (analysisId: string): Promise<void> => {
     try {
         await deleteDoc(doc(db, 'analyses', analysisId));
-        console.log('[ArchiveService] Analysis deleted:', analysisId);
     } catch (error) {
         console.error('[ArchiveService] Error deleting analysis:', error);
         throw error;

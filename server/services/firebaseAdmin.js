@@ -36,7 +36,6 @@ export function initializeFirebaseAdmin() {
         } catch (fileError) {
             // File not found. Check if default credentials work (Cloud Run).
             if (process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.K_SERVICE) {
-                console.log('[Firebase Admin] File not found, trying default credentials...');
                 admin.initializeApp(); // Use Default Application Credentials
             } else {
                 throw fileError;
@@ -44,12 +43,9 @@ export function initializeFirebaseAdmin() {
         }
 
         adminInitialized = true;
-        console.log('[Firebase Admin] ✅ Initialized successfully');
         return true;
     } catch (error) {
-        console.warn('[Firebase Admin] ⚠️  Not initialized:', error.message);
-        console.warn('[Firebase Admin] Points crediting will NOT work until service account is configured');
-        console.warn('[Firebase Admin] See FIREBASE_SETUP.md for instructions');
+        console.error('[Firebase Admin] Not initialized:', error.message);
         return false;
     }
 }
@@ -93,7 +89,7 @@ export async function verifyToken(idToken) {
  */
 export async function addPointsToUser(userId, points) {
     if (!adminInitialized) {
-        console.warn('[Firebase Admin] ⚠️  Cannot add points - not initialized');
+        console.error('[Firebase Admin] Cannot add points - not initialized');
         return;
     }
 
@@ -128,7 +124,6 @@ export async function addPointsToUser(userId, points) {
             });
         });
 
-        console.log(`[Firebase Admin] ✅ Added ${points} points to user ${userId}`);
     } catch (error) {
         console.error(`[Firebase Admin] ❌ Failed to add points:`, error);
         throw error;
@@ -142,7 +137,6 @@ export async function addPointsToUser(userId, points) {
  * @returns Object with success status and new balance
  */
 export async function deductPointsFromUser(userId, points, description = 'Използване на услуги', metadata = {}) {
-    console.log(`[Firebase Admin] deductPointsFromUser called: userId=${userId}, points=${points}, desc=${description}`);
     try {
         const db = getFirestore();
         const userRef = db.collection('users').doc(userId);
@@ -158,7 +152,7 @@ export async function deductPointsFromUser(userId, points, description = 'Изп
             const currentPoints = userDoc.data()?.pointsBalance || 0;
 
             if (currentPoints < points) {
-                console.log(`[Firebase Admin] ❌ Insufficient points for user ${userId}: has ${currentPoints}, needs ${points}`);
+                console.error(`[Firebase Admin] Insufficient points for user ${userId}: has ${currentPoints}, needs ${points}`);
                 // Return explicit failure object instead of throwing, to handle gracefully
                 return { success: false, newBalance: currentPoints, error: 'insufficient_points' };
             }
@@ -192,10 +186,6 @@ export async function deductPointsFromUser(userId, points, description = 'Изп
 
             return { success: true, newBalance: newPoints };
         });
-
-        if (result.success) {
-            console.log(`[Firebase Admin] ✅ Deducted ${points} points from user ${userId}. New balance: ${result.newBalance}`);
-        }
 
         return result;
     } catch (error) {
