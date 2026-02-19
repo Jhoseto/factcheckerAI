@@ -20,26 +20,51 @@ export function initializeFirebaseAdmin() {
     }
 
     try {
-        // Try to load service account from file
-        const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './firebase-service-account.json';
-        const absolutePath = path.resolve(__dirname, '../../firebase-service-account.json');
+        let serviceAccount = null;
 
-        // If GOOGLE_APPLICATION_CREDENTIALS is set (Cloud Run), let Firebase Admin usage default auth
-        // BUT we need to call initializeApp() anyway.
-        // Check if file exists first.
-        let serviceAccount;
-        try {
-            serviceAccount = JSON.parse(readFileSync(absolutePath, 'utf8'));
+        // 1) Production (Cloud Run): full JSON from env. Проверяваме няколко имена на променливи.
+        const jsonEnv = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
+            || process.env.FIREBASE_SERVICE_ACCOUNT
+            || process.env.FIREBASE_CREDENTIALS
+            || process.env.firebase_service_account_json;
+        if (jsonEnv) {
+            try {
+                let jsonStr = (typeof jsonEnv === 'string' ? jsonEnv : JSON.stringify(jsonEnv)).trim();
+                if (!jsonStr.startsWith('{')) {
+                    console.error('[Firebase Admin] Firebase service account env variable does not look like JSON');
+                    return false;
+                }
+                serviceAccount = JSON.parse(jsonStr);
+                if (!serviceAccount.private_key || !serviceAccount.client_email) {
+                    console.error('[Firebase Admin] Firebase service account JSON missing required fields');
+                    return false;
+                }
+            } catch (e) {
+                console.error('[Firebase Admin] Firebase service account env variable is invalid JSON:', e.message);
+                return false;
+            }
+        }
+
+        // 2) File: firebase-service-account.json (local or mounted path)
+        if (!serviceAccount) {
+            const absolutePath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH
+                ? path.resolve(process.env.FIREBASE_SERVICE_ACCOUNT_PATH)
+                : path.resolve(__dirname, '../../firebase-service-account.json');
+            try {
+                serviceAccount = JSON.parse(readFileSync(absolutePath, 'utf8'));
+            } catch (fileError) {
+                if (process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.K_SERVICE) {
+                    admin.initializeApp();
+                } else {
+                    throw fileError;
+                }
+            }
+        }
+
+        if (serviceAccount) {
             admin.initializeApp({
                 credential: admin.credential.cert(serviceAccount)
             });
-        } catch (fileError) {
-            // File not found. Check if default credentials work (Cloud Run).
-            if (process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.K_SERVICE) {
-                admin.initializeApp(); // Use Default Application Credentials
-            } else {
-                throw fileError;
-            }
         }
 
         adminInitialized = true;
