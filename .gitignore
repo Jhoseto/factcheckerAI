@@ -3,8 +3,12 @@ node_modules/
 .pnp
 .pnp.js
 
-# Testing
+# Testing (do not commit test folders or reports)
+test/
 coverage/
+playwright-report/
+test-results/
+*.trace.zip
 
 # Production
 # dist/ - REMOVED to commit pre-built app
