@@ -183,9 +183,9 @@ const callGeminiStreamAPI = async (payload: any, token: string, onProgress?: (st
  * gemini-2.5-flash = both standard and deep analysis (unified model)
  * Note: We now use gemini-2.5-flash for all analysis modes
  */
-const getAnalysisPrompt = (url: string, type: 'video' | 'news', mode: AnalysisMode, transcript?: string): string => {
+const getAnalysisPrompt = (url: string, type: 'video' | 'news', mode: AnalysisMode, transcript?: string, includeTranscription: boolean = true): string => {
   if (mode === 'deep') {
-    return getDeepAnalysisPrompt(url, type, transcript);
+    return getDeepAnalysisPrompt(url, type, transcript, includeTranscription);
   }
   return getStandardAnalysisPrompt(url, type, transcript);
 };
@@ -455,10 +455,12 @@ const transformGeminiResponse = (
     return map[assessment?.toUpperCase()] || 'НЕОПРЕДЕЛЕНО';
   };
 
-  // Safe variable initialization
-  const claims = Array.isArray(rawResponse?.factualClaims) ? rawResponse.factualClaims : [];
+  // Safe variable initialization — Deep mode may return "claims" or "factualClaims", same for manipulations
+  const claims = Array.isArray(rawResponse?.factualClaims) ? rawResponse.factualClaims
+    : Array.isArray(rawResponse?.claims) ? rawResponse.claims : [];
   const quotes = Array.isArray(rawResponse?.quotes) ? rawResponse.quotes : [];
-  const manipulations = Array.isArray(rawResponse?.manipulationTechniques) ? rawResponse.manipulationTechniques : [];
+  const manipulations = Array.isArray(rawResponse?.manipulationTechniques) ? rawResponse.manipulationTechniques
+    : Array.isArray(rawResponse?.manipulations) ? rawResponse.manipulations : [];
 
   let allClaims: any[] = [...claims];
   try {
@@ -484,8 +486,8 @@ const transformGeminiResponse = (
   const manipulationIndex = Math.min(manipulations.length * 0.15, 1);
 
   const transformedClaims = allClaims.map((c: any) => ({
-    quote: c.claim || '',
-    formulation: c.claim || '',
+    quote: c.claim || c.quote || '',
+    formulation: c.claim || c.quote || '',
     category: 'Факт',
     weight: 'средна' as 'ниска' | 'средна' | 'висока',
     confidence: c.confidence || (c.verdict === 'TRUE' ? 0.9 : c.verdict === 'FALSE' ? 0.1 : 0.5),
@@ -646,21 +648,22 @@ ${metadataSection}
   };
 };
 
-export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTubeVideoMetadata, model: string = 'gemini-2.5-flash', mode: AnalysisMode = 'standard', onProgress?: (status: string) => void): Promise<AnalysisResponse> => {
+export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTubeVideoMetadata, model: string = 'gemini-2.5-flash', mode: AnalysisMode = 'standard', onProgress?: (status: string) => void, includeTranscription: boolean = true): Promise<AnalysisResponse> => {
   try {
     // Normalize YouTube URL to standard format (handles mobile, shortened URLs)
     const normalizedUrl = normalizeYouTubeUrl(url);
 
-    // Strategy: Single API call - Gemini analyzes video AND extracts transcript in one go
-    // No separate transcript extraction - everything happens in one request
+    // Strategy: Single API call - Gemini analyzes video AND extracts transcript in one go (when includeTranscription)
+    const prompt = getAnalysisPrompt(normalizedUrl, 'video', mode, undefined, includeTranscription) + (videoMetadata ? `\n\nVideo Context: Title: "${videoMetadata.title}", Author: "${videoMetadata.author}", Duration: ${videoMetadata.durationFormatted}.` : '');
 
-    const prompt = getAnalysisPrompt(normalizedUrl, 'video', mode) + (videoMetadata ? `\n\nVideo Context: Title: "${videoMetadata.title}", Author: "${videoMetadata.author}", Duration: ${videoMetadata.durationFormatted}.` : '');
+    const systemInstruction = includeTranscription
+      ? "You are an ELITE fact-checker and investigative journalist with 20+ years of experience. Your mission is to create an EXCEPTIONAL, CRITICAL, and OBJECTIVE analysis that reveals all hidden viewpoints, manipulations, and facts. CRITICAL INSTRUCTIONS: 1) Extract ALL important claims, quotes, and manipulations from the video. 2) Extract FULL transcription from the video with timestamps. 3) Output all text in BULGARIAN. 4) Keep JSON Enum values in English. 5) Create a FINAL INVESTIGATIVE REPORT that is a masterpiece of journalism."
+      : "You are an ELITE fact-checker and investigative journalist with 20+ years of experience. Your mission is to create an EXCEPTIONAL, CRITICAL, and OBJECTIVE analysis that reveals all hidden viewpoints, manipulations, and facts. CRITICAL INSTRUCTIONS: 1) Extract ALL important claims, quotes, and manipulations from the video. 2) Do NOT generate transcription - return empty array for 'transcription'. 3) Output all text in BULGARIAN. 4) Keep JSON Enum values in English. 5) Create a FINAL INVESTIGATIVE REPORT that is a masterpiece of journalism.";
 
-    // ALWAYS send videoUrl - Gemini will process video and return everything including transcript
     const payload = {
       model: model,
       prompt: prompt,
-      systemInstruction: "You are an ELITE fact-checker and investigative journalist with 20+ years of experience. Your mission is to create an EXCEPTIONAL, CRITICAL, and OBJECTIVE analysis that reveals all hidden viewpoints, manipulations, and facts. CRITICAL INSTRUCTIONS: 1) Extract ALL important claims, quotes, and manipulations from the video. 2) Extract FULL transcription from the video with timestamps. 3) Output all text in BULGARIAN. 4) Keep JSON Enum values in English. 5) Create a FINAL INVESTIGATIVE REPORT that is a masterpiece of journalism.",
+      systemInstruction,
       videoUrl: normalizedUrl, // ← Use normalized URL
       mode: mode, // ← Send mode to activate Deep analysis features
       enableGoogleSearch: mode === 'deep', // ← Explicit Google Search activation for deep mode

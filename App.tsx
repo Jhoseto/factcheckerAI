@@ -67,6 +67,7 @@ const App: React.FC = () => {
 
   // New state for analysis mode selection - null until user selects
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode | null>(null);
+  const [includeTranscription, setIncludeTranscription] = useState(true);
   const [videoMetadata, setVideoMetadata] = useState<YouTubeVideoMetadata | null>(null);
   const [costEstimates, setCostEstimates] = useState<Record<AnalysisMode, CostEstimate> | null>(null);
   const [fetchingMetadata, setFetchingMetadata] = useState(false);
@@ -174,7 +175,7 @@ const App: React.FC = () => {
       // Pass the mode explicitly to pick the right prompt (fallback to 'standard' if null)
       const response = await analyzeYouTubeStandard(url, videoMetadata || undefined, modelId, analysisMode || 'standard', (status) => {
         setStreamingProgress(status);
-      });
+      }, includeTranscription);
 
       // Points are deducted SERVER-SIDE. Server returns newBalance in response.
       // Use client-side navigation instead of local state
@@ -248,7 +249,8 @@ const App: React.FC = () => {
     setActiveTab('summary');
     setVideoMetadata(null);
     setCostEstimates(null);
-    setAnalysisMode(null); // Reset to null so user must select again
+    setAnalysisMode(null);
+    setIncludeTranscription(true);
   };
 
   const handleSaveFullReport = async () => {
@@ -381,22 +383,48 @@ const App: React.FC = () => {
                 )}
 
                 {costEstimates && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fadeIn">
-                    <div
-                      onClick={() => !loading && setAnalysisMode('standard')}
-                      className={`cursor-pointer p-6 rounded-sm border-2 transition-all text-center space-y-2 ${analysisMode === 'standard' ? 'border-amber-900 bg-amber-50/50' : 'border-slate-100 bg-white hover:border-amber-900/30'}`}
-                    >
-                      <p className="text-[10px] font-black text-amber-900 uppercase tracking-widest">Стандартен Одит</p>
-                      <p className="text-2xl font-black text-slate-900">{costEstimates.standard.pointsCost} <span className="text-xs uppercase opacity-40">точки</span></p>
+                  <div className="space-y-4 animate-fadeIn">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div
+                        onClick={() => !loading && setAnalysisMode('standard')}
+                        className={`cursor-pointer p-6 rounded-sm border-2 transition-all text-center space-y-2 ${analysisMode === 'standard' ? 'border-amber-900 bg-amber-50/50' : 'border-slate-100 bg-white hover:border-amber-900/30'}`}
+                      >
+                        <p className="text-[10px] font-black text-amber-900 uppercase tracking-widest">Стандартен Одит</p>
+                        <p className="text-2xl font-black text-slate-900">{costEstimates.standard.pointsCost} <span className="text-xs uppercase opacity-40">точки</span></p>
+                      </div>
+
+                      <div
+                        onClick={() => !loading && setAnalysisMode('deep')}
+                        className={`cursor-pointer p-6 rounded-sm border-2 transition-all text-center space-y-2 ${analysisMode === 'deep' ? 'border-slate-900 bg-slate-50' : 'border-slate-100 bg-white hover:border-slate-900/30'}`}
+                      >
+                        <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Задълбочен Одит</p>
+                        <p className="text-2xl font-black text-slate-900">{costEstimates.deep.pointsCost} <span className="text-xs uppercase opacity-40">точки</span></p>
+                      </div>
                     </div>
 
-                    <div
-                      onClick={() => !loading && setAnalysisMode('deep')}
-                      className={`cursor-pointer p-6 rounded-sm border-2 transition-all text-center space-y-2 ${analysisMode === 'deep' ? 'border-slate-900 bg-slate-50' : 'border-slate-100 bg-white hover:border-slate-900/30'}`}
-                    >
-                      <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Задълбочен Одит</p>
-                      <p className="text-2xl font-black text-slate-900">{costEstimates.deep.pointsCost} <span className="text-xs uppercase opacity-40">точки</span></p>
-                    </div>
+                    {analysisMode === 'deep' && (
+                      <button
+                        type="button"
+                        onClick={() => !loading && setIncludeTranscription(v => !v)}
+                        className="group flex items-center gap-3 w-full py-2.5 px-3 rounded-sm border border-slate-200/80 bg-white/60 backdrop-blur-sm hover:bg-slate-50/70 hover:border-slate-300/80 transition-all duration-300 ease-out focus:outline-none focus:ring-2 focus:ring-amber-900/20 focus:border-amber-900/30"
+                      >
+                        <span className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border transition-all duration-300 ease-out ${includeTranscription ? 'border-amber-900/30 bg-amber-100/80' : 'border-slate-200 bg-slate-100 group-hover:bg-slate-200/80'}`}>
+                          <span
+                            className={`pointer-events-none inline-block h-4 w-4 rounded-full shadow-sm ring-0 transition-all duration-300 ease-out translate-y-0.5 ${
+                              includeTranscription
+                                ? 'translate-x-5 bg-amber-900 border border-amber-900'
+                                : 'translate-x-0.5 bg-white border border-slate-200'
+                            }`}
+                          />
+                        </span>
+                        <span className="flex-1 text-left text-[10px] font-semibold text-slate-700 uppercase tracking-wide">
+                          Транскрипция <span className="font-normal normal-case text-slate-500">(изключете за да намалите драстично времето за анализ, особенно при по-дълги диалози и подкасти )</span>
+                        </span>
+                        <span className={`text-[9px] font-black uppercase tracking-widest transition-colors duration-300 ${includeTranscription ? 'text-amber-900' : 'text-slate-400'}`}>
+                          {includeTranscription ? 'Вкл.' : 'Изкл.'}
+                        </span>
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

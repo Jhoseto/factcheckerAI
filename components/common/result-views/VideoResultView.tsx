@@ -404,8 +404,10 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
 
                     {activeTab === 'claims' && (
                         <div className="space-y-6 animate-fadeIn">
-
-                            {analysis.claims.map((claim, idx) => (
+                            {(analysis.claims || []).length === 0 && (
+                                <p className="text-slate-500 text-sm italic">Няма извлечени твърдения за верификация. Опитайте Deep анализ за пълен списък.</p>
+                            )}
+                            {(analysis.claims || []).map((claim, idx) => (
                                 <div key={idx} className="editorial-card p-6 md:p-8 space-y-6 border-t-2 border-t-slate-800">
                                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-4">
                                         <span className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest border ${claim.veracity.toLowerCase().includes('невярно') ? 'border-red-700 text-red-700 bg-red-50' : 'border-emerald-700 text-emerald-700 bg-emerald-50'}`}>{claim.veracity}</span>
@@ -428,7 +430,10 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
                                 <p className="text-xs text-slate-600 italic">Всички идентифицирани манипулативни техники с конкретни примери от видеото и анализ на въздействието им.</p>
                             </div>
                             <div className="grid grid-cols-1 gap-6">
-                                {analysis.manipulations.map((m, idx) => {
+                                {(analysis.manipulations || []).length === 0 && (
+                                    <p className="text-slate-500 text-sm italic">Няма идентифицирани манипулативни техники.</p>
+                                )}
+                                {(analysis.manipulations || []).map((m, idx) => {
                                     const severity = Math.round((m.severity > 1 ? m.severity / 100 : m.severity) * 100);
                                     const getSeverityBorderColor = () => {
                                         if (severity >= 70) return 'border-l-red-600';

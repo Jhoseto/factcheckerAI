@@ -426,10 +426,10 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
         res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
     };
 
-    // Heartbeat to prevent 5-min proxy timeouts (Cloudflare/Nginx)
+    // Heartbeat every 15s — Cloud Run / load balancers often close after 5 min idle
     const heartbeat = setInterval(() => {
         res.write(': heartbeat\n\n');
-    }, 30000);
+    }, 15000);
 
     try {
         const ai = getAI();

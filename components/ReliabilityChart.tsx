@@ -94,8 +94,8 @@ const ReliabilityChart: React.FC<Props> = ({ data, claims, totalDuration }) => {
           </div>
         </div>
 
-        <div className="w-full h-[300px] md:h-[400px] relative">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="w-full min-h-[300px] h-[300px] md:h-[400px] relative" style={{ minWidth: 280 }}>
+          <ResponsiveContainer width="100%" height="100%" minWidth={280} minHeight={280}>
             <AreaChart
               data={processedData}
               onMouseMove={(e: any) => e.activePayload && setHoveredPoint(e.activePayload[0].payload)}

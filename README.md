@@ -85,6 +85,17 @@ http://localhost:3000
 └── index.html           # HTML template
 ```
 
+## Деплой на Google Cloud Run (Deep анализ)
+
+**Дълбокият анализ отнема 5–15+ минути.** Cloud Run по подразбиране затваря заявката след **5 минути**. Ако след ~5 мин получите грешка или само частични данни (напр. ~62 KB и след това прекъсване), задайте по-дълъг request timeout:
+
+```bash
+gcloud run deploy YOUR_SERVICE --source . --region YOUR_REGION --allow-unauthenticated --set-env-vars "..." --request-timeout=900
+```
+
+- `--request-timeout=900` = **15 минути** (в секунди). За много дълги видеа може да използвате `1800` (30 мин).
+- Без това Deep анализ ще спира след ~5 мин и ще виждате грешка или празни данни.
+
 ## Важно
 
 Приложението използва Gemini API с Google Search tool за верификация на факти. Уверете се, че имате валиден API ключ с активирани квоти.
