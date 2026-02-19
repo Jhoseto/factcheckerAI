@@ -19,7 +19,7 @@ const callGeminiAPI = async (payload: {
   isBatch?: boolean;
   enableGoogleSearch?: boolean;
   mode?: string;
-}, onProgress?: (status: string) => void): Promise<{ text: string; usageMetadata: any; points?: { deducted: number; costInPoints: number; remaining?: number } }> => {
+}, onProgress?: (status: string) => void): Promise<{ text: string; usageMetadata: any; points?: { deducted: number; costInPoints: number; remaining?: number; newBalance?: number } }> => {
 
   const user = auth.currentUser;
   if (!user) {
@@ -152,6 +152,8 @@ const callGeminiStreamAPI = async (payload: any, token: string, onProgress?: (st
           onProgress(data.status || 'Анализирам...');
         } else if (eventType === 'complete') {
           result = data;
+        } else if (eventType === 'points_deducted' && result?.points) {
+          result.points.newBalance = data.newBalance;
         } else if (eventType === 'error') {
           const error = new Error(data.error || 'Stream error');
           (error as any).code = data.code;
@@ -724,7 +726,8 @@ export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTub
         data.usageMetadata?.candidatesTokenCount || 0,
         false,
         mode === 'deep'
-      )
+      ),
+      newBalance: data.points?.newBalance
     };
 
     parsed.pointsCost = usage.pointsCost;

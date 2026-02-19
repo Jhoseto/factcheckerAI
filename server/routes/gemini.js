@@ -542,56 +542,39 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             finalPoints = calculateVideoCostInPoints(promptTokens, candidatesTokens, isDeepMode, isBatch, model);
         }
 
-        logBilling(
-            'generate-stream',
-            promptTokens,
-            candidatesTokens,
-            (promptTokens / 1e6) * 0.50 + (candidatesTokens / 1e6) * 2.00,
-            ((promptTokens / 1e6) * 0.50 + (candidatesTokens / 1e6) * 2.00) * 0.95,
-            finalPoints,
-            isDeepMode
-        );
-
-        // ── Deduct points SERVER-SIDE ─────────────────────────────────────────
-        sendSSE('progress', { status: 'Финализиране и таксуване...' });
-
-        let description = 'Анализ на съдържание';
-        if (serviceType === 'linkArticle') {
-            description = 'Анализ на статия (Линк)';
-        } else if (serviceType === 'text') {
-            description = 'Текстов анализ';
-        } else {
-            description = isDeepMode ? 'Дълбок видео анализ' : 'Стандартен видео анализ';
+        const currentBalance = await getUserPoints(userId);
+        if (currentBalance < finalPoints) {
+            sendSSE('error', { error: 'Insufficient points.', code: 'INSUFFICIENT_POINTS', currentBalance });
+            return res.end();
         }
 
-        // Extract metadata for transaction record (video title, author, etc.)
+        const textToSend = validation.parsed ? JSON.stringify(validation.parsed) : fullText;
+        sendSSE('progress', { status: 'Финализиране...' });
+
+        try {
+            sendSSE('complete', {
+                text: textToSend,
+                usageMetadata: usage,
+                points: { deducted: finalPoints, costInPoints: finalPoints, pending: true, isDeep: isDeepMode }
+            });
+        } catch (e) {
+            console.error('[Gemini Stream] Send failed, no charge:', e?.message);
+            return res.end();
+        }
+
+        const description = serviceType === 'linkArticle' ? 'Анализ на статия (Линк)' : serviceType === 'text' ? 'Текстов анализ' : isDeepMode ? 'Дълбок видео анализ' : 'Стандартен видео анализ';
         const metadata = req.body.metadata || {};
-        // For video analysis, include video metadata in transaction
         if (serviceType === 'video' || !serviceType) {
             metadata.videoTitle = metadata.title || metadata.videoTitle;
             metadata.videoAuthor = metadata.author || metadata.videoAuthor;
             metadata.videoId = metadata.videoId;
             metadata.videoDuration = metadata.duration;
-            metadata.thumbnailUrl = metadata.thumbnailUrl; // If available from YouTube API
+            metadata.thumbnailUrl = metadata.thumbnailUrl;
         }
 
         const deductResult = await deductPointsFromUser(userId, finalPoints, description, metadata);
-        if (!deductResult.success) {
-            sendSSE('error', { error: 'Insufficient points after generation.', code: 'INSUFFICIENT_POINTS' });
-            return res.end();
-        }
-
-        // ── Send complete event ───────────────────────────────────────────────
-        sendSSE('complete', {
-            text: fullText,
-            usageMetadata: usage,
-            points: {
-                deducted: finalPoints,
-                costInPoints: finalPoints,
-                newBalance: deductResult.newBalance,
-                isDeep: isDeepMode
-            }
-        });
+        const newBalance = deductResult.newBalance ?? currentBalance - finalPoints;
+        sendSSE('points_deducted', { newBalance });
         res.end();
 
     } catch (error) {
