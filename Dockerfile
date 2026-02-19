@@ -10,14 +10,12 @@ COPY package*.json ./
 # Install ONLY production dependencies
 RUN npm install --production --legacy-peer-deps
 
-# Copy pre-built dist folder, server, and services
+# Copy pre-built dist folder and server
 COPY dist ./dist
-COPY server.js ./
-COPY services ./services
 COPY server ./server
 
 # Expose the port
 EXPOSE 8080
 
 # Start the server
-CMD ["npm", "start"]
+CMD ["node", "server/index.js"]
