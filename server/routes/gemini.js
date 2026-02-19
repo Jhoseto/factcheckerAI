@@ -112,15 +112,11 @@ function validateJsonResponse(responseText, serviceType = 'link') {
     }
     
     // Step 4: Clean up common JSON issues
-    // Remove trailing commas
     trimmed = trimmed.replace(/,(\s*[}\]])/g, '$1');
-    
-    // Remove single-line comments (be careful with URLs)
     trimmed = trimmed.replace(/([^:])\/\/[^\n]*/g, '$1');
-    
-    // Remove multi-line comments
     trimmed = trimmed.replace(/\/\*[\s\S]*?\*\//g, '');
-    
+    const beforeSanitize = trimmed;
+
     // Step 5: Sanitize control characters and fix string escaping
     let sanitized = '';
     let inString = false;
@@ -181,11 +177,21 @@ function validateJsonResponse(responseText, serviceType = 'link') {
     }
     
     trimmed = sanitized.trim();
-    
-    // Step 6: Try to parse
-    try {
-        const parsed = safeJsonParse(trimmed);
 
+    // Step 6: Try to parse (with fallback to pre-sanitize if sanitizer broke it)
+    let parsed;
+    try {
+        parsed = safeJsonParse(trimmed);
+    } catch (parseErr) {
+        try {
+            parsed = safeJsonParse(beforeSanitize);
+        } catch (_) {
+            console.error('[validateJsonResponse] JSON parse failed:', parseErr.message);
+            return { valid: false, code: 'AI_JSON_PARSE_ERROR', error: parseErr.message };
+        }
+    }
+
+    try {
         if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
             // Video analysis - flexible validation (title optional; client has videoMetadata)
             if (serviceType === 'video') {
@@ -214,7 +220,7 @@ function validateJsonResponse(responseText, serviceType = 'link') {
 
         return { valid: true, parsed };
     } catch (e) {
-        console.error('[validateJsonResponse] JSON parse failed:', e.message);
+        console.error('[validateJsonResponse] Validation error:', e.message);
         return { valid: false, code: 'AI_JSON_PARSE_ERROR', error: e.message };
     }
 }
@@ -542,9 +548,9 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             finalPoints = calculateVideoCostInPoints(promptTokens, candidatesTokens, isDeepMode, isBatch, model);
         }
 
-        const currentBalance = await getUserPoints(userId);
-        if (currentBalance < finalPoints) {
-            sendSSE('error', { error: 'Insufficient points.', code: 'INSUFFICIENT_POINTS', currentBalance });
+        const balanceNow = await getUserPoints(userId);
+        if (balanceNow < finalPoints) {
+            sendSSE('error', { error: 'Insufficient points.', code: 'INSUFFICIENT_POINTS', currentBalance: balanceNow });
             return res.end();
         }
 
@@ -573,7 +579,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
         }
 
         const deductResult = await deductPointsFromUser(userId, finalPoints, description, metadata);
-        const newBalance = deductResult.newBalance ?? currentBalance - finalPoints;
+        const newBalance = deductResult.newBalance ?? balanceNow - finalPoints;
         sendSSE('points_deducted', { newBalance });
         res.end();
 

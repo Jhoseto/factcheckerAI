@@ -44,9 +44,19 @@ export function safeJsonParse(jsonString) {
             try {
                 return JSON.parse(clean);
             } catch (e3) {
-                // Last resort: if it looks like it ends with a property value but missing closing quotes/braces
-                // e.g. "summary": "text...
-                // This is hard to fix generally without a proper parser.
+                // Last resort: take from first { to last }, close brackets, try again
+                const firstBrace = clean.indexOf('{');
+                const lastBrace = clean.lastIndexOf('}');
+                if (firstBrace !== -1 && lastBrace > firstBrace) {
+                    let slice = clean.slice(firstBrace, lastBrace + 1);
+                    slice = slice.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+                    const ob = (slice.match(/{/g) || []).length;
+                    const cb = (slice.match(/}/g) || []).length;
+                    if (ob > cb) slice += '}'.repeat(ob - cb);
+                    try {
+                        return JSON.parse(slice);
+                    } catch (_) {}
+                }
                 throw new Error('Unrepairable JSON');
             }
         }
