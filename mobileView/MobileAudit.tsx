@@ -67,10 +67,13 @@ const MobileAudit: React.FC = () => {
   }, [loading]);
 
   useEffect(() => {
-    if (!loading) return;
+    if (!loading && !linkLoading) {
+      setElapsedSeconds(0);
+      return;
+    }
     const t = setInterval(() => setElapsedSeconds(s => s + 1), 1000);
     return () => clearInterval(t);
-  }, [loading]);
+  }, [loading, linkLoading]);
 
   const handleStartAnalysis = async () => {
     if (!analysisMode) {
@@ -95,6 +98,7 @@ const MobileAudit: React.FC = () => {
 
     setLoading(true);
     setError(null);
+    setElapsedSeconds(0);
     try {
       const response = await analyzeYouTubeStandard(
         youtubeUrl,
@@ -136,6 +140,7 @@ const MobileAudit: React.FC = () => {
 
     setLinkLoading(true);
     setError(null);
+    setElapsedSeconds(0);
     try {
       const scraped = await scrapeLink(linkUrl);
       const { analysis: result, usage } = await analyzeLinkDeep(linkUrl, scraped.content, scraped.title, (status) => {
