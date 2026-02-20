@@ -221,9 +221,11 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
         if (currentUser && analysis.id) {
             try {
                 await makeAnalysisPublic(analysis.id, currentUser.uid);
+                console.log('Analysis marked as public:', analysis.id);
             } catch (error) {
                 console.error('Failed to make analysis public:', error);
-                // Continue anyway - the share modal will still open
+                alert('Грешка при маркиране на анализа като публичен. Моля, опитайте отново.');
+                return; // Don't open share modal if marking as public failed
             }
         }
         setIsShareModalOpen(true);

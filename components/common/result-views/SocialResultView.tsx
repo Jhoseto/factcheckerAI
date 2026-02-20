@@ -24,9 +24,11 @@ const SocialResultView: React.FC<SocialResultViewProps> = ({ result, onReset, on
         if (currentUser && result.id) {
             try {
                 await makeAnalysisPublic(result.id, currentUser.uid);
+                console.log('Analysis marked as public:', result.id);
             } catch (error) {
                 console.error('Failed to make analysis public:', error);
-                // Continue anyway - the share modal will still open
+                alert('Грешка при маркиране на анализа като публичен. Моля, опитайте отново.');
+                return; // Don't open share modal if marking as public failed
             }
         }
         setIsShareModalOpen(true);

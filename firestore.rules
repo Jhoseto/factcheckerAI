@@ -13,8 +13,8 @@ service cloud.firestore {
     // - Update/Delete: Only owner can modify their own docs
     match /analyses/{analysisId} {
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow read: if request.auth != null && resource.data.userId == request.auth.uid 
-                  || resource.data.isPublic == true; // Public read only for explicitly shared reports
+      allow read: if (request.auth != null && resource.data.userId == request.auth.uid) 
+                  || (resource.data.isPublic == true); // Public read only for explicitly shared reports
       allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
 
