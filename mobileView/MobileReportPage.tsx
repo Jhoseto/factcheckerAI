@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { getAnalysisById, saveAnalysis, getAnalysisCountByType } from '../services/archiveService';
 import { useAuth } from '../contexts/AuthContext';
 import MobileResultView from './MobileResultView';
+import MobileLinkResultView from './MobileLinkResultView';
 import MobileSafeArea from './components/MobileSafeArea';
 import MobileHeader from './components/MobileHeader';
 
@@ -91,12 +92,25 @@ const MobileReportPage: React.FC = () => {
   const activeType = report ? report.type : (location.state?.type || 'video');
   const isPreview = !!previewAnalysis;
 
-  if (activeType !== 'video') {
+  if (activeType === 'link') {
+    return (
+      <MobileSafeArea className="bg-[#fafafa]">
+        <MobileLinkResultView
+          analysis={analysisWithId}
+          reportLoading={false}
+          onSaveToArchive={isPreview ? handleSaveToArchive : undefined}
+          onBack={() => navigate('/')}
+        />
+      </MobileSafeArea>
+    );
+  }
+
+  if (activeType === 'social') {
     return (
       <MobileSafeArea>
         <MobileHeader title="Доклад" showBack />
         <div className="p-6 text-center text-slate-600 text-sm mobile-fade-in">
-          <p className="mb-4">Мобилният изглед за линк/социален анализ може да се добави по-късно. Отворете на desktop за пълен доклад.</p>
+          <p className="mb-4">Мобилният изглед за социален анализ може да се добави по-късно. Отворете на desktop за пълен доклад.</p>
           <button type="button" onClick={() => navigate('/')} className="mobile-tap px-6 py-3 rounded-xl bg-amber-900 text-white text-[10px] font-black uppercase tracking-wider active:scale-[0.98]">Към началото</button>
         </div>
       </MobileSafeArea>
