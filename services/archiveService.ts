@@ -4,7 +4,7 @@
  */
 
 import { db } from './firebase';
-import { collection, addDoc, query, where, orderBy, getDocs, limit, Timestamp, doc, getDoc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, query, where, orderBy, getDocs, limit, Timestamp, doc, getDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { VideoAnalysis } from '../types';
 
 export interface SavedAnalysis {
@@ -15,6 +15,7 @@ export interface SavedAnalysis {
     url?: string;
     analysis: VideoAnalysis;
     createdAt: Timestamp | Date;
+    isPublic?: boolean; // Flag for public sharing
 }
 
 /**
@@ -119,6 +120,7 @@ export const getRecentAnalyses = async (
 
 /**
  * Get analysis by ID (for report page)
+ * Works for both private (owner) and public (shared) analyses
  */
 export const getAnalysisById = async (id: string): Promise<SavedAnalysis | null> => {
     try {
@@ -136,6 +138,31 @@ export const getAnalysisById = async (id: string): Promise<SavedAnalysis | null>
     } catch (error) {
         console.error('[ArchiveService] Error fetching analysis by ID:', error);
         return null;
+    }
+};
+
+/**
+ * Mark an analysis as public (for sharing)
+ */
+export const makeAnalysisPublic = async (analysisId: string, userId: string): Promise<void> => {
+    try {
+        const docRef = doc(db, 'analyses', analysisId);
+        const docSnap = await getDoc(docRef);
+        
+        if (!docSnap.exists()) {
+            throw new Error('Analysis not found');
+        }
+        
+        const data = docSnap.data();
+        if (data.userId !== userId) {
+            throw new Error('Unauthorized: Only owner can make analysis public');
+        }
+        
+        // Update the document to mark it as public
+        await updateDoc(docRef, { isPublic: true });
+    } catch (error) {
+        console.error('[ArchiveService] Error making analysis public:', error);
+        throw error;
     }
 };
 

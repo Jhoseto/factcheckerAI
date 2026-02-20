@@ -1,6 +1,8 @@
 import React from 'react';
 import { VideoAnalysis } from '../../../types';
 import MetricBlock from '../MetricBlock';
+import { useAuth } from '../../../contexts/AuthContext';
+import { makeAnalysisPublic } from '../../../services/archiveService';
 
 interface SocialResultViewProps {
     result: VideoAnalysis;
@@ -13,10 +15,20 @@ interface SocialResultViewProps {
 import ShareModal from '../ShareModal';
 
 const SocialResultView: React.FC<SocialResultViewProps> = ({ result, onReset, onSave, slotUsage }) => {
+    const { currentUser } = useAuth();
     const [isShareModalOpen, setIsShareModalOpen] = React.useState(false);
 
-    const handleShare = () => {
+    const handleShare = async () => {
         if (!result.id) return;
+        // Mark analysis as public when sharing
+        if (currentUser && result.id) {
+            try {
+                await makeAnalysisPublic(result.id, currentUser.uid);
+            } catch (error) {
+                console.error('Failed to make analysis public:', error);
+                // Continue anyway - the share modal will still open
+            }
+        }
         setIsShareModalOpen(true);
     };
 

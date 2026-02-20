@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { VideoAnalysis } from '../../../types';
-// import { User } from 'firebase/auth'; // Not strictly used in component logic yet
 import MetricBlock from '../MetricBlock';
 import ReliabilityGauge from '../../linkAudit/ReliabilityGauge';
+import { useAuth } from '../../../contexts/AuthContext';
+import { makeAnalysisPublic } from '../../../services/archiveService';
 
 interface LinkResultViewProps {
     analysis: VideoAnalysis;
@@ -17,11 +18,21 @@ interface LinkResultViewProps {
 import ShareModal from '../ShareModal';
 
 const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, onSave, onReset, slotUsage }) => {
+    const { currentUser } = useAuth();
     const [activeTab, setActiveTab] = useState<'summary' | 'claims' | 'manipulation' | 'report'>('summary');
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
-    const handleShare = () => {
+    const handleShare = async () => {
         if (!analysis.id) return;
+        // Mark analysis as public when sharing
+        if (currentUser && analysis.id) {
+            try {
+                await makeAnalysisPublic(analysis.id, currentUser.uid);
+            } catch (error) {
+                console.error('Failed to make analysis public:', error);
+                // Continue anyway - the share modal will still open
+            }
+        }
         setIsShareModalOpen(true);
     };
 

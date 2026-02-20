@@ -3,6 +3,8 @@ import html2canvas from 'html2canvas';
 import { VideoAnalysis } from '../../../types';
 import ReliabilityChart from '../../ReliabilityChart';
 import MetricBlock from '../MetricBlock';
+import { useAuth } from '../../../contexts/AuthContext';
+import { makeAnalysisPublic } from '../../../services/archiveService';
 
 interface VideoResultViewProps {
     analysis: VideoAnalysis;
@@ -207,13 +209,23 @@ const ReportView: React.FC<{ analysis: VideoAnalysis; reportRef?: React.RefObjec
 import ShareModal from '../ShareModal';
 
 const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoading, onSaveToArchive, onReset }) => {
+    const { currentUser } = useAuth();
     const [activeTab, setActiveTab] = useState<'summary' | 'claims' | 'manipulation' | 'transcript' | 'report' | 'visual' | 'bodyLanguage' | 'vocal' | 'deception' | 'humor' | 'psychological' | 'cultural'>('summary');
     const [isExporting, setIsExporting] = useState(false);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const fullReportRef = React.useRef<HTMLElement>(null);
 
-    const handleShare = () => {
+    const handleShare = async () => {
         if (!analysis.id) return;
+        // Mark analysis as public when sharing
+        if (currentUser && analysis.id) {
+            try {
+                await makeAnalysisPublic(analysis.id, currentUser.uid);
+            } catch (error) {
+                console.error('Failed to make analysis public:', error);
+                // Continue anyway - the share modal will still open
+            }
+        }
         setIsShareModalOpen(true);
     };
 
