@@ -78,7 +78,7 @@ const PricingPage: React.FC = () => {
                     </h1>
 
                     <p className="text-slate-600 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
-                        Получете достъп до най-мощния AI анализатор на информация.
+                        Получете достъп до най-мощния анализатор на информация.
                         Всички планове включват пълен достъп до всички функции.
                     </p>
 
@@ -119,13 +119,13 @@ const PricingPage: React.FC = () => {
                                 </div>
                             )}
 
-                            {/* Tier Name */}
-                            <div className="space-y-2">
-                                <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">
+                            {/* Tier Name and Price - Top */}
+                            <div className="text-center space-y-3 pt-2">
+                                <h3 className="text-lg font-black text-slate-900 uppercase tracking-wider">
                                     {tier.name}
                                 </h3>
-                                <div className="flex items-baseline gap-1">
-                                    <span className="text-5xl font-black text-slate-900 tracking-tighter">
+                                <div className="flex items-baseline justify-center gap-1">
+                                    <span className="text-4xl font-black text-slate-900 tracking-tighter">
                                         €{tier.price}
                                     </span>
                                 </div>

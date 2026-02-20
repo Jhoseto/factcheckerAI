@@ -1,0 +1,78 @@
+/* Mobile view – same editorial vision as desktop, premium mobile UX */
+
+/* Same background as desktop body */
+.mobile-root {
+  background-color: #f9f9f9;
+}
+
+/* Editorial selection (desktop uses selection:bg-amber-900 selection:text-white) */
+.mobile-root *::selection {
+  background-color: #78350f;
+  color: #fff;
+}
+
+/* Entrance: subtle fade + slide (mobile best practice) */
+@keyframes mobileFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mobile-fade-in {
+  animation: mobileFadeIn 0.35s ease-out forwards;
+}
+
+.mobile-fade-in-delay-1 { animation-delay: 0.05s; }
+.mobile-fade-in-delay-2 { animation-delay: 0.1s; }
+.mobile-fade-in-delay-3 { animation-delay: 0.15s; }
+
+/* Tap feedback: slight scale (premium feel) */
+.mobile-tap {
+  transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+}
+.mobile-tap:active {
+  transform: scale(0.98);
+}
+
+/* Editorial card style (match desktop .editorial-card) */
+.mobile-editorial-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.mobile-editorial-card:active {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.08);
+}
+
+/* Loading bar (match desktop – bar slides across) */
+@keyframes mobileLoadingBar {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(200%); }
+}
+
+.mobile-loading-bar {
+  animation: mobileLoadingBar 2s ease-in-out infinite;
+}
+
+/* No scrollbar for horizontal tab strip */
+.mobile-no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.mobile-no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Bottom tab bar – app-like */
+.mobile-bottom-nav {
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.06);
+  padding-bottom: env(safe-area-inset-bottom, 8px);
+}

@@ -1,5 +1,5 @@
-import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import Navbar from './components/common/Navbar';
 import Login from './components/auth/Login';
@@ -11,9 +11,25 @@ import LinkAuditPage from './components/linkAudit/LinkAuditPage';
 import ArchivePage from './components/archive/ArchivePage';
 import ReportPage from './components/report/ReportPage';
 import App from './App';
+import { MobileView } from './mobileView';
+
+const MOBILE_BREAKPOINT = 768;
 
 const AppRouter: React.FC = () => {
     const { currentUser, loading } = useAuth();
+    const [searchParams] = useSearchParams();
+    const forceMobile = searchParams.get('mobile') === '1';
+    const [isNarrow, setIsNarrow] = useState(typeof window !== 'undefined' && window.innerWidth <= MOBILE_BREAKPOINT);
+
+    useEffect(() => {
+        const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`);
+        const handler = () => setIsNarrow(mql.matches);
+        mql.addEventListener('change', handler);
+        handler();
+        return () => mql.removeEventListener('change', handler);
+    }, []);
+
+    const showMobileView = forceMobile || isNarrow;
 
     if (loading) {
         return (
@@ -24,6 +40,10 @@ const AppRouter: React.FC = () => {
                 </div>
             </div>
         );
+    }
+
+    if (showMobileView) {
+        return <MobileView />;
     }
 
     return (
