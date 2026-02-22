@@ -52,10 +52,17 @@ export const analyzeLinkDeep = async (
             newBalance: jsonData.points?.newBalance
         };
 
-        return {
-            analysis: transformAnalysis(jsonData.text, usage.pointsCost),
-            usage
-        };
+        const analysis = transformAnalysis(jsonData.text, usage.pointsCost);
+
+        // Client-side quality check — don't show garbage to user
+        const hasContent = analysis.summary.overallSummary.length > 20 ||
+            analysis.claims.length > 0 ||
+            analysis.manipulations.length > 0;
+        if (!hasContent) {
+            throw new Error('Анализът не съдържа достатъчно информация. Моля, опитайте отново.');
+        }
+
+        return { analysis, usage };
 
     } catch (error: any) {
         throw handleApiError(error);

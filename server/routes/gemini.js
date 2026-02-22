@@ -169,20 +169,17 @@ function validateJsonResponse(responseText, serviceType = 'link') {
                 if (!hasMinFields) {
                     return { valid: false, code: 'AI_INCOMPLETE_RESPONSE', parsed };
                 }
-                return { valid: true, parsed };
+                return { valid: true, parsed, cleanedText: JSON.stringify(parsed) };
             }
 
-            // Link/Article analysis - stricter validation
-            const hasTitle = parsed.title && parsed.title.length > 5;
-            const hasSiteName = parsed.siteName && parsed.siteName.length > 0;
-            const hasSummary = parsed.summary && parsed.summary.length > 20;
-
-            if (!hasTitle || !hasSiteName || !hasSummary) {
+            // Link/Article analysis - minimal validation
+            const hasSomething = parsed.summary || parsed.title || parsed.overallAssessment || parsed.factualClaims;
+            if (!hasSomething) {
                 return { valid: false, code: 'AI_INCOMPLETE_RESPONSE', parsed };
             }
         }
 
-        return { valid: true, parsed };
+        return { valid: true, parsed, cleanedText: JSON.stringify(parsed) };
     } catch (e) {
         console.error('[validateJsonResponse] Validation error:', e.message);
         return { valid: false, code: 'AI_JSON_PARSE_ERROR', error: e.message };
@@ -222,10 +219,7 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
 
         // ── Build request ─────────────────────────────────────────────────────
         let tools;
-        if (serviceType === 'linkArticle') {
-            // urlContext lets Gemini fetch the URL itself; combine with Search for fact-checking
-            tools = [{ urlContext: {} }, { googleSearch: {} }];
-        } else if (isDeepMode || enableGoogleSearch) {
+        if (serviceType === 'linkArticle' || isDeepMode || enableGoogleSearch) {
             tools = [{ googleSearch: {} }];
         }
         const contents = [];
@@ -299,9 +293,27 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                 usage = response.usageMetadata || { promptTokenCount: 0, candidatesTokenCount: 0 };
             }
 
+            // ── Log raw response for debugging ──────────────────────────────────
+            if (serviceType === 'linkArticle') {
+                console.log(`[LinkArticle] Raw response length: ${responseText.length}`);
+                console.log(`[LinkArticle] First 500 chars:`, responseText.substring(0, 500));
+            }
+
             // ── Validate response ─────────────────────────────────────────────────
             lastValidation = validateJsonResponse(responseText, serviceType || 'video');
             if (lastValidation.valid) {
+                // Quality gate for link analysis — reject empty results
+                if (serviceType === 'linkArticle' && lastValidation.parsed) {
+                    const p = lastValidation.parsed;
+                    const hasRealContent = (p.summary && p.summary.length > 30) ||
+                        (p.factualClaims && p.factualClaims.length > 0) ||
+                        (p.manipulationTechniques && p.manipulationTechniques.length > 0);
+                    if (!hasRealContent) {
+                        console.error('[LinkArticle] ❌ QUALITY GATE: Analysis passed validation but has no real content');
+                        lastValidation = { valid: false, code: 'AI_EMPTY_ANALYSIS' };
+                        continue; // retry
+                    }
+                }
                 break; // Success, exit retry loop
             }
 
@@ -355,7 +367,7 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
 
             // Update balance in response object
             res.json({
-                text: responseText,
+                text: lastValidation.cleanedText || responseText,
                 usageMetadata: usage,
                 points: {
                     deducted: finalPoints,
