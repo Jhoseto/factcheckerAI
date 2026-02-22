@@ -1,14 +1,12 @@
-/* Mobile view – same editorial vision as desktop, premium mobile UX */
+/* Mobile view – dark theme + gold accent (match desktop) */
 
-/* Same background as desktop body */
 .mobile-root {
-  background-color: #f9f9f9;
+  background-color: #1a1a1a;
 }
 
-/* Editorial selection (desktop uses selection:bg-amber-900 selection:text-white) */
 .mobile-root *::selection {
-  background-color: #78350f;
-  color: #fff;
+  background-color: #c9a227;
+  color: #1a1a1a;
 }
 
 /* Entrance: subtle fade + slide (mobile best practice) */

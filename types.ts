@@ -76,6 +76,55 @@ export interface AnalysisSummary {
   dataPointsProcessed: number;
 }
 
+export interface AuthorProfile {
+  name?: string;
+  knownBias?: string;
+  typicalTopics?: string[];
+  credibilityNote?: string;
+  affiliations?: string[];
+}
+
+export interface MediaProfile {
+  ownership?: string;
+  politicalLean?: string;
+  reliabilityRating?: number;
+  knownFor?: string;
+  fundingSource?: string;
+}
+
+export interface HeadlineAnalysis {
+  isClickbait: boolean;
+  matchScore: number; // 0-1, how well headline matches content
+  explanation: string;
+  sensationalWords?: string[];
+}
+
+export interface EmotionalTrigger {
+  word: string;
+  emotion: string; // страх / гняв / гордост / тъга / изненада
+  context: string;
+}
+
+export interface AlternativeSource {
+  title: string;
+  url: string;
+  reason: string;
+}
+
+export interface CommentsAnalysis {
+  found: boolean;
+  source?: string;
+  totalAnalyzed?: number;
+  sentiment?: 'positive' | 'negative' | 'neutral' | 'mixed';
+  polarizationIndex?: number;
+  botActivitySuspicion?: number;
+  dominantThemes?: string[];
+  emotionalTone?: string;
+  keyOpinions?: string[];
+  manipulationInComments?: string;
+  overallSummary?: string;
+}
+
 export interface VideoAnalysis {
   id: string;
   timestamp: number;
@@ -89,7 +138,20 @@ export interface VideoAnalysis {
   timeline: TimelinePoint[];
   summary: AnalysisSummary;
   pointsCost: number;
-  analysisMode?: AnalysisMode; // 'standard' or 'deep'
+  analysisMode?: AnalysisMode;
+  commentsAnalysis?: CommentsAnalysis | null;
+
+  // Link-analysis extended fields
+  authorProfile?: AuthorProfile;
+  mediaProfile?: MediaProfile;
+  headlineAnalysis?: HeadlineAnalysis;
+  emotionalTriggers?: EmotionalTrigger[];
+  sensationalismIndex?: number;
+  circularCitation?: string | null;
+  missingVoices?: string[];
+  timingAnalysis?: string;
+  freshnessCheck?: string;
+  alternativeSources?: AlternativeSource[]; // 'standard' or 'deep'
 
   // Multimodal analysis fields (deep analysis only)
   visualAnalysis?: string;

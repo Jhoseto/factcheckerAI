@@ -55,7 +55,8 @@ export const saveAnalysis = async (
             title,
             url,
             analysis: JSON.parse(JSON.stringify(analysis)), // Remove non-serializable fields
-            createdAt: Timestamp.fromDate(new Date())
+            createdAt: Timestamp.fromDate(new Date()),
+            isPublic: true, // Запазените доклади са публични за споделяне
         });
 
         return docRef.id;

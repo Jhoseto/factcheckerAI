@@ -1,209 +1,201 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
-import { getAnalysisById, saveAnalysis, SavedAnalysis, getAnalysisCountByType } from '../../services/archiveService';
+import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { getAnalysisById, saveAnalysis, getAnalysisCountByType } from '../../services/archiveService';
 import VideoResultView from '../common/result-views/VideoResultView';
 import LinkResultView from '../common/result-views/LinkResultView';
-import SocialResultView from '../common/result-views/SocialResultView';
-import ScannerAnimation from '../common/ScannerAnimation';
-import { Helmet } from 'react-helmet-async';
+import { VideoAnalysis } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 
-const LIMITS = {
-    video: 10,
-    link: 15,
-    social: 15
-};
+const SLOT_LIMITS = { video: 10, link: 15, social: 15 };
 
 const ReportPage: React.FC = () => {
-    const { id } = useParams<{ id: string }>();
-    const navigate = useNavigate();
     const location = useLocation();
+    const navigate = useNavigate();
+    const { id } = useParams<{ id: string }>();
     const { currentUser } = useAuth();
 
-    const [report, setReport] = useState<SavedAnalysis | null>(null);
-    const [previewAnalysis, setPreviewAnalysis] = useState<any | null>(null);
+    const [analysis, setAnalysis] = useState<VideoAnalysis | null>(null);
+    const [type, setType] = useState<'video' | 'link' | 'social'>('video');
+    const [url, setUrl] = useState('');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [slotUsage, setSlotUsage] = useState<{ used: number, max: number }>({ used: 0, max: 0 });
+    const [slotUsage, setSlotUsage] = useState<{ used: number; max: number } | null>(null);
+    // True only when the report has been saved to Firestore (not just from Gemini with a temp UUID)
+    const [isSaved, setIsSaved] = useState(false);
 
     useEffect(() => {
-        // Fetch slot usage if in preview mode
-        const checkSlots = async () => {
-            if (!currentUser) return;
-            const type = location.state?.type || 'video';
-            const count = await getAnalysisCountByType(currentUser.uid, type);
-            setSlotUsage({ used: count, max: LIMITS[type as keyof typeof LIMITS] });
-        };
-
-        if (location.state && location.state.analysis) {
-            checkSlots();
-            setPreviewAnalysis(location.state.analysis);
+        const state = location.state as { analysis?: VideoAnalysis; type?: 'video' | 'link' | 'social'; url?: string } | undefined;
+        if (state?.analysis && state?.type) {
+            setAnalysis(state.analysis);
+            setType(state.type);
+            setUrl(state.url || '');
+            setIsSaved(false); // fresh analysis, not yet saved
             setLoading(false);
             return;
         }
-
-        // Option 2: Archived Mode (fetch by ID)
-        const fetchReport = async () => {
-            if (!id) {
-                navigate('/');
-                return;
-            }
-            try {
-                const data = await getAnalysisById(id);
-                if (data) {
-                    setReport(data);
-                } else {
+        if (!id) {
+            setError('Липсва идентификатор на доклада.');
+            setLoading(false);
+            return;
+        }
+        getAnalysisById(id)
+            .then((report) => {
+                if (!report) {
                     setError('Докладът не е намерен.');
+                    return;
                 }
-            } catch (err) {
-                console.error(err);
-                setError('Грешка при зареждане на доклада.');
-            } finally {
-                setLoading(false);
-            }
-        };
+                // Block access if report is not public AND not owned by current user
+                const isOwner = currentUser && report.userId === currentUser.uid;
+                if (!report.isPublic && !isOwner) {
+                    setError('Докладът не е публичен. Само собственикът може да го отвори.');
+                    return;
+                }
+                const analysisWithId = { ...report.analysis, id: report.id } as VideoAnalysis;
+                setAnalysis(analysisWithId);
+                setType(report.type);
+                setUrl(report.url || '');
+                setIsSaved(true); // loaded from archive → already saved
+            })
+            .catch(() => setError('Грешка при зареждане на доклада.'))
+            .finally(() => setLoading(false));
+    }, [id, location.state]);
 
-        fetchReport();
-    }, [id, location.state, navigate, currentUser]);
+    useEffect(() => {
+        if (!currentUser || !type || type === 'social') return;
+        getAnalysisCountByType(currentUser.uid, type).then((used) => {
+            setSlotUsage({ used, max: SLOT_LIMITS[type] });
+        });
+    }, [currentUser, type]);
 
     const handleSaveToArchive = async () => {
-        if (!previewAnalysis || !currentUser) return;
-
+        if (!analysis || !currentUser || !type || type === 'social') return;
+        const max = SLOT_LIMITS[type];
+        const used = slotUsage?.used ?? await getAnalysisCountByType(currentUser.uid, type);
+        if (used >= max) {
+            alert('Достигнахте лимита за този тип анализи. Изтрийте стари от архива.');
+            return;
+        }
         try {
-            const type = location.state?.type || 'video';
-
-            // Re-check limit before saving
-            const currentCount = await getAnalysisCountByType(currentUser.uid, type);
-            if (currentCount >= LIMITS[type as keyof typeof LIMITS]) {
-                alert('Достигнали сте лимита за този тип анализи. Изтрийте стари анализи, за да запазите нови.');
-                return;
-            }
-
-            const title = previewAnalysis.videoTitle || 'Analysis Report';
-            const url = location.state?.url || '';
-
-            const newId = await saveAnalysis(
-                currentUser.uid,
-                type,
-                title,
-                previewAnalysis,
-                url
-            );
-
-            navigate(`/report/${newId}`, { replace: true });
-
-        } catch (err) {
-            console.error("Failed to save", err);
-            alert("Грешка при запазване. Моля опитайте отново.");
+            const title = (analysis as any).videoTitle || (analysis.summary as any)?.title || (type === 'video' ? 'Видео анализ' : 'Одит на статия');
+            const newId = await saveAnalysis(currentUser.uid, type, title, analysis, url);
+            setAnalysis((prev) => (prev ? { ...prev, id: newId } : null));
+            setSlotUsage((prev) => (prev ? { ...prev, used: prev.used + 1 } : { used: 1, max }));
+            setIsSaved(true);
+        } catch (e: any) {
+            alert(e?.message || 'Грешка при запазване.');
         }
     };
 
     if (loading) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-[#f9f9f9]">
-                <ScannerAnimation size={60} />
-                <p className="mt-4 text-xs font-black text-slate-400 uppercase tracking-widest animate-pulse">
-                    ЗАРЕЖДАНЕ НА ДОКЛАД #{id?.substring(0, 8)}...
-                </p>
+            <div className="min-h-screen bg-[#121212] flex items-center justify-center">
+                <div className="w-16 h-16 border-[1px] border-[#333] border-t-[#968B74] rounded-full animate-spin" />
             </div>
         );
     }
 
-    if (error || (!report && !previewAnalysis)) {
+    if (error || !analysis) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-[#f9f9f9] px-4">
-                <div className="text-center space-y-6 max-w-lg">
-                    <div className="text-6xl">😕</div>
-                    <h2 className="text-2xl font-black text-slate-900 serif italic">{error || 'Невалиден линк'}</h2>
-                    <p className="text-slate-600">
-                        Този доклад не съществува или е бил изтрит.
-                    </p>
-                    <Link to="/" className="inline-block px-8 py-3 bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-black transition-colors">
-                        Към Началото
-                    </Link>
+            <div className="min-h-screen relative overflow-hidden pt-40 pb-24">
+                <div className="premium-bg-wrapper">
+                    <div className="premium-wave-1" />
+                    <div className="premium-wave-2" />
+                    <div className="premium-wave-3" />
+                    <div className="premium-texture" />
+                </div>
+                <div className="max-w-2xl mx-auto px-6 relative z-10 text-center">
+                    <p className="text-[#888] mb-8">{error || 'Невалиден доклад.'}</p>
+                    <button
+                        onClick={() => navigate('/')}
+                        className="px-6 py-3 border border-[#333] text-[#888] text-[9px] font-bold uppercase tracking-[0.2em] hover:border-[#968B74] hover:text-[#968B74] transition-all rounded-sm"
+                    >
+                        Към началото
+                    </button>
                 </div>
             </div>
         );
     }
 
-    // Determine what to display
-    const activeAnalysis = report ? report.analysis : previewAnalysis;
-    const activeType = report ? report.type : (location.state?.type || 'video');
-    const isPreview = !!previewAnalysis;
+    if (type === 'social') {
+        return (
+            <div className="min-h-screen relative overflow-hidden pt-40 pb-24">
+                <div className="premium-bg-wrapper">
+                    <div className="premium-wave-1" />
+                    <div className="premium-wave-2" />
+                    <div className="premium-wave-3" />
+                    <div className="premium-texture" />
+                </div>
+                <div className="max-w-2xl mx-auto px-6 relative z-10 text-center">
+                    <p className="text-[#888] mb-8">Изгледът за социален анализ не е наличен за този доклад.</p>
+                    <button
+                        onClick={() => navigate('/')}
+                        className="px-6 py-3 border border-[#333] text-[#888] text-[9px] font-bold uppercase tracking-[0.2em] hover:border-[#968B74] hover:text-[#968B74] transition-all rounded-sm"
+                    >
+                        Към началото
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
-    // Inject ID if it exists in report, otherwise it's undefined (Preview)
-    const analysisWithId = { ...activeAnalysis, id: report?.id };
-
-    const pageTitle = report?.title || activeAnalysis.videoTitle || 'Factchecker AI Report';
-    const pageDescription = activeAnalysis.summary?.overallSummary?.substring(0, 160) || 'Професионален анализ на медийно съдържание с Factchecker AI.';
+    if (type === 'link') {
+        return (
+            <>
+                <div className="min-h-screen relative pt-32 pb-24">
+                    <div className="premium-bg-wrapper">
+                        <div className="premium-wave-1" />
+                        <div className="premium-wave-2" />
+                        <div className="premium-wave-3" />
+                        <div className="premium-texture" />
+                    </div>
+                    <div className="w-full max-w-[1600px] mx-auto px-10 relative z-10 animate-fadeUp pt-4">
+                        <button
+                            onClick={() => navigate('/')}
+                            className="mb-6 flex items-center gap-3 text-[9px] font-bold text-[#666] uppercase tracking-[0.2em] hover:text-[#968B74] transition-colors group"
+                        >
+                            <span className="w-4 h-[1px] bg-[#666] group-hover:bg-[#968B74] transition-colors" />
+                            Обратно към началото
+                        </button>
+                        <LinkResultView
+                            analysis={analysis}
+                            url={url}
+                            price={analysis.pointsCost ?? 0}
+                            onSave={!isSaved ? handleSaveToArchive : undefined}
+                            isSaved={isSaved}
+                            onReset={() => navigate('/')}
+                            slotUsage={slotUsage ?? undefined}
+                        />
+                    </div>
+                </div>
+            </>
+        );
+    }
 
     return (
-        <div className="min-h-screen bg-[#f9f9f9] pt-20">
-            <Helmet>
-                <title>{pageTitle} | Factchecker AI</title>
-                <meta name="description" content={pageDescription} />
-
-                {/* Open Graph / Facebook */}
-                <meta property="og:type" content="article" />
-                <meta property="og:title" content={pageTitle} />
-                <meta property="og:description" content={pageDescription} />
-                <meta property="og:image" content="https://factchecker.ai/og-image.jpg" /> {/* Replace with actual OG image URL or dynamic generation */}
-                <meta property="og:url" content={window.location.href} />
-                <meta property="og:site_name" content="Factchecker AI" />
-
-                {/* Twitter */}
-                <meta name="twitter:card" content="summary_large_image" />
-                <meta name="twitter:title" content={pageTitle} />
-                <meta name="twitter:description" content={pageDescription} />
-                <meta name="twitter:image" content="https://factchecker.ai/og-image.jpg" />
-            </Helmet>
-
-            {/* Public Header Overlay/Banner could go here */}
-
-            {activeType === 'video' && (
-                <div className="max-w-7xl mx-auto px-4 py-8">
-                    <VideoResultView
-                        analysis={analysisWithId}
-                        reportLoading={false}
-                        onSaveToArchive={isPreview ? handleSaveToArchive : undefined}
-                        onReset={() => navigate('/')}
-                        slotUsage={isPreview ? slotUsage : undefined}
-                    />
-                </div>
-            )}
-
-            {activeType === 'link' && (
-                <div className="max-w-7xl mx-auto px-4 py-8">
-                    <LinkResultView
-                        analysis={analysisWithId}
-                        url={report?.url || ''}
-                        price={activeAnalysis.pointsCost || 0}
-                        onSave={isPreview ? handleSaveToArchive : undefined}
-                        onReset={() => navigate('/')}
-                        slotUsage={isPreview ? slotUsage : undefined}
-                    />
-                </div>
-            )}
-
-            {activeType === 'social' && (
-                <div className="max-w-7xl mx-auto px-4 py-8">
-                    <SocialResultView
-                        result={analysisWithId}
-                        onReset={() => navigate('/')}
-                        onSave={isPreview ? handleSaveToArchive : undefined}
-                        slotUsage={isPreview ? slotUsage : undefined}
-                    />
-                </div>
-            )}
-
-            {!isPreview && (
-                <footer className="py-12 text-center text-slate-400 border-t border-slate-200 mt-12 bg-white">
-                    <p className="text-[9px] font-black uppercase tracking-widest mb-2">Генерирано от Factchecker AI</p>
-                    <Link to="/" className="text-[10px] font-bold text-amber-900 hover:text-amber-700 uppercase tracking-wider">
-                        Направете свой собствен анализ
-                    </Link>
-                </footer>
-            )}
+        <div className="min-h-screen relative pt-32 pb-24">
+            <div className="premium-bg-wrapper">
+                <div className="premium-wave-1" />
+                <div className="premium-wave-2" />
+                <div className="premium-wave-3" />
+                <div className="premium-texture" />
+            </div>
+            <div className="w-full max-w-[1600px] mx-auto px-10 relative z-10 animate-fadeUp pt-4">
+                <button
+                    onClick={() => navigate('/')}
+                    className="mb-6 flex items-center gap-3 text-[9px] font-bold text-[#666] uppercase tracking-[0.2em] hover:text-[#968B74] transition-colors group"
+                >
+                    <span className="w-4 h-[1px] bg-[#666] group-hover:bg-[#968B74] transition-colors" />
+                    Обратно към началото
+                </button>
+                <VideoResultView
+                    analysis={analysis}
+                    reportLoading={false}
+                    onSaveToArchive={!isSaved ? handleSaveToArchive : undefined}
+                    isSaved={isSaved}
+                    onReset={() => navigate('/')}
+                    slotUsage={slotUsage ?? undefined}
+                />
+            </div>
         </div>
     );
 };

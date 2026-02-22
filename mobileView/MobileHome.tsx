@@ -21,12 +21,6 @@ const MobileHome: React.FC = () => {
         <div className="mb-8 mobile-fade-in">
           <div className="space-y-6 text-center">
             <div className="relative inline-block space-y-3">
-              <div className="flex items-center justify-center gap-3">
-                <span className="h-[1.5px] w-6 bg-amber-900/60"></span>
-                <span className="text-[10px] font-black text-amber-900 uppercase tracking-[0.4em]">КЛАСИФИЦИРАН ДОСТЪП</span>
-                <span className="h-[1.5px] w-6 bg-amber-900/60"></span>
-              </div>
-
               <h2 className="text-4xl font-black text-slate-900 tracking-[-0.02em] leading-[0.9] serif italic">
                 <span className="block mb-1">
                   <span className="text-amber-900">О</span>дит на

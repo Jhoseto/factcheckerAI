@@ -29,7 +29,7 @@ const ReliabilityGauge: React.FC<Props> = ({ score, size = 180 }) => {
                     cx={size / 2}
                     cy={size / 2}
                     r={radius}
-                    stroke="#f1f5f9"
+                    stroke="#333"
                     strokeWidth={strokeWidth}
                     fill="transparent"
                 />
@@ -48,10 +48,10 @@ const ReliabilityGauge: React.FC<Props> = ({ score, size = 180 }) => {
                 />
             </svg>
             <div className="absolute flex flex-col items-center justify-center">
-                <span className="text-4xl font-black text-slate-900 tracking-tighter serif italic">
+                <span className="text-4xl font-black text-[#C4B091] tracking-tighter serif italic">
                     {percentage}%
                 </span>
-                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">
+                <span className="text-[8px] font-black text-[#666] uppercase tracking-widest mt-1">
                     Достоверност
                 </span>
             </div>

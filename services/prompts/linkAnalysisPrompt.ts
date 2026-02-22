@@ -1,90 +1,123 @@
-/**
- * Link Audit Prompt
- * Specialized for article and news analysis. Focused on text, logic, and source credibility.
- */
-export const getLinkAnalysisPrompt = (url: string, content: string): string => {
-  return `Ти си елитен разследващ журналист и медиен аналитик от световна класа, работещ за DCGE (Digital Content & Global Ethics). Твоята задача е да направиш БРУТАЛНО ДЕТАЙЛЕН, КРИТИЧЕН и СРАВНИТЕЛЕН анализ на предоставената статия.
+export const getLinkAnalysisPrompt = (url: string): string => {
+  const currentDate = new Date().toLocaleString('bg-BG', { dateStyle: 'full' });
+  const reportDate = new Date().toLocaleString('bg-BG', { dateStyle: 'long', timeStyle: 'short' });
 
-ЦЕЛ: Не просто да кажеш "провери други източници", а ТИ ДА ГИ ПРОВЕРИШ и да предоставиш резултатите. Трябва да напишеш професионален доклад, достоен за публикация в най-авторитетните разследващи журнали.
+  return `Ти си старши анализатор в DCGE (Digital Content & Global Ethics). Днешната дата е ${currentDate}.
 
-ИНСТРУКЦИИ ЗА ИЗПЪЛНЕНИЕ:
+URL ЗА АНАЛИЗ: ${url}
 
-1. **ДЕТАЙЛНА ФАКТОЛОГИЧНА ПРОВЕРКА (VERIFICATION TAB)**:
-   - За всяко "Factual Claim" трябва да напишеш МИНИМУМ 50 ДУМИ обяснение.
-   - ЗАДЪЛЖИТЕЛНО посочи конкретни източници (URL), които потвърждават или опровергават твърдението.
-   - Използвай Google Search, за да намериш оригиналния източник на информацията.
+ТВОЯТА ЗАДАЧА — 4 СТЪПКИ:
 
-2. **СРАВНИТЕЛЕН АНАЛИЗ (COMPARATIVE ANALYSIS)**:
-   - В полето "finalInvestigativeReport" включи специална секция "СРАВНИТЕЛЕН МЕДИЕН АНАЛИЗ".
-   - Намери същата новина в поне 3 други независими медии (международни и локални).
-   - Сравни как е представена информацията там спрямо тази статия.
-   - Посочи разликите в тона, заглавията и пропуснатите факти.
+1. ПРОЧЕТИ СТАТИЯТА
+   Отвори URL-а и прочети ЦЕЛИЯ текст — заглавие, автор, дата, всеки параграф, всички цитати и числа.
+   Ако статията е частично зад платена стена — използвай Google Search за да намериш пълния текст (много сайтове са индексирани в Google).
 
-3. **МАНИПУЛАТИВНИ ТЕХНИКИ (MANIPULATION TAB)**:
-   - Полето "technique" трябва да е КРАТКО заглавие (макс 5 думи).
-   - Полето "description" трябва да е дълго и подробно обяснение.
-   - Полето "impact" трябва да е конкретно за тази статия.
-   - НЕ повтаряй заглавието в описанието.
+2. ПРОЧЕТИ КОМЕНТАРИТЕ
+   На страницата потърси секция/линк с коментари (Disqus, Facebook, вградена система).
+   Прочети ги и ги анализирай. Ако няма — commentsAnalysis: null.
 
-4. **ФОРМАТ НА ОТГОВОРА (JSON)**:
-   Спазвай стриктно структурата. Всички текстове ТРЯБВА да са на БЪЛГАРСКИ ЕЗИК.
+3. ВЕРИФИЦИРАЙ С GOOGLE SEARCH
+   За всяко твърдение, цифра или факт — провери с поне 1 независим надежден източник.
+   Намери как 2-3 РАЗЛИЧНИ медии отразяват СЪЩАТА тема.
+   Намери профил на автора и медията.
+   Намери 3-5 алтернативни качествени материала с реални URL-и.
 
-ТВОЯТА ЗАДАЧА Е ДА БЪДЕШ КРАЙНАТА ИНСТАНЦИЯ НА ИСТИНАТА ЗА ТОЗИ ТЕКСТ.
+4. ПОПЪЛНИ ВСИЧКИ ПОЛЕТА
+   Пиши само конкретни факти от прочетеното. БЕЗ "вероятно", БЕЗ "изглежда", БЕЗ предположения.
+   Пиши стегнато: summary макс 4 изречения, evidence макс 60 думи.
 
-Върни резултата като JSON в следния формат:
+ПРАВИЛО ЗА ОЦЕНКА — overallAssessment трябва да съответства на detailedMetrics:
+  factualAccuracy ≥ 0.80 и propagandaScore ≤ 0.35 → "ACCURATE"
+  factualAccuracy ≥ 0.65 и propagandaScore ≤ 0.50 → "MOSTLY_ACCURATE"
+  factualAccuracy ≥ 0.45                           → "MIXED"
+  factualAccuracy ≥ 0.25                           → "MISLEADING"
+  factualAccuracy < 0.25                           → "FALSE"
+
+Върни САМО валиден JSON без Markdown:
 {
-  "title": "Заглавие на статията",
-  "siteName": "Име на медията / уебсайта",
-  "summary": "Детайлно резюме на статията (минимум 8 изречения) на български.",
-  "overallAssessment": "ACCURATE" | "MOSTLY_ACCURATE" | "MIXED" | "MISLEADING" | "FALSE",
+  "title": "Точното заглавие от страницата",
+  "siteName": "Медия",
+  "summary": "4 изречения: какво твърди, кой е засегнат, основна теза, защо е важно.",
+  "overallAssessment": "ACCURATE|MOSTLY_ACCURATE|MIXED|MISLEADING|FALSE",
   "detailedMetrics": {
-    "factualAccuracy": 0.0,
-    "logicalSoundness": 0.0,
-    "emotionalBias": 0.0,
-    "propagandaScore": 0.0,
-    "sourceReliability": 0.0,
-    "subjectivityScore": 0.0,
-    "objectivityScore": 0.0,
-    "biasIntensity": 0.0,
-    "narrativeConsistencyScore": 0.0,
-    "semanticDensity": 0.0,
-    "contextualStability": 0.0
+    "factualAccuracy": 0.0, "logicalSoundness": 0.0, "emotionalBias": 0.0,
+    "propagandaScore": 0.0, "sourceReliability": 0.0, "subjectivityScore": 0.0,
+    "objectivityScore": 0.0, "biasIntensity": 0.0, "narrativeConsistencyScore": 0.0,
+    "semanticDensity": 0.0, "contextualStability": 0.0
   },
-  "geopoliticalContext": "Геополитически контекст на темата.",
-  "historicalParallel": "Исторически паралели.",
-  "psychoLinguisticAnalysis": "Анализ на езика и психологическото въздействие на текста.",
-  "strategicIntent": "Каква е целта на статията и кой печели от нея.",
-  "narrativeArchitecture": "Как е структуриран разказът.",
-  "technicalForensics": "Анализ на данни, цифри и източници в статията.",
-  "socialImpactPrediction": "Как статията влияе на общественото мнение.",
-  "recommendations": "ПРЕПОРЪКИ ЗА ЧИТАТЕЛЯ: Тук не давай общи съвети. Напиши конкретно: 'Прочети същата новина в Ройтерс тук: [ЛИНК]', 'Виж официалния доклад тук: [ЛИНК]'.",
+  "authorProfile": {
+    "name": "Реално име или null",
+    "knownBias": "Документирана пристрастност или Неизвестна",
+    "typicalTopics": ["тема1"],
+    "credibilityNote": "Конкретна оценка.",
+    "affiliations": ["организация"]
+  },
+  "mediaProfile": {
+    "ownership": "Реален собственик",
+    "politicalLean": "ляво/дясно/центристко/неутрално",
+    "reliabilityRating": 0.0,
+    "knownFor": "С какво е известна.",
+    "fundingSource": "Финансиране"
+  },
+  "headlineAnalysis": {
+    "isClickbait": false,
+    "matchScore": 0.0,
+    "explanation": "Дали заглавието честно отразява съдържанието.",
+    "sensationalWords": ["дума"]
+  },
+  "emotionalTriggers": [
+    { "word": "фраза от статията", "emotion": "страх|гняв|гордост|тъга", "context": "Как е използвана." }
+  ],
+  "sensationalismIndex": 0.0,
+  "circularCitation": "Описание или null",
+  "missingVoices": ["Липсваща страна или гледна точка"],
+  "timingAnalysis": "Защо точно сега е публикувана.",
+  "freshnessCheck": "Нова информация или рестартирана стара история.",
+  "alternativeSources": [
+    { "title": "Заглавие", "url": "реален URL", "reason": "Защо е по-добър/допълващ." }
+  ],
+  "geopoliticalContext": "Геополитически измерения.",
+  "historicalParallel": "Исторически прецедент.",
+  "psychoLinguisticAnalysis": "Езикови похвати за въздействие.",
+  "strategicIntent": "Вероятна цел на публикацията.",
+  "narrativeArchitecture": "Наративна структура — герои, злодеи, жертви.",
+  "technicalForensics": "Технически индикатори за достоверност.",
+  "socialImpactPrediction": "Вероятен ефект при широко разпространение.",
+  "recommendations": "3-4 препоръки с реални URL-и. САМО текст, не масив.",
   "factualClaims": [
     {
-      "claim": "Твърдението от текста (точно цитирано)",
-      "verdict": "TRUE" | "MOSTLY_TRUE" | "MIXED" | "MOSTLY_FALSE" | "FALSE" | "UNVERIFIABLE",
-      "evidence": "ИЗЧЕРПАТЕЛЕН анализ (мин. 50 думи). Сравни с други източници. Обясни защо е вярно/невярно. Дай контекст.",
-      "sources": ["URL 1", "URL 2"],
+      "claim": "Точен цитат от статията",
+      "verdict": "TRUE|MOSTLY_TRUE|MIXED|MOSTLY_FALSE|FALSE|UNVERIFIABLE",
+      "evidence": "Конкретен анализ, макс 60 думи.",
+      "sources": ["реален URL"],
       "confidence": 0.0,
-      "context": "Контекст в статията",
-      "logicalAnalysis": "Логически анализ на твърдението"
+      "context": "Контекст на твърдението.",
+      "logicalAnalysis": "Логически ли следва."
     }
   ],
   "manipulationTechniques": [
     {
-      "technique": "Кратко име на техниката",
-      "description": "Как точно е използвана тук. Анализирай думите.",
+      "technique": "Кратко название",
+      "description": "Как е приложена в статията.",
       "severity": 0.0,
-      "example": "Цитат",
-      "impact": "Ефект върху читателя",
-      "counterArgument": "Рационален контра-аргумент"
+      "example": "Цитат от статията",
+      "impact": "Психологически ефект.",
+      "counterArgument": "Рационален отговор."
     }
   ],
-  "finalInvestigativeReport": "Напиши DCGE Report със следната структура (Markdown). Бъди КОНСИСЕН и ТОЧЕН. Не надвишавай 2000 думи общо.\\n\\n# ИЗПЪЛНИТЕЛНО РЕЗЮМЕ\\n(Какво разкрихме? Защо е важно?)\\n\\n# СРАВНИТЕЛЕН МЕДИЕН АНАЛИЗ\\n(Сравни с 3 други източника. Какво липсва тук?)\\n\\n# ВЕРИФИКАЦИЯ НА ТВЪРДЕНИЯТА\\n(Кои твърдения издържат проверка? Кои не?)\\n\\n# АНАТОМИЯ НА МАНИПУЛАЦИЯТА\\n(Как работят разкритите манипулации?)\\n\\n# КОНТЕКСТ И ИМПЛИКАЦИИ\\n(Геополитически и социален контекст.)\\n\\n# ЗАКЛЮЧЕНИЕ\\n(DCGE Report ${new Date().toLocaleString('bg-BG', { dateStyle: 'long', timeStyle: 'short' })})"
-}
-
-ТЕКСТ НА СТАТИЯТА ЗА АНАЛИЗ:
-${content}
-
-ЛИНК КЪМ СТАТИЯТА:
-${url}`;
+  "commentsAnalysis": {
+    "found": true,
+    "source": "Disqus|Facebook|вградена|друго",
+    "totalAnalyzed": 0,
+    "sentiment": "positive|negative|neutral|mixed",
+    "polarizationIndex": 0.0,
+    "botActivitySuspicion": 0.0,
+    "dominantThemes": ["тема"],
+    "emotionalTone": "Преобладаващ тон.",
+    "keyOpinions": ["Мнение 1", "Мнение 2"],
+    "manipulationInComments": "Координирани модели или null",
+    "overallSummary": "2-3 изречения за дискусията."
+  },
+  "finalInvestigativeReport": "# DCGE РАЗУЗНАВАТЕЛЕН ДОКЛАД\\n\\n## ИЗПЪЛНИТЕЛНО РЕЗЮМЕ\\n\\n## СРАВНИТЕЛЕН МЕДИЕН АНАЛИЗ\\n\\n## ВЕРИФИКАЦИЯ НА ТВЪРДЕНИЯТА\\n\\n## МАНИПУЛАТИВНИ ТЕХНИКИ\\n\\n## ЗАКЛЮЧЕНИЕ\\nDCGE Report • ${reportDate}"
+}`;
 };

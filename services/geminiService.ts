@@ -178,16 +178,11 @@ const callGeminiStreamAPI = async (payload: any, token: string, onProgress?: (st
   return result;
 };
 
-/**
- * Get the appropriate prompt based on model
- * gemini-2.5-flash = both standard and deep analysis (unified model)
- * Note: We now use gemini-2.5-flash for all analysis modes
- */
-const getAnalysisPrompt = (url: string, type: 'video' | 'news', mode: AnalysisMode, transcript?: string, includeTranscription: boolean = true): string => {
+const getAnalysisPrompt = (url: string, mode: AnalysisMode, transcript?: string, includeTranscription: boolean = true): string => {
   if (mode === 'deep') {
-    return getDeepAnalysisPrompt(url, type, transcript, includeTranscription);
+    return getDeepAnalysisPrompt(url, 'video', transcript, includeTranscription);
   }
-  return getStandardAnalysisPrompt(url, type, transcript);
+  return getStandardAnalysisPrompt(url, 'video', transcript);
 };
 
 /**
@@ -654,7 +649,7 @@ export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTub
     const normalizedUrl = normalizeYouTubeUrl(url);
 
     // Strategy: Single API call - Gemini analyzes video AND extracts transcript in one go (when includeTranscription)
-    const prompt = getAnalysisPrompt(normalizedUrl, 'video', mode, undefined, includeTranscription) + (videoMetadata ? `\n\nVideo Context: Title: "${videoMetadata.title}", Author: "${videoMetadata.author}", Duration: ${videoMetadata.durationFormatted}.` : '');
+    const prompt = getAnalysisPrompt(normalizedUrl, mode, undefined, includeTranscription) + (videoMetadata ? `\n\nVideo Context: Title: "${videoMetadata.title}", Author: "${videoMetadata.author}", Duration: ${videoMetadata.durationFormatted}.` : '');
 
     const systemInstruction = includeTranscription
       ? "You are an ELITE fact-checker and investigative journalist with 20+ years of experience. Your mission is to create an EXCEPTIONAL, CRITICAL, and OBJECTIVE analysis that reveals all hidden viewpoints, manipulations, and facts. CRITICAL INSTRUCTIONS: 1) Extract ALL important claims, quotes, and manipulations from the video. 2) Extract FULL transcription from the video with timestamps. 3) Output all text in BULGARIAN. 4) Keep JSON Enum values in English. 5) Create a FINAL INVESTIGATIVE REPORT that is a masterpiece of journalism."
@@ -748,7 +743,7 @@ export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTub
 export const analyzeYouTubeBatch = async (url: string): Promise<AnalysisResponse> => {
   try {
     // Single API call - same as standard, just with batch flag
-    const prompt = getAnalysisPrompt(url, 'video', 'deep');
+    const prompt = getAnalysisPrompt(url, 'deep');
 
     const payload = {
       model: 'gemini-2.5-flash',
@@ -816,62 +811,6 @@ export const analyzeYouTubeBatch = async (url: string): Promise<AnalysisResponse
   }
 };
 
-/**
- * News article analysis
- */
-export const analyzeNewsLink = async (url: string): Promise<AnalysisResponse> => {
-  try {
-    const data = await callGeminiAPI({
-      model: 'gemini-2.5-flash',
-      prompt: getAnalysisPrompt(url, 'news', 'standard') + `\n\nNews URL: ${url}`,
-      systemInstruction: 'You are a professional fact-checker. You MUST answer in Bulgarian language only. Translate any analysis to Bulgarian.'
-    });
-
-    // Validate response before parsing
-    if (!data.text || typeof data.text !== 'string') {
-      throw new Error('Gemini API не върна валиден отговор');
-    }
-
-    const cleanedText = cleanJsonResponse(data.text);
-
-    if (!cleanedText) {
-      throw new Error('Не може да се извлече JSON от отговора на Gemini API');
-    }
-
-    let rawResponse: any;
-    try {
-      rawResponse = JSON.parse(cleanedText);
-    } catch (parseError: any) {
-      console.error('[GeminiService] JSON parse error:', parseError?.message || parseError);
-      throw new Error('Gemini API върна невалиден JSON формат. Моля, опитайте отново.');
-    }
-    const parsed = transformGeminiResponse(rawResponse, 'gemini-2.5-flash');
-
-    const usage: APIUsage = {
-      promptTokens: data.usageMetadata?.promptTokenCount || 0,
-      candidatesTokens: data.usageMetadata?.candidatesTokenCount || 0,
-      totalTokens: data.usageMetadata?.totalTokenCount || 0,
-      estimatedCostUSD: calculateCostFromPricing(
-        'gemini-2.5-flash',
-        data.usageMetadata?.promptTokenCount || 0,
-        data.usageMetadata?.candidatesTokenCount || 0,
-        false
-      ),
-      pointsCost: data.points?.costInPoints || calculateCostInPoints(
-        'gemini-2.5-flash',
-        data.usageMetadata?.promptTokenCount || 0,
-        data.usageMetadata?.candidatesTokenCount || 0,
-        false
-      )
-    };
-
-    parsed.pointsCost = usage.pointsCost;
-    return { analysis: parsed, usage };
-  } catch (e: any) {
-    const appError = handleApiError(e);
-    throw appError;
-  }
-};
 
 /**
  * Synthesize a professional report from analysis data

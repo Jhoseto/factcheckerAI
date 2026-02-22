@@ -5,7 +5,7 @@ import { analyzeYouTubeStandard } from '../services/geminiService';
 import { getYouTubeMetadata } from '../services/youtubeMetadataService';
 import { getAllCostEstimates } from '../services/costEstimationService';
 import { validateYouTubeUrl, validateNewsUrl } from '../services/validation';
-import { scrapeLink, analyzeLinkDeep } from '../services/linkAudit/linkService';
+import { analyzeLinkDeep } from '../services/linkAudit/linkService';
 import { FIXED_PRICES } from '../config/pricingConfig';
 import type { AnalysisMode, YouTubeVideoMetadata, CostEstimate } from '../types';
 import MobileSafeArea from './components/MobileSafeArea';
@@ -142,8 +142,7 @@ const MobileAudit: React.FC = () => {
     setError(null);
     setElapsedSeconds(0);
     try {
-      const scraped = await scrapeLink(linkUrl);
-      const { analysis: result, usage } = await analyzeLinkDeep(linkUrl, scraped.content, scraped.title, (status) => {
+      const { analysis: result, usage } = await analyzeLinkDeep(linkUrl, (status) => {
         setStreamingProgress(status);
       });
       if (usage?.newBalance !== undefined) updateLocalBalance(usage.newBalance);

@@ -66,7 +66,7 @@ const MobileBottomNav: React.FC = () => {
 
   return (
     <nav
-      className="mobile-bottom-nav fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200"
+      className="mobile-bottom-nav fixed bottom-0 left-0 right-0 z-50 bg-[#1a1a1a] border-t border-[#c9a227]/25"
       style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 8px)' }}
     >
       <div className="flex items-end h-16 px-2">
@@ -79,10 +79,10 @@ const MobileBottomNav: React.FC = () => {
                 key={to}
                 to={to}
                 className={`flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors touch-manipulation ${
-                  isActive ? 'text-amber-900' : 'text-slate-400'
+                  isActive ? 'text-[#c9a227]' : 'text-[#a3a3a3]'
                 }`}
               >
-                <span className={isActive ? 'text-amber-900' : ''}>{icon}</span>
+                <span className={isActive ? 'text-[#c9a227]' : ''}>{icon}</span>
                 <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>
               </NavLink>
             );
@@ -95,12 +95,12 @@ const MobileBottomNav: React.FC = () => {
             <NavLink
               to={homeItem.to}
               className={`flex items-end justify-center h-full transition-all touch-manipulation relative ${
-                location.pathname === homeItem.to ? 'text-amber-900' : 'text-slate-400'
+                location.pathname === homeItem.to ? 'text-[#c9a227]' : 'text-[#a3a3a3]'
               }`}
             >
               <div className={`relative -mt-1 ${location.pathname === homeItem.to ? 'scale-110' : 'scale-100'} transition-transform duration-200`}>
-                <div className={`absolute inset-0 rounded-full ${location.pathname === homeItem.to ? 'bg-amber-50' : ''} -z-10 transition-colors duration-200`} style={{ transform: 'scale(1.5)' }}></div>
-                <span className={location.pathname === homeItem.to ? 'text-amber-900' : ''}>{homeItem.icon}</span>
+                <div className={`absolute inset-0 rounded-full ${location.pathname === homeItem.to ? 'bg-[#c9a227]/20' : ''} -z-10 transition-colors duration-200`} style={{ transform: 'scale(1.5)' }}></div>
+                <span className={location.pathname === homeItem.to ? 'text-[#c9a227]' : ''}>{homeItem.icon}</span>
               </div>
             </NavLink>
           </div>
@@ -115,10 +115,10 @@ const MobileBottomNav: React.FC = () => {
                 key={to}
                 to={to}
                 className={`flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors touch-manipulation ${
-                  isActive ? 'text-amber-900' : 'text-slate-400'
+                  isActive ? 'text-[#c9a227]' : 'text-[#a3a3a3]'
                 }`}
               >
-                <span className={isActive ? 'text-amber-900' : ''}>{icon}</span>
+                <span className={isActive ? 'text-[#c9a227]' : ''}>{icon}</span>
                 <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>
               </NavLink>
             );

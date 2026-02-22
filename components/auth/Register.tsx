@@ -1,286 +1,193 @@
 import React, { useState } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '../../services/firebase';
+import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 
 const Register: React.FC = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [displayName, setDisplayName] = useState('');
-    const [agreedToTerms, setAgreedToTerms] = useState(false);
-    const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const { signup, loginWithGoogle } = useAuth();
+    const [error, setError] = useState<string | null>(null);
+    const [agreedToTerms, setAgreedToTerms] = useState(false);
+    const { signup } = useAuth();
     const navigate = useNavigate();
 
-    const validatePassword = (pass: string): string | null => {
-        if (pass.length < 8) return 'Паролата трябва да е поне 8 символа';
-        if (!/[A-Z]/.test(pass)) return 'Паролата трябва да съдържа главна буква';
-        if (!/[a-z]/.test(pass)) return 'Паролата трябва да съдържа малка буква';
-        if (!/[0-9]/.test(pass)) return 'Паролата трябва да съдържа цифра';
-        return null;
+    const getPasswordStrength = (pass: string) => {
+        let strength = 0;
+        if (pass.length > 5) strength += 20;
+        if (pass.length > 8) strength += 20;
+        if (/[A-Z]/.test(pass)) strength += 20;
+        if (/[0-9]/.test(pass)) strength += 20;
+        if (/[^A-Za-z0-9]/.test(pass)) strength += 20;
+        return {
+            strength,
+            label: strength < 40 ? 'WEAK' : strength < 70 ? 'MEDIUM' : 'STRONG'
+        };
     };
+
+    const passwordStrength = getPasswordStrength(password);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-
-        if (!email || !password || !confirmPassword || !displayName) {
-            setError('Моля, попълнете всички полета');
-            return;
-        }
-
-        if (!agreedToTerms) {
-            setError('Трябва да приемете условията за ползване');
-            return;
-        }
-
-        const passwordError = validatePassword(password);
-        if (passwordError) {
-            setError(passwordError);
-            return;
-        }
-
-        if (password !== confirmPassword) {
-            setError('Паролите не съвпадат');
-            return;
-        }
-
-        setError('');
-        setLoading(true);
+        if (password !== confirmPassword) return setError('Passwords do not match');
+        if (!agreedToTerms) return setError('Please accept the protocols');
 
         try {
-            await signup(email, password, displayName);
+            setError(null);
+            setLoading(true);
+            const userCredential = await signup(email, password);
+            const user = userCredential.user;
+            await setDoc(doc(db, 'users', user.uid), {
+                email: user.email,
+                displayName: displayName || user.email?.split('@')[0],
+                pointsBalance: 10,
+                createdAt: new Date().toISOString(),
+                subscriptionTier: 'free',
+                totalAudits: 0
+            });
             navigate('/');
         } catch (err: any) {
-            console.error('[Register Error]', err);
-            if (err.code === 'auth/email-already-in-use') {
-                setError('Този имейл вече е регистриран. Моля, използвайте друг или влезте в съществуващ акаунт.');
-            } else {
-                setError('Грешка при регистрация. Моля, опитайте отново.');
-            }
+            setError('Error: ' + err.message);
         } finally {
             setLoading(false);
         }
     };
 
     const handleGoogleSignup = async () => {
-        setError('');
-        setLoading(true);
-
         try {
-            await loginWithGoogle();
+            setError(null);
+            setLoading(true);
+            const provider = new GoogleAuthProvider();
+            const result = await signInWithPopup(useAuth().auth, provider);
+            const user = result.user;
+            await setDoc(doc(db, 'users', user.uid), {
+                email: user.email,
+                displayName: user.displayName,
+                photoURL: user.photoURL,
+                pointsBalance: 10,
+                createdAt: new Date().toISOString(),
+                subscriptionTier: 'free'
+            }, { merge: true });
             navigate('/');
         } catch (err: any) {
-            console.error('[Google Register Error]', err);
-            setError('Грешка при регистрация с Google. Моля, опитайте отново.');
+            setError('Google Signup Error: ' + err.message);
         } finally {
             setLoading(false);
         }
     };
 
-    const getPasswordStrength = (pass: string): { strength: number; label: string; color: string } => {
-        if (!pass) return { strength: 0, label: '', color: '' };
-
-        let strength = 0;
-        if (pass.length >= 8) strength += 25;
-        if (pass.length >= 12) strength += 25;
-        if (/[A-Z]/.test(pass)) strength += 15;
-        if (/[a-z]/.test(pass)) strength += 15;
-        if (/[0-9]/.test(pass)) strength += 10;
-        if (/[^A-Za-z0-9]/.test(pass)) strength += 10;
-
-        if (strength < 40) return { strength, label: 'Слаба', color: 'bg-red-600' };
-        if (strength < 70) return { strength, label: 'Средна', color: 'bg-yellow-600' };
-        return { strength, label: 'Силна', color: 'bg-emerald-600' };
-    };
-
-    const passwordStrength = getPasswordStrength(password);
-
     return (
-        <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-slate-50 via-amber-50/30 to-slate-50 py-12">
-            <div className="max-w-md w-full space-y-8 animate-fadeIn">
-                {/* Logo/Header */}
-                <div className="text-center">
-                    <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900 uppercase mb-2 serif italic flex items-center justify-center gap-2">
-                        <span>FACTCHECKER</span>
-                        <span className="bg-amber-900 text-white px-2 py-1 rounded-sm text-xl font-black">AI</span>
+        <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden py-10">
+            <div className="premium-bg-wrapper">
+                <div className="premium-wave-1"></div>
+                <div className="premium-wave-2"></div>
+                <div className="premium-wave-3"></div>
+                <div className="premium-texture"></div>
+            </div>
+            
+            <div className="max-w-md w-full space-y-8 animate-fadeUp relative z-10">
+                <div className="text-center space-y-2">
+                    <h1 className="text-3xl font-serif tracking-[0.2em] text-bronze-gradient uppercase">
+                        FACTCHECKER
                     </h1>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Регистрация</p>
+                    <p className="text-[9px] font-bold text-[#666] uppercase tracking-[0.4em]">New Agent Protocol</p>
                 </div>
 
-                {/* Register Card */}
-                <div className="editorial-card p-8 space-y-6 border-b-4 border-b-amber-900 animate-slideUp">
+                <div className="editorial-card p-10 space-y-8 bg-[#151515]/80 backdrop-blur-md">
                     {error && (
-                        <div className="p-4 bg-red-50 border-l-4 border-red-600 animate-shake">
-                            <p className="text-sm font-bold text-red-900">{error}</p>
+                         <div className="p-4 bg-red-900/10 border border-red-900/30 text-red-400 text-[10px] uppercase tracking-widest text-center font-bold">
+                            {error}
                         </div>
                     )}
 
                     <form onSubmit={handleSubmit} className="space-y-5">
-                        <div className="space-y-2">
-                            <label className="text-xs font-black text-slate-900 uppercase tracking-wider">
-                                Име
-                            </label>
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-[#666] uppercase tracking-widest pl-1">Codename</label>
                             <input
                                 type="text"
                                 value={displayName}
                                 onChange={(e) => setDisplayName(e.target.value)}
-                                className="w-full bg-slate-50 border-2 border-slate-200 p-4 font-semibold text-sm outline-none focus:border-amber-900 transition-all focus:ring-4 focus:ring-amber-900/10 rounded-sm"
-                                placeholder="Вашето име"
+                                className="w-full bg-[#121212] border border-[#222] p-4 text-xs text-[#E0E0E0] outline-none focus:border-[#968B74] transition-all rounded-sm placeholder:text-[#333] tracking-wide"
+                                placeholder="Agent Name"
                                 disabled={loading}
                             />
                         </div>
-
-                        <div className="space-y-2">
-                            <label className="text-xs font-black text-slate-900 uppercase tracking-wider">
-                                Email
-                            </label>
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-[#666] uppercase tracking-widest pl-1">Email</label>
                             <input
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                className="w-full bg-slate-50 border-2 border-slate-200 p-4 font-semibold text-sm outline-none focus:border-amber-900 transition-all focus:ring-4 focus:ring-amber-900/10 rounded-sm"
-                                placeholder="your@email.com"
+                                className="w-full bg-[#121212] border border-[#222] p-4 text-xs text-[#E0E0E0] outline-none focus:border-[#968B74] transition-all rounded-sm placeholder:text-[#333] tracking-wide"
+                                placeholder="name@agency.com"
                                 disabled={loading}
                             />
                         </div>
-
-                        <div className="space-y-2">
-                            <label className="text-xs font-black text-slate-900 uppercase tracking-wider">
-                                Парола
-                            </label>
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-[#666] uppercase tracking-widest pl-1">Passcode</label>
                             <input
                                 type="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full bg-slate-50 border-2 border-slate-200 p-4 font-semibold text-sm outline-none focus:border-amber-900 transition-all focus:ring-4 focus:ring-amber-900/10 rounded-sm"
+                                className="w-full bg-[#121212] border border-[#222] p-4 text-xs text-[#E0E0E0] outline-none focus:border-[#968B74] transition-all rounded-sm placeholder:text-[#333] tracking-wide"
                                 placeholder="••••••••"
                                 disabled={loading}
                             />
-                            {password && (
-                                <div className="space-y-1">
-                                    <div className="flex justify-between text-xs">
-                                        <span className="font-bold text-slate-600">Сила на паролата:</span>
-                                        <span className={`font-black ${passwordStrength.strength >= 70 ? 'text-emerald-600' : passwordStrength.strength >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>
-                                            {passwordStrength.label}
-                                        </span>
+                             {password && (
+                                <div className="flex items-center gap-2 mt-2 px-1">
+                                    <div className="flex-1 h-[2px] bg-[#222] overflow-hidden rounded-full">
+                                        <div className={`h-full transition-all duration-500 ${passwordStrength.strength >= 70 ? 'bg-emerald-600' : 'bg-[#968B74]'}`} style={{ width: `${passwordStrength.strength}%` }}></div>
                                     </div>
-                                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                                        <div
-                                            className={`h-full ${passwordStrength.color} transition-all duration-300`}
-                                            style={{ width: `${passwordStrength.strength}%` }}
-                                        />
-                                    </div>
+                                    <span className="text-[8px] font-bold uppercase tracking-wider text-[#666]">{passwordStrength.label}</span>
                                 </div>
                             )}
                         </div>
-
-                        <div className="space-y-2">
-                            <label className="text-xs font-black text-slate-900 uppercase tracking-wider">
-                                Потвърдете паролата
-                            </label>
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-[#666] uppercase tracking-widest pl-1">Confirm</label>
                             <input
                                 type="password"
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
-                                className="w-full bg-slate-50 border-2 border-slate-200 p-4 font-semibold text-sm outline-none focus:border-amber-900 transition-all focus:ring-4 focus:ring-amber-900/10 rounded-sm"
+                                className="w-full bg-[#121212] border border-[#222] p-4 text-xs text-[#E0E0E0] outline-none focus:border-[#968B74] transition-all rounded-sm placeholder:text-[#333] tracking-wide"
                                 placeholder="••••••••"
                                 disabled={loading}
                             />
                         </div>
-
-                        <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-sm">
+                        
+                        <div className="flex items-start gap-3 p-4 bg-[#121212] rounded-sm border border-[#222]">
                             <input
                                 type="checkbox"
                                 id="terms"
                                 checked={agreedToTerms}
                                 onChange={(e) => setAgreedToTerms(e.target.checked)}
-                                className="mt-1 w-4 h-4 accent-amber-900"
+                                className="mt-1 w-3 h-3 accent-[#968B74]"
                                 disabled={loading}
                             />
-                            <label htmlFor="terms" className="text-xs text-slate-700 leading-relaxed">
-                                Приемам{' '}
-                                <a href="#" className="font-black text-amber-900 hover:text-amber-950 underline">
-                                    Условията за ползване
-                                </a>{' '}
-                                и{' '}
-                                <a href="#" className="font-black text-amber-900 hover:text-amber-950 underline">
-                                    Политиката за поверителност
-                                </a>
+                            <label htmlFor="terms" className="text-[9px] text-[#666] leading-relaxed tracking-wide uppercase">
+                                I accept the <a href="#" className="text-[#968B74] hover:text-[#E6D2A8] border-b border-[#968B74]/30">Protocol Terms</a>
                             </label>
                         </div>
 
                         <button
                             type="submit"
                             disabled={loading}
-                            className={`w-full p-4 text-xs font-black uppercase tracking-widest transition-all shadow-lg ${loading
-                                ? 'bg-slate-400 text-slate-200 cursor-not-allowed'
-                                : 'bg-amber-900 text-white hover:bg-amber-950 active:scale-[0.98] hover:shadow-xl'
-                                }`}
+                            className="w-full btn-luxury-solid py-4 text-[10px] font-black uppercase tracking-[0.25em] rounded-sm transition-transform active:scale-[0.98] mt-2"
                         >
-                            {loading ? 'ЗАРЕЖДАНЕ...' : 'РЕГИСТРАЦИЯ'}
+                            {loading ? 'Processing...' : 'INITIALIZE'}
                         </button>
                     </form>
 
-                    {/* Divider */}
-                    <div className="relative">
-                        <div className="absolute inset-0 flex items-center">
-                            <div className="w-full border-t border-slate-200"></div>
-                        </div>
-                        <div className="relative flex justify-center text-xs">
-                            <span className="px-4 bg-white text-slate-400 font-bold uppercase tracking-wider">или</span>
-                        </div>
-                    </div>
-
-                    {/* Google Signup */}
-                    <button
-                        onClick={handleGoogleSignup}
-                        disabled={loading}
-                        className="w-full p-4 bg-white border-2 border-slate-200 text-slate-900 font-black text-xs uppercase tracking-wider hover:border-slate-900 hover:shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-3 group"
-                    >
-                        <svg className="w-5 h-5 group-hover:scale-110 transition-transform" viewBox="0 0 24 24">
-                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                        </svg>
-                        РЕГИСТРАЦИЯ С GOOGLE
-                    </button>
-
-                    {/* Login Link */}
-                    <div className="text-center pt-4 border-t border-slate-100">
-                        <p className="text-xs text-slate-600">
-                            Вече имате акаунт?{' '}
-                            <a
-                                href="/login"
-                                className="font-black text-amber-900 hover:text-amber-950 uppercase tracking-wider transition-colors"
-                            >
-                                Влезте
-                            </a>
+                     <div className="text-center pt-4 border-t border-[#222]">
+                        <p className="text-[9px] text-[#666] tracking-wide">
+                            Have clearance? <a href="/login" className="text-[#968B74] font-bold hover:text-[#E6D2A8] uppercase transition-colors ml-1 border-b border-[#968B74]/30">Login</a>
                         </p>
                     </div>
                 </div>
-
-                <p className="text-center text-xs text-slate-400 italic">
-                    Ще получите имейл за потвърждение след регистрация
-                </p>
             </div>
-
-            <style>{`
-        @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        .animate-slideUp {
-          animation: slideUp 0.6s ease-out forwards;
-        }
-      `}</style>
         </div>
     );
 };

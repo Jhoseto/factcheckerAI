@@ -33,10 +33,10 @@ const AppRouter: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-amber-50/30 to-slate-50">
-                <div className="text-center space-y-4">
-                    <div className="w-16 h-16 border-4 border-slate-200 border-t-amber-900 rounded-full animate-spin mx-auto"></div>
-                    <p className="text-sm font-black text-slate-900 uppercase tracking-widest">Зареждане...</p>
+            <div className="min-h-screen flex items-center justify-center bg-[#222]">
+                <div className="text-center space-y-6">
+                    <div className="w-16 h-16 border-4 border-[#333] border-t-[#968B74] rounded-full animate-spin mx-auto shadow-[0_0_30px_rgba(150,139,116,0.2)]"></div>
+                    <p className="text-sm font-black text-[#968B74] uppercase tracking-widest animate-pulse">Зареждане...</p>
                 </div>
             </div>
         );

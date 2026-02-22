@@ -116,66 +116,31 @@ function validateJsonResponse(responseText, serviceType = 'link') {
     trimmed = trimmed.replace(/\/\*[\s\S]*?\*\//g, '');
     const beforeSanitize = trimmed;
 
-    // Step 5: Sanitize control characters and fix string escaping
-    let sanitized = '';
-    let inString = false;
-    let escapeNext = false;
-    
-    for (let i = 0; i < trimmed.length; i++) {
-        const ch = trimmed[i];
-        const code = trimmed.charCodeAt(i);
-        
-        // Handle escape sequences
-        if (inString && ch === '\\') {
+    // Step 5: Escape unescaped control characters (newlines, tabs, CR) inside string values.
+    // Uses a simple state machine that tracks whether we're inside a JSON string.
+    {
+        let sanitized = '';
+        let inStr = false;
+        let esc = false;
+        for (let i = 0; i < trimmed.length; i++) {
+            const ch = trimmed[i];
+            const code = trimmed.charCodeAt(i);
+            if (esc) { sanitized += ch; esc = false; continue; }
+            if (ch === '\\' && inStr) { sanitized += ch; esc = true; continue; }
+            if (ch === '"') { inStr = !inStr; sanitized += ch; continue; }
+            if (inStr && code < 0x20) {
+                switch (code) {
+                    case 0x0A: sanitized += '\\n'; break;
+                    case 0x0D: sanitized += '\\r'; break;
+                    case 0x09: sanitized += '\\t'; break;
+                    default: sanitized += '\\u' + code.toString(16).padStart(4, '0'); break;
+                }
+                continue;
+            }
             sanitized += ch;
-            i++;
-            if (i < trimmed.length) {
-                sanitized += trimmed[i];
-            }
-            continue;
         }
-        
-        // Handle quotes
-        if (ch === '"') {
-            if (!inString) {
-                inString = true;
-                sanitized += ch;
-            } else {
-                // Check if this is a closing quote or internal quote
-                let lookAhead = i + 1;
-                while (lookAhead < trimmed.length && /\s/.test(trimmed[lookAhead])) {
-                    lookAhead++;
-                }
-                const nextChar = lookAhead < trimmed.length ? trimmed[lookAhead] : '';
-                
-                if (nextChar === ':' || nextChar === ',' || nextChar === '}' || nextChar === ']' || nextChar === '') {
-                    inString = false;
-                    sanitized += ch;
-                } else {
-                    // Internal quote - escape it
-                    sanitized += '\\"';
-                }
-            }
-            continue;
-        }
-        
-        // Handle control characters in strings
-        if (inString && code < 0x20) {
-            switch (code) {
-                case 0x0A: sanitized += '\\n'; break;
-                case 0x0D: sanitized += '\\r'; break;
-                case 0x09: sanitized += '\\t'; break;
-                case 0x08: sanitized += '\\b'; break;
-                case 0x0C: sanitized += '\\f'; break;
-                default: sanitized += '\\u' + code.toString(16).padStart(4, '0'); break;
-            }
-            continue;
-        }
-        
-        sanitized += ch;
+        trimmed = sanitized.trim();
     }
-    
-    trimmed = sanitized.trim();
 
     // Step 6: Try to parse (with fallback to pre-sanitize if sanitizer broke it)
     let parsed;
@@ -256,7 +221,13 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
         }
 
         // ── Build request ─────────────────────────────────────────────────────
-        const tools = (isDeepMode || enableGoogleSearch) ? [{ googleSearch: {} }] : undefined;
+        let tools;
+        if (serviceType === 'linkArticle') {
+            // urlContext lets Gemini fetch the URL itself; combine with Search for fact-checking
+            tools = [{ urlContext: {} }, { googleSearch: {} }];
+        } else if (isDeepMode || enableGoogleSearch) {
+            tools = [{ googleSearch: {} }];
+        }
         const contents = [];
 
         if (videoUrl) {
@@ -274,9 +245,8 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
         // ── Generate with retry for incomplete responses ──────────────────────────
         let responseText = '';
         let usage = null;
-        // Reduce max retries to avoid long waits (7+ mins). 
-        // We rely on safeJsonParse to fix minor truncations.
-        const maxRetries = 1;
+        // Extra retries only for link analysis (larger JSON); video stays at 1 to avoid long waits
+        const maxRetries = (serviceType === 'linkArticle') ? 2 : 1;
         let lastValidation = null;
 
         for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -459,7 +429,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
                 : [{ text: prompt }]
         }];
 
-        sendSSE('progress', { status: 'Изпращане на заявка към AI...' });
+        sendSSE('progress', { status: 'Стартиране на DCGE модела...' });
 
         // Enhanced system instruction for Deep mode with tools
         let enhancedSystemInstruction = systemInstruction;
