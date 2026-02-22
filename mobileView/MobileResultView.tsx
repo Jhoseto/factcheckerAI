@@ -3,7 +3,7 @@ import type { VideoAnalysis } from '../types';
 import MobileHeader from './components/MobileHeader';
 import ReliabilityChart from '../components/ReliabilityChart';
 
-type TabId = 'summary' | 'claims' | 'manipulation' | 'transcript' | 'report' | 'visual' | 'bodyLanguage' | 'vocal' | 'deception' | 'humor' | 'psychological' | 'cultural';
+type TabId = 'summary' | 'claims' | 'manipulation' | 'report' | 'visual' | 'bodyLanguage' | 'vocal' | 'deception' | 'humor' | 'psychological' | 'cultural';
 
 interface MobileResultViewProps {
   analysis: VideoAnalysis;
@@ -33,7 +33,6 @@ const MobileResultView: React.FC<MobileResultViewProps> = ({ analysis, reportLoa
     { id: 'summary', label: 'Резюме' },
     { id: 'claims', label: 'Твърдения' },
     { id: 'manipulation', label: 'Манипулация' },
-    { id: 'transcript', label: 'Транскрипт' },
   ];
   const deepTabs: { id: TabId; label: string }[] = analysis.analysisMode === 'deep'
     ? [
@@ -226,20 +225,6 @@ const MobileResultView: React.FC<MobileResultViewProps> = ({ analysis, reportLoa
                   </div>
                 );
               })}
-            </div>
-          )}
-
-          {activeTab === 'transcript' && (
-            <div className="space-y-2 mobile-fade-in">
-              {(analysis.transcription || []).map((line, idx) => (
-                <div key={idx} className="flex gap-3 py-3 border-b border-slate-100 last:border-0">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest shrink-0 w-12">{line.timestamp}</span>
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-black text-amber-900 uppercase tracking-wider">{line.speaker}</p>
-                    <p className="text-sm text-slate-800 leading-relaxed serif mt-0.5">{line.text}</p>
-                  </div>
-                </div>
-              ))}
             </div>
           )}
 

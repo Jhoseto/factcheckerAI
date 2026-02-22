@@ -2,7 +2,7 @@
  * Standard Analysis Prompt - used with gemini-2.5-flash
  * Provides comprehensive analysis with moderate detail level
  */
-export const getStandardAnalysisPrompt = (url: string, type: 'video' | 'news', transcript?: string): string => {
+export const getStandardAnalysisPrompt = (url: string, type: 'video' | 'news'): string => {
   return `Ти си елитен фактчекър, разследващ журналист и медиен аналитик с над 20 години опит. Твоята задача е да направиш ПРОФЕСИОНАЛЕН, КРИТИЧЕН и ОБЕКТИВЕН анализ на ${type === 'video' ? 'видео' : 'статия'}, който да разкрие всички скрити гледни точки, манипулации и факти.
 
 ТВОЯТА МИСИЯ: Разкрий истината. Намери всички манипулации. Провери всяко твърдение. Дай на потребителя ИЗКЛЮЧИТЕЛНА информация която да му помогне да разбере реалността.
@@ -102,8 +102,6 @@ export const getStandardAnalysisPrompt = (url: string, type: 'video' | 'news', t
 - Оцени потенциалното социално въздействие
 - Идентифицирай засегнатите групи
 - Предложи прогноза за разпространение
-
-${transcript ? `\n\n=== ТРАНСКРИПЦИЯ (ИЗПОЛЗВАЙ Я КАТО ОСНОВЕН ИЗТОЧНИК) ===\n${transcript}\n\nВАЖНО: Всички твърдения, цитати и манипулации ТРЯБВА да са базирани на тази транскрипция. НЕ измисляй факти които не са в транскрипцията!` : ''}
 
 Върни резултата като JSON в следния формат:
 {

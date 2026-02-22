@@ -258,7 +258,7 @@ import ShareModal from '../ShareModal';
 
 const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoading, onSaveToArchive, onReset, slotUsage, isSaved = false }) => {
     const { currentUser } = useAuth();
-    const [activeTab, setActiveTab] = useState<'summary' | 'claims' | 'manipulation' | 'transcript' | 'report' | 'visual' | 'bodyLanguage' | 'vocal' | 'deception' | 'humor' | 'psychological' | 'cultural'>('summary');
+    const [activeTab, setActiveTab] = useState<'summary' | 'claims' | 'manipulation' | 'report' | 'visual' | 'bodyLanguage' | 'vocal' | 'deception' | 'humor' | 'psychological' | 'cultural'>('summary');
     const [isExporting, setIsExporting] = useState(false);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const fullReportRef = React.useRef<HTMLElement>(null);
@@ -370,8 +370,7 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
         const baseTabsBefore = [
             { id: 'summary', label: 'Резюме' },
             { id: 'claims', label: 'Твърдения' },
-            { id: 'manipulation', label: 'Манипулация' },
-            { id: 'transcript', label: 'Транскрипт' }
+            { id: 'manipulation', label: 'Манипулация' }
         ];
         const deepTabs = analysis.analysisMode === 'deep' ? [
             { id: 'visual', label: 'Визуален' }, { id: 'bodyLanguage', label: 'Тяло' }, { id: 'vocal', label: 'Вокал' },
@@ -533,32 +532,6 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
                                                     <p className="font-black uppercase text-[#7cb87c] text-[9px] mb-1 tracking-widest">Как да се защитим:</p>
                                                     <p className="text-[#ccc] leading-[1.6]">{m.counterArgument || 'Проверка на първоизточници и критично мислене.'}</p>
                                                 </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
-
-                    {activeTab === 'transcript' && (
-                        <div className="editorial-card p-6 md:p-10 animate-fadeIn border-l-2 border-l-[#968B74]">
-                            <div className="mb-6 pb-4 border-b border-[#333]">
-                                <h3 className="text-[9px] font-black text-[#968B74] uppercase tracking-widest mb-2">Пълна транскрипция</h3>
-                                <p className="text-xs text-[#666]">Реалните имена на участниците са извлечени от видеото. Ако името не е споменато, се използва 'Speaker 1', 'Speaker 2' и т.н.</p>
-                            </div>
-                            <div className="max-w-2xl mx-auto space-y-8 text-sm">
-                                {analysis.transcription.map((line, idx) => {
-                                    const isRealName = line.speaker && !line.speaker.match(/^Speaker\s*\d+$/i) && !line.speaker.includes('Система');
-                                    return (
-                                        <div key={idx} className="flex gap-6 group hover:bg-[#252525]/50 p-3 -m-3 rounded transition-colors">
-                                            <span className="text-[9px] font-black text-[#555] uppercase tracking-widest w-12 pt-1 shrink-0">{line.timestamp}</span>
-                                            <div className="space-y-1 flex-1">
-                                                <span className={`text-[8px] font-black uppercase tracking-widest ${isRealName ? 'text-[#7cb87c]' : 'text-[#968B74]'}`}>
-                                                    {line.speaker}
-                                                    {isRealName && <span className="ml-2 text-[7px] text-[#5a9a5a]">(Реално име)</span>}
-                                                </span>
-                                                <p className="text-[15px] text-[#ddd] leading-[1.6] font-sans font-medium">{line.text}</p>
                                             </div>
                                         </div>
                                     );

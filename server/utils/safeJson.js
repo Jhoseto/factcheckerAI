@@ -22,30 +22,42 @@ function countBracesOutsideStrings(text, open, close) {
 
 /**
  * Escape literal control characters (newline, tab, CR) that appear
- * inside JSON string values (i.e. between unescaped double quotes).
+ * inside JSON string values. Uses look-ahead to handle unescaped
+ * internal quotes (e.g. "He said "hello" to me").
  */
 function escapeControlCharsInStrings(text) {
     let result = '';
     let inString = false;
-    let escaped = false;
+
     for (let i = 0; i < text.length; i++) {
         const ch = text[i];
         const code = text.charCodeAt(i);
-        if (escaped) {
+
+        if (inString && ch === '\\') {
             result += ch;
-            escaped = false;
+            i++;
+            if (i < text.length) result += text[i];
             continue;
         }
-        if (ch === '\\' && inString) {
-            result += ch;
-            escaped = true;
-            continue;
-        }
+
         if (ch === '"') {
-            inString = !inString;
-            result += ch;
+            if (!inString) {
+                inString = true;
+                result += ch;
+            } else {
+                let la = i + 1;
+                while (la < text.length && /\s/.test(text[la])) la++;
+                const next = la < text.length ? text[la] : '';
+                if (next === ':' || next === ',' || next === '}' || next === ']' || next === '') {
+                    inString = false;
+                    result += ch;
+                } else {
+                    result += '\\"';
+                }
+            }
             continue;
         }
+
         if (inString && code < 0x20) {
             switch (code) {
                 case 0x0A: result += '\\n'; break;
@@ -55,6 +67,7 @@ function escapeControlCharsInStrings(text) {
             }
             continue;
         }
+
         result += ch;
     }
     return result;

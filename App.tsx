@@ -26,7 +26,6 @@ const App: React.FC = () => {
   const navigate = useNavigate();
 
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode | null>(null);
-  const [includeTranscription, setIncludeTranscription] = useState(true);
   const [videoMetadata, setVideoMetadata] = useState<YouTubeVideoMetadata | null>(null);
   const [costEstimates, setCostEstimates] = useState<Record<AnalysisMode, CostEstimate> | null>(null);
   const [fetchingMetadata, setFetchingMetadata] = useState(false);
@@ -78,7 +77,7 @@ const App: React.FC = () => {
     setAnalysis(null);
     
     try {
-      const response = await analyzeYouTubeStandard(url, videoMetadata || undefined, 'gemini-2.5-flash', analysisMode || 'standard', setStreamingProgress, includeTranscription);
+      const response = await analyzeYouTubeStandard(url, videoMetadata || undefined, 'gemini-2.5-flash', analysisMode || 'standard', setStreamingProgress);
       navigate('/analysis-result', { state: { analysis: response.analysis, type: 'video', url: youtubeUrl } });
       if (response.usage?.newBalance !== undefined) updateLocalBalance(response.usage.newBalance);
       else refreshProfile();
@@ -230,24 +229,6 @@ const App: React.FC = () => {
                             </button>
                             <div className="video-mode-tooltip absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2.5 rounded-lg border border-[#968B74]/30 bg-[#1a1a1a] shadow-xl opacity-0 invisible scale-95 translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-hover:translate-y-0 transition-all duration-200 ease-out pointer-events-none z-20 w-56 text-left">
                               <p className="text-[11px] text-[#C4B091]/95 leading-relaxed">Пълен мултимодален одит: визуален, вокален и език на тялото, психологически профил и разширен доклад. За максимална дълбочина.</p>
-                              <span className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-[#1a1a1a]" />
-                            </div>
-                          </div>
-                        </div>
-                        <div className="mt-4 pt-4 border-t border-[#333] flex items-center justify-center gap-2">
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={includeTranscription}
-                              onChange={(e) => setIncludeTranscription(e.target.checked)}
-                              className="w-4 h-4 rounded border-[#555] bg-[#252525] text-[#968B74] focus:ring-[#968B74]/50"
-                            />
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-[#888]">Включи транскрипция</span>
-                          </label>
-                          <div className="group/trans relative inline-flex">
-                            <span className="inline-flex w-4 h-4 items-center justify-center rounded-full border border-[#555] text-[#666] text-[10px] font-bold cursor-help hover:border-[#968B74]/50 hover:text-[#968B74] transition-colors">?</span>
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2.5 rounded-lg border border-[#968B74]/30 bg-[#1a1a1a] shadow-xl opacity-0 invisible scale-95 translate-y-1 group-hover/trans:opacity-100 group-hover/trans:visible group-hover/trans:scale-100 group-hover/trans:translate-y-0 transition-all duration-200 ease-out pointer-events-none z-20 w-52 text-left">
-                              <p className="text-[11px] text-[#C4B091]/95 leading-relaxed">Добавя пълен текстов препис на речта в видеото в резултатите за по-лесно преглеждане и цитиране.</p>
                               <span className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-[#1a1a1a]" />
                             </div>
                           </div>

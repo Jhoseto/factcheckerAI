@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { getAnalysisById, saveAnalysis, getAnalysisCountByType } from '../../services/archiveService';
+import { synthesizeReport } from '../../services/geminiService';
 import VideoResultView from '../common/result-views/VideoResultView';
 import LinkResultView from '../common/result-views/LinkResultView';
 import { VideoAnalysis } from '../../types';
@@ -20,8 +21,8 @@ const ReportPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [slotUsage, setSlotUsage] = useState<{ used: number; max: number } | null>(null);
-    // True only when the report has been saved to Firestore (not just from Gemini with a temp UUID)
     const [isSaved, setIsSaved] = useState(false);
+    const [reportLoading, setReportLoading] = useState(false);
 
     useEffect(() => {
         const state = location.state as { analysis?: VideoAnalysis; type?: 'video' | 'link' | 'social'; url?: string } | undefined;
@@ -29,8 +30,21 @@ const ReportPage: React.FC = () => {
             setAnalysis(state.analysis);
             setType(state.type);
             setUrl(state.url || '');
-            setIsSaved(false); // fresh analysis, not yet saved
+            setIsSaved(false);
             setLoading(false);
+
+            // For fresh deep video analysis — synthesize the final report in background
+            if (state.type === 'video' && state.analysis.analysisMode === 'deep' && !state.analysis.synthesizedReport) {
+                setReportLoading(true);
+                synthesizeReport(state.analysis)
+                    .then(report => {
+                        if (report) {
+                            setAnalysis(prev => prev ? { ...prev, synthesizedReport: report } : null);
+                        }
+                    })
+                    .catch(err => console.error('[ReportPage] Report synthesis failed:', err?.message))
+                    .finally(() => setReportLoading(false));
+            }
             return;
         }
         if (!id) {
@@ -189,7 +203,7 @@ const ReportPage: React.FC = () => {
                 </button>
                 <VideoResultView
                     analysis={analysis}
-                    reportLoading={false}
+                    reportLoading={reportLoading}
                     onSaveToArchive={!isSaved ? handleSaveToArchive : undefined}
                     isSaved={isSaved}
                     onReset={() => navigate('/')}

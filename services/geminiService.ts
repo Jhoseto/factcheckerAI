@@ -178,11 +178,11 @@ const callGeminiStreamAPI = async (payload: any, token: string, onProgress?: (st
   return result;
 };
 
-const getAnalysisPrompt = (url: string, mode: AnalysisMode, transcript?: string, includeTranscription: boolean = true): string => {
+const getAnalysisPrompt = (url: string, mode: AnalysisMode): string => {
   if (mode === 'deep') {
-    return getDeepAnalysisPrompt(url, 'video', transcript, includeTranscription);
+    return getDeepAnalysisPrompt(url, 'video');
   }
-  return getStandardAnalysisPrompt(url, 'video', transcript);
+  return getStandardAnalysisPrompt(url, 'video');
 };
 
 /**
@@ -643,17 +643,12 @@ ${metadataSection}
   };
 };
 
-export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTubeVideoMetadata, model: string = 'gemini-2.5-flash', mode: AnalysisMode = 'standard', onProgress?: (status: string) => void, includeTranscription: boolean = true): Promise<AnalysisResponse> => {
+export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTubeVideoMetadata, model: string = 'gemini-2.5-flash', mode: AnalysisMode = 'standard', onProgress?: (status: string) => void): Promise<AnalysisResponse> => {
   try {
-    // Normalize YouTube URL to standard format (handles mobile, shortened URLs)
     const normalizedUrl = normalizeYouTubeUrl(url);
+    const prompt = getAnalysisPrompt(normalizedUrl, mode) + (videoMetadata ? `\n\nVideo Context: Title: "${videoMetadata.title}", Author: "${videoMetadata.author}", Duration: ${videoMetadata.durationFormatted}.` : '');
 
-    // Strategy: Single API call - Gemini analyzes video AND extracts transcript in one go (when includeTranscription)
-    const prompt = getAnalysisPrompt(normalizedUrl, mode, undefined, includeTranscription) + (videoMetadata ? `\n\nVideo Context: Title: "${videoMetadata.title}", Author: "${videoMetadata.author}", Duration: ${videoMetadata.durationFormatted}.` : '');
-
-    const systemInstruction = includeTranscription
-      ? "You are an ELITE fact-checker and investigative journalist with 20+ years of experience. Your mission is to create an EXCEPTIONAL, CRITICAL, and OBJECTIVE analysis that reveals all hidden viewpoints, manipulations, and facts. CRITICAL INSTRUCTIONS: 1) Extract ALL important claims, quotes, and manipulations from the video. 2) Extract FULL transcription from the video with timestamps. 3) Output all text in BULGARIAN. 4) Keep JSON Enum values in English. 5) Create a FINAL INVESTIGATIVE REPORT that is a masterpiece of journalism."
-      : "You are an ELITE fact-checker and investigative journalist with 20+ years of experience. Your mission is to create an EXCEPTIONAL, CRITICAL, and OBJECTIVE analysis that reveals all hidden viewpoints, manipulations, and facts. CRITICAL INSTRUCTIONS: 1) Extract ALL important claims, quotes, and manipulations from the video. 2) Do NOT generate transcription - return empty array for 'transcription'. 3) Output all text in BULGARIAN. 4) Keep JSON Enum values in English. 5) Create a FINAL INVESTIGATIVE REPORT that is a masterpiece of journalism.";
+    const systemInstruction = "You are an ELITE fact-checker and investigative journalist with 20+ years of experience. Your mission is to create an EXCEPTIONAL, CRITICAL, and OBJECTIVE analysis that reveals all hidden viewpoints, manipulations, and facts. CRITICAL INSTRUCTIONS: 1) Extract ALL important claims, quotes, and manipulations from the video. 2) Do NOT generate transcription - return empty array for 'transcription'. 3) Output all text in BULGARIAN. 4) Keep JSON Enum values in English. 5) Create a FINAL INVESTIGATIVE REPORT that is a masterpiece of journalism.";
 
     const payload = {
       model: model,
@@ -695,15 +690,7 @@ export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTub
       throw new Error('Gemini API върна невалиден JSON формат. Моля, опитайте отново.');
     }
 
-    // Extract transcription from Gemini's response (only for Deep mode)
-    // Standard mode doesn't generate transcription to save time
-    const transcription = mode === 'deep' && rawResponse.transcription && Array.isArray(rawResponse.transcription) && rawResponse.transcription.length > 0
-      ? rawResponse.transcription
-      : [{
-        timestamp: '00:00',
-        speaker: 'Система',
-        text: mode === 'standard' ? 'Транскрипцията не е налична в Standard режим.' : 'Транскрипцията не беше налична за това видео.'
-      }];
+    const transcription: TranscriptionLine[] = [];
 
     const parsed = transformGeminiResponse(rawResponse, model, videoMetadata?.title, videoMetadata?.author, videoMetadata, transcription);
     parsed.analysisMode = mode;
@@ -748,8 +735,8 @@ export const analyzeYouTubeBatch = async (url: string): Promise<AnalysisResponse
     const payload = {
       model: 'gemini-2.5-flash',
       prompt: prompt,
-      systemInstruction: "You are an ELITE fact-checker. Extract FULL transcription from video with timestamps. Output valid JSON only in Bulgarian.",
-      videoUrl: url, // Always send video
+      systemInstruction: "You are an ELITE fact-checker. Do NOT generate transcription - return empty array for 'transcription'. Output valid JSON only in Bulgarian.",
+      videoUrl: url,
       isBatch: true
     };
 
@@ -774,15 +761,7 @@ export const analyzeYouTubeBatch = async (url: string): Promise<AnalysisResponse
       throw new Error('Gemini API върна невалиден JSON формат.');
     }
 
-    // Extract transcription from response
-    const transcription = rawResponse.transcription && Array.isArray(rawResponse.transcription) && rawResponse.transcription.length > 0
-      ? rawResponse.transcription
-      : [{
-        timestamp: '00:00',
-        speaker: 'Система',
-        text: 'Транскрипцията не беше налична.'
-      }];
-
+    const transcription: TranscriptionLine[] = [];
     const parsed = transformGeminiResponse(rawResponse, 'gemini-2.5-flash', undefined, undefined, undefined, transcription);
 
     const usage: APIUsage = {

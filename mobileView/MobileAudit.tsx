@@ -25,7 +25,6 @@ const MobileAudit: React.FC = () => {
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode | null>(null);
-  const [includeTranscription, setIncludeTranscription] = useState(true);
   const [videoMetadata, setVideoMetadata] = useState<YouTubeVideoMetadata | null>(null);
   const [costEstimates, setCostEstimates] = useState<Record<AnalysisMode, CostEstimate> | null>(null);
   const [fetchingMetadata, setFetchingMetadata] = useState(false);
@@ -105,8 +104,7 @@ const MobileAudit: React.FC = () => {
         videoMetadata || undefined,
         'gemini-2.5-flash',
         analysisMode,
-        (status) => setStreamingProgress(status),
-        includeTranscription
+        (status) => setStreamingProgress(status)
       );
       if (response.usage?.newBalance !== undefined) updateLocalBalance(response.usage.newBalance);
       else refreshProfile();
@@ -258,28 +256,6 @@ const MobileAudit: React.FC = () => {
                     </p>
                   </button>
                 </div>
-
-                {analysisMode === 'deep' && (
-                  <button
-                    type="button"
-                    onClick={() => setIncludeTranscription((v) => !v)}
-                    className="mobile-tap w-full flex items-center gap-3 rounded-xl border border-slate-200/80 bg-white/80 p-4 transition-all duration-200 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-900/20 focus-visible:ring-offset-2 active:bg-slate-50/70"
-                  >
-                    <span className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border transition-all duration-300 ease-out ${
-                      includeTranscription ? 'border-amber-900/30 bg-amber-100/80' : 'border-slate-200 bg-slate-100'
-                    }`}>
-                      <span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white border shadow-sm transition-transform duration-300 ease-out ${
-                        includeTranscription ? 'translate-x-5 bg-amber-900 border-amber-900' : 'translate-x-0.5 border-slate-200'
-                      }`} />
-                    </span>
-                    <span className="flex-1 text-left text-[10px] font-semibold text-slate-700 uppercase tracking-wide">
-                      Транскрипция <span className="font-normal normal-case text-slate-500">(изкл. = по-бързо)</span>
-                    </span>
-                    <span className={`text-[9px] font-black uppercase tracking-widest transition-colors duration-300 ${includeTranscription ? 'text-amber-900' : 'text-slate-400'}`}>
-                      {includeTranscription ? 'Вкл.' : 'Изкл.'}
-                    </span>
-                  </button>
-                )}
 
                 <button
                   type="button"

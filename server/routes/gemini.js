@@ -43,19 +43,16 @@ function validateJsonResponse(responseText, serviceType = 'link') {
     }
     
     let trimmed = responseText.trim();
-    
-    // Step 1: Remove function call artifacts (Google Search tool responses)
-    // Function calls look like: "function_call" or "tool_calls" sections
-    // Remove any text before the first JSON object that looks like function call output
-    trimmed = trimmed.replace(/```json\s*/g, '').replace(/\s*```/g, '');
-    
-    // Step 2: Try to extract JSON from markdown code blocks first
+
+    // Step 1: Extract JSON from markdown code blocks (before stripping markers)
     const jsonBlockMatch = trimmed.match(/```json\s*([\s\S]*?)\s*```/);
     if (jsonBlockMatch) {
         trimmed = jsonBlockMatch[1].trim();
     } else {
-        // Step 3: Find the largest JSON object in the text
-        // This handles cases where there's text before/after JSON
+        // Strip leftover markdown fences
+        trimmed = trimmed.replace(/```json\s*/g, '').replace(/\s*```/g, '');
+
+        // Step 2: Find the outermost JSON object in the text
         const jsonStart = trimmed.search(/[{\[]/);
         if (jsonStart !== -1) {
             const startChar = trimmed[jsonStart];
@@ -65,33 +62,16 @@ function validateJsonResponse(responseText, serviceType = 'link') {
             let inString = false;
             let escapeNext = false;
             
-            // Properly track depth considering strings (which can contain { } [ ])
             for (let i = jsonStart; i < trimmed.length; i++) {
                 const char = trimmed[i];
-                
-                if (escapeNext) {
-                    escapeNext = false;
-                    continue;
-                }
-                
-                if (char === '\\') {
-                    escapeNext = true;
-                    continue;
-                }
-                
-                if (char === '"' && !escapeNext) {
-                    inString = !inString;
-                    continue;
-                }
-                
+                if (escapeNext) { escapeNext = false; continue; }
+                if (char === '\\' && inString) { escapeNext = true; continue; }
+                if (char === '"') { inString = !inString; continue; }
                 if (!inString) {
                     if (char === startChar) depth++;
                     else if (char === endChar) {
                         depth--;
-                        if (depth === 0) {
-                            jsonEnd = i;
-                            break;
-                        }
+                        if (depth === 0) { jsonEnd = i; break; }
                     }
                 }
             }
@@ -99,7 +79,6 @@ function validateJsonResponse(responseText, serviceType = 'link') {
             if (jsonEnd !== -1) {
                 trimmed = trimmed.substring(jsonStart, jsonEnd + 1);
             } else {
-                // Fallback: use last brace/bracket
                 const lastBrace = trimmed.lastIndexOf('}');
                 const lastBracket = trimmed.lastIndexOf(']');
                 const lastEnd = Math.max(lastBrace, lastBracket);
@@ -110,33 +89,60 @@ function validateJsonResponse(responseText, serviceType = 'link') {
         }
     }
     
-    // Step 4: Clean up common JSON issues
+    // Step 3: Clean up common JSON issues
     trimmed = trimmed.replace(/,(\s*[}\]])/g, '$1');
     trimmed = trimmed.replace(/([^:])\/\/[^\n]*/g, '$1');
     trimmed = trimmed.replace(/\/\*[\s\S]*?\*\//g, '');
     const beforeSanitize = trimmed;
 
-    // Step 5: Escape unescaped control characters (newlines, tabs, CR) inside string values.
-    // Uses a simple state machine that tracks whether we're inside a JSON string.
+    // Step 4: Escape control characters + fix unescaped internal quotes.
+    // Uses look-ahead to distinguish closing quotes from internal (unescaped) ones.
     {
         let sanitized = '';
-        let inStr = false;
-        let esc = false;
+        let inString = false;
+        
         for (let i = 0; i < trimmed.length; i++) {
             const ch = trimmed[i];
             const code = trimmed.charCodeAt(i);
-            if (esc) { sanitized += ch; esc = false; continue; }
-            if (ch === '\\' && inStr) { sanitized += ch; esc = true; continue; }
-            if (ch === '"') { inStr = !inStr; sanitized += ch; continue; }
-            if (inStr && code < 0x20) {
+            
+            if (inString && ch === '\\') {
+                sanitized += ch;
+                i++;
+                if (i < trimmed.length) sanitized += trimmed[i];
+                continue;
+            }
+            
+            if (ch === '"') {
+                if (!inString) {
+                    inString = true;
+                    sanitized += ch;
+                } else {
+                    // Look ahead: if next non-whitespace is : , } ] or end → closing quote
+                    let la = i + 1;
+                    while (la < trimmed.length && /\s/.test(trimmed[la])) la++;
+                    const next = la < trimmed.length ? trimmed[la] : '';
+                    if (next === ':' || next === ',' || next === '}' || next === ']' || next === '') {
+                        inString = false;
+                        sanitized += ch;
+                    } else {
+                        sanitized += '\\"';
+                    }
+                }
+                continue;
+            }
+            
+            if (inString && code < 0x20) {
                 switch (code) {
                     case 0x0A: sanitized += '\\n'; break;
                     case 0x0D: sanitized += '\\r'; break;
                     case 0x09: sanitized += '\\t'; break;
+                    case 0x08: sanitized += '\\b'; break;
+                    case 0x0C: sanitized += '\\f'; break;
                     default: sanitized += '\\u' + code.toString(16).padStart(4, '0'); break;
                 }
                 continue;
             }
+            
             sanitized += ch;
         }
         trimmed = sanitized.trim();
@@ -219,7 +225,9 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
 
         // ── Build request ─────────────────────────────────────────────────────
         let tools;
-        if (serviceType === 'linkArticle' || isDeepMode || enableGoogleSearch) {
+        if (serviceType === 'linkArticle') {
+            tools = [{ googleSearch: {} }];
+        } else if (isDeepMode || enableGoogleSearch) {
             tools = [{ googleSearch: {} }];
         }
         const contents = [];
@@ -499,7 +507,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
         // ── Validate response ─────────────────────────────────────────────────
         const validation = validateJsonResponse(fullText, serviceType || 'video');
         if (!validation.valid) {
-            console.error(`[Gemini Stream] Validation failed: ${validation.code}`, validation.error || '');
+            console.error(`[Gemini Stream] Validation failed: ${validation.code}`, validation.error || '', `(${fullText.length} chars)`);
             sendSSE('error', { 
                 error: 'AI върна невалиден формат. Никакви точки не бяха таксувани.', 
                 code: validation.code,
@@ -581,7 +589,11 @@ router.post('/synthesize-report', requireAuth, async (req, res) => {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            config: { temperature: 0.8, maxOutputTokens: 16000 }
+            config: {
+                temperature: 0.7,
+                maxOutputTokens: 32000,
+                systemInstruction: 'Ти си главен редактор на разследващо издание. Докладът трябва да е ПОДРОБЕН: всяка секция поне няколко параграфа, конкретни твърдения и разсъждения. Кратките и повърхностни отговори са неприемливи. Пиши на български, професионално.'
+            }
         });
 
         let reportText = '';
