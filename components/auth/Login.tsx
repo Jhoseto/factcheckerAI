@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
 
 const Login: React.FC = () => {
+    const { t } = useTranslation();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [agreedToTerms, setAgreedToTerms] = useState(false);
     const { login, loginWithGoogle } = useAuth();
     const navigate = useNavigate();
 
@@ -18,20 +21,24 @@ const Login: React.FC = () => {
             await login(email, password);
             navigate('/');
         } catch (err: any) {
-            setError('Грешка при вход: ' + err.message);
+            setError(t('auth.loginError', { message: err.message }));
         } finally {
             setLoading(false);
         }
     };
 
     const handleGoogleLogin = async () => {
+        if (!agreedToTerms) {
+            setError(t('auth.acceptTermsBeforeLogin'));
+            return;
+        }
         try {
             setError(null);
             setLoading(true);
             await loginWithGoogle();
             navigate('/');
         } catch (err: any) {
-            setError('Грешка при вход с Google: ' + err.message);
+            setError(t('auth.loginGoogleError', { message: err.message }));
         } finally {
             setLoading(false);
         }
@@ -54,7 +61,7 @@ const Login: React.FC = () => {
                     </h1>
                     <div className="flex items-center justify-center gap-4 opacity-60">
                          <div className="h-[1px] w-8 bg-[#8A6E3E]"></div>
-                         <p className="text-[9px] font-bold text-[#888] uppercase tracking-[0.3em]">Secure Access</p>
+                         <p className="text-[9px] font-bold text-[#888] uppercase tracking-[0.3em]">{t('auth.secureAccess')}</p>
                          <div className="h-[1px] w-8 bg-[#8A6E3E]"></div>
                     </div>
                 </div>
@@ -68,18 +75,18 @@ const Login: React.FC = () => {
 
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="space-y-2">
-                            <label className="text-[9px] font-bold text-[#666] uppercase tracking-widest pl-1">Email Identity</label>
+                            <label className="text-[9px] font-bold text-[#666] uppercase tracking-widest pl-1">{t('auth.emailIdentity')}</label>
                             <input
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 className="w-full bg-[#121212] border border-[#222] p-4 text-xs text-[#E0E0E0] outline-none focus:border-[#968B74] transition-all rounded-sm placeholder:text-[#333] tracking-wide font-medium"
-                                placeholder="name@example.com"
+                                placeholder={t('auth.emailPlaceholder')}
                                 disabled={loading}
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-[9px] font-bold text-[#666] uppercase tracking-widest pl-1">Passcode</label>
+                            <label className="text-[9px] font-bold text-[#666] uppercase tracking-widest pl-1">{t('auth.passcode')}</label>
                             <input
                                 type="password"
                                 value={password}
@@ -94,7 +101,7 @@ const Login: React.FC = () => {
                             disabled={loading}
                             className="w-full btn-luxury-solid py-4 text-[10px] uppercase tracking-[0.25em] rounded-sm transition-transform active:scale-[0.98] mt-4"
                         >
-                            {loading ? 'Authenticating...' : 'ACCESS SYSTEM'}
+                            {loading ? t('auth.authenticating') : t('auth.accessSystem')}
                         </button>
                     </form>
 
@@ -103,28 +110,48 @@ const Login: React.FC = () => {
                             <div className="w-full border-t border-[#222]"></div>
                         </div>
                         <div className="relative flex justify-center">
-                            <span className="px-4 bg-[#151515] text-[9px] text-[#444] uppercase tracking-widest font-bold">Alternative</span>
+                            <span className="px-4 bg-[#151515] text-[9px] text-[#444] uppercase tracking-widest font-bold">{t('auth.googleAccess')}</span>
                         </div>
+                    </div>
+
+                    <p className="text-[9px] text-[#888] leading-relaxed px-1">
+                        С натискане на бутона по-долу вие приемате{' '}
+                        <Link to="/terms" target="_blank" rel="noopener noreferrer" className="text-[8px] font-normal text-[#968B74] hover:text-[#C4B091] border-b border-[#968B74]/30">Правилата и условията за ползване</Link>
+                        {' '}и{' '}
+                        <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="text-[8px] font-normal text-[#968B74] hover:text-[#C4B091] border-b border-[#968B74]/30">Политиката за поверителност</Link>.
+                    </p>
+                    <div className="flex items-start gap-3 p-3 bg-[#121212] rounded-sm border border-[#222]">
+                        <input
+                            type="checkbox"
+                            id="login-terms"
+                            checked={agreedToTerms}
+                            onChange={(e) => setAgreedToTerms(e.target.checked)}
+                            className="mt-1 w-3 h-3 accent-[#968B74]"
+                            disabled={loading}
+                        />
+                        <label htmlFor="login-terms" className="text-[9px] text-[#666] leading-relaxed tracking-wide">
+                            {t('auth.acceptTerms')}
+                        </label>
                     </div>
 
                     <button
                         onClick={handleGoogleLogin}
-                        disabled={loading}
-                        className="w-full py-3 bg-transparent border border-[#333] text-[#888] text-[9px] font-bold uppercase tracking-[0.2em] hover:border-[#968B74] hover:text-[#968B74] transition-all flex items-center justify-center gap-3 rounded-sm group"
+                        disabled={loading || !agreedToTerms}
+                        className="w-full py-3 bg-transparent border border-[#333] text-[#888] text-[9px] font-bold uppercase tracking-[0.2em] hover:border-[#968B74] hover:text-[#968B74] transition-all flex items-center justify-center gap-3 rounded-sm group disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-[#333] disabled:hover:text-[#888]"
                     >
                          <svg className="w-4 h-4 opacity-50 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24"><path fill="currentColor" d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"/></svg>
-                        Google Access
+                        {t('auth.googleAccess')}
                     </button>
 
                     <div className="text-center pt-6 border-t border-[#222]">
                         <p className="text-[9px] text-[#666] tracking-wide">
-                            No credentials? <a href="/register" className="text-[#968B74] font-bold hover:text-[#E6D2A8] uppercase transition-colors ml-1 border-b border-[#968B74]/30 hover:border-[#E6D2A8]">Request Access</a>
+                            {t('auth.noCredentials')} <a href="/register" className="text-[#968B74] font-bold hover:text-[#E6D2A8] uppercase transition-colors ml-1 border-b border-[#968B74]/30 hover:border-[#E6D2A8]">{t('auth.requestAccess')}</a>
                         </p>
                     </div>
                 </div>
                 
                 <p className="text-center text-[8px] text-[#444] uppercase tracking-[0.2em] font-mono opacity-50">
-                    Restricted Area • Authorized Personnel Only
+                    {t('auth.restrictedArea')}
                 </p>
             </div>
         </div>

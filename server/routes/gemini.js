@@ -25,6 +25,17 @@ import { safeJsonParse } from '../utils/safeJson.js';
 const router = express.Router();
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Helper: language instruction for analysis output (do not edit prompt files)
+// ─────────────────────────────────────────────────────────────────────────────
+function getLanguageInstruction(lang) {
+    const normalized = (lang || 'bg').toLowerCase();
+    if (normalized === 'en' || normalized.startsWith('en-')) {
+        return 'Output language: you must write the entire analysis and all text only in English.';
+    }
+    return 'Output language: you must write the entire analysis and all text only in Bulgarian.';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Helper: get Gemini AI instance
 // ─────────────────────────────────────────────────────────────────────────────
 function getAI() {
@@ -203,7 +214,7 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
     try {
         const ai = getAI();
         const userId = req.userId;
-        const { model, prompt, systemInstruction, videoUrl, isBatch, enableGoogleSearch, mode, serviceType } = req.body;
+        const { model, prompt, systemInstruction, videoUrl, isBatch, enableGoogleSearch, mode, serviceType, lang } = req.body;
 
         // ── Determine cost type ───────────────────────────────────────────────
         const isFixedPrice = serviceType && serviceType !== 'video';
@@ -257,7 +268,7 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                     model: model || 'gemini-2.5-flash',
                     contents,
                     config: {
-                        systemInstruction: systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON. Complete ALL fields in the response.',
+                        systemInstruction: (systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON. Complete ALL fields in the response.') + '\n\n' + getLanguageInstruction(lang),
                         temperature: 0.7,
                         maxOutputTokens: isDeepMode ? 65536 : 20000,
                         responseMimeType: tools ? undefined : 'application/json',
@@ -286,11 +297,12 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                     enrichedContents[enrichedContents.length - 1] = msgClone;
                 }
 
+                const sysInstr = (systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON. Complete ALL fields in the response. Do not truncate!') + '\n\n' + getLanguageInstruction(lang);
                 const response = await ai.models.generateContent({
                     model: model || 'gemini-2.5-flash',
                     contents: enrichedContents,
                     config: {
-                        systemInstruction: systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON. Complete ALL fields in the response. Do not truncate!',
+                        systemInstruction: sysInstr,
                         temperature: 0.7,
                         maxOutputTokens: isDeepMode ? 65536 : 20000,
                         responseMimeType: tools ? undefined : 'application/json',
@@ -424,7 +436,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
     try {
         const ai = getAI();
         const userId = req.userId;
-        const { model, prompt, systemInstruction, videoUrl, isBatch, enableGoogleSearch, mode, serviceType } = req.body;
+        const { model, prompt, systemInstruction, videoUrl, isBatch, enableGoogleSearch, mode, serviceType, lang } = req.body;
 
         const isFixedPrice = serviceType && serviceType !== 'video';
         const isDeepMode = mode === 'deep';
@@ -451,15 +463,15 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
 
         sendSSE('progress', { status: 'Стартиране на DCGE модела...' });
 
-        // Enhanced system instruction for Deep mode with tools
-        let enhancedSystemInstruction = systemInstruction;
+        // Enhanced system instruction for Deep mode with tools + output language
+        let enhancedSystemInstruction = (systemInstruction || '') + '\n\n' + getLanguageInstruction(lang);
         if (isDeepMode && tools) {
-            enhancedSystemInstruction = (systemInstruction || '') + 
+            enhancedSystemInstruction +=
                 '\n\nCRITICAL: After using Google Search tools, you MUST respond with a complete, valid JSON object. ' +
                 'Do not include any text before or after the JSON. The JSON must start with { and end with }. ' +
                 'All tool results should be integrated into the JSON response, not returned separately.';
         } else if (!systemInstruction) {
-            enhancedSystemInstruction = 'You are a professional fact-checker. Respond ONLY with valid JSON.';
+            enhancedSystemInstruction = 'You are a professional fact-checker. Respond ONLY with valid JSON.\n\n' + getLanguageInstruction(lang);
         }
         
         const stream = await ai.models.generateContentStream({
@@ -583,8 +595,11 @@ router.post('/synthesize-report', requireAuth, async (req, res) => {
 
     try {
         const ai = getAI();
-        const { prompt } = req.body;
+        const { prompt, lang } = req.body;
         if (!prompt) return res.status(400).json({ error: 'Missing prompt' });
+
+        const baseSys = 'Ти си главен редактор на разследващо издание. Докладът трябва да е ПОДРОБЕН: всяка секция поне няколко параграфа, конкретни твърдения и разсъждения. Кратките и повърхностни отговори са неприемливи.';
+        const sysInstr = baseSys + ' ' + getLanguageInstruction(lang);
 
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
@@ -592,7 +607,7 @@ router.post('/synthesize-report', requireAuth, async (req, res) => {
             config: {
                 temperature: 0.7,
                 maxOutputTokens: 32000,
-                systemInstruction: 'Ти си главен редактор на разследващо издание. Докладът трябва да е ПОДРОБЕН: всяка секция поне няколко параграфа, конкретни твърдения и разсъждения. Кратките и повърхностни отговори са неприемливи. Пиши на български, професионално.'
+                systemInstruction: sysInstr
             }
         });
 

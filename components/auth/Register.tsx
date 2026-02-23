@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 
 const Register: React.FC = () => {
+    const { t } = useTranslation();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -33,8 +35,8 @@ const Register: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (password !== confirmPassword) return setError('Passwords do not match');
-        if (!agreedToTerms) return setError('Please accept the protocols');
+        if (password !== confirmPassword) return setError(t('auth.passwordsNoMatch'));
+        if (!agreedToTerms) return setError(t('auth.acceptProtocols'));
 
         try {
             setError(null);
@@ -51,13 +53,17 @@ const Register: React.FC = () => {
             });
             navigate('/');
         } catch (err: any) {
-            setError('Error: ' + err.message);
+            setError(t('auth.registerError', { message: err.message }));
         } finally {
             setLoading(false);
         }
     };
 
     const handleGoogleSignup = async () => {
+        if (!agreedToTerms) {
+            setError(t('auth.acceptTermsBeforeRegister'));
+            return;
+        }
         try {
             setError(null);
             setLoading(true);
@@ -74,7 +80,7 @@ const Register: React.FC = () => {
             }, { merge: true });
             navigate('/');
         } catch (err: any) {
-            setError('Google Signup Error: ' + err.message);
+            setError(t('auth.googleSignupError', { message: err.message }));
         } finally {
             setLoading(false);
         }
@@ -94,7 +100,7 @@ const Register: React.FC = () => {
                     <h1 className="text-3xl font-serif tracking-[0.2em] text-bronze-gradient uppercase">
                         FACTCHECKER
                     </h1>
-                    <p className="text-[9px] font-bold text-[#666] uppercase tracking-[0.4em]">New Agent Protocol</p>
+                    <p className="text-[9px] font-bold text-[#666] uppercase tracking-[0.4em]">{t('auth.newAgentProtocol')}</p>
                 </div>
 
                 <div className="editorial-card p-10 space-y-8 bg-[#151515]/80 backdrop-blur-md">
@@ -168,7 +174,7 @@ const Register: React.FC = () => {
                                 disabled={loading}
                             />
                             <label htmlFor="terms" className="text-[9px] text-[#666] leading-relaxed tracking-wide uppercase">
-                                I accept the <a href="#" className="text-[#968B74] hover:text-[#E6D2A8] border-b border-[#968B74]/30">Protocol Terms</a>
+                                I accept the <Link to="/terms" target="_blank" rel="noopener noreferrer" className="text-[8px] font-normal text-[#968B74] hover:text-[#E6D2A8] border-b border-[#968B74]/30">Правилата и условията</Link> и <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="text-[8px] font-normal text-[#968B74] hover:text-[#E6D2A8] border-b border-[#968B74]/30">Политиката за поверителност</Link>
                             </label>
                         </div>
 
@@ -177,13 +183,13 @@ const Register: React.FC = () => {
                             disabled={loading}
                             className="w-full btn-luxury-solid py-4 text-[10px] font-black uppercase tracking-[0.25em] rounded-sm transition-transform active:scale-[0.98] mt-2"
                         >
-                            {loading ? 'Processing...' : 'INITIALIZE'}
+                            {loading ? t('auth.processing') : t('auth.initialize')}
                         </button>
                     </form>
 
                      <div className="text-center pt-4 border-t border-[#222]">
                         <p className="text-[9px] text-[#666] tracking-wide">
-                            Have clearance? <a href="/login" className="text-[#968B74] font-bold hover:text-[#E6D2A8] uppercase transition-colors ml-1 border-b border-[#968B74]/30">Login</a>
+                            {t('auth.haveClearance')} <a href="/login" className="text-[#968B74] font-bold hover:text-[#E6D2A8] uppercase transition-colors ml-1 border-b border-[#968B74]/30">{t('auth.loginLink')}</a>
                         </p>
                     </div>
                 </div>

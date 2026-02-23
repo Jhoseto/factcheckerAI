@@ -1,0 +1,64 @@
+import i18n from 'i18next';
+import { initReactI18next } from 'react-i18next';
+import bg from './locales/bg.json';
+
+export const STORAGE_KEY = 'i18nextLng';
+const CACHE_KEY = 'i18n_cache_en';
+const CACHE_VERSION_KEY = 'i18n_cache_en_version';
+const CACHE_VERSION = '1';
+
+/** Нормализира записания език само до 'en' или 'bg' */
+function getStoredLanguage(): 'en' | 'bg' {
+  if (typeof localStorage === 'undefined') return 'bg';
+  const v = localStorage.getItem(STORAGE_KEY);
+  if (v === 'en' || (v && v.startsWith('en'))) return 'en';
+  return 'bg';
+}
+
+/** Възстановява EN bundle от localStorage кеш. Връща true ако успее. */
+export function restoreEnBundleFromCache(): boolean {
+  if (typeof localStorage === 'undefined') return false;
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    const version = localStorage.getItem(CACHE_VERSION_KEY);
+    if (!cached || version !== CACHE_VERSION) return false;
+    const data = JSON.parse(cached);
+    i18n.addResourceBundle('en', 'translation', data);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const initialLng = getStoredLanguage();
+
+i18n.use(initReactI18next).init({
+  resources: { bg: { translation: bg } },
+  lng: initialLng,
+  fallbackLng: 'bg',
+  supportedLngs: ['bg', 'en'],
+  interpolation: { escapeValue: false },
+});
+
+// Веднага при зареждане: ако е избран EN, възстановяваме кеша преди първи рендър
+if (initialLng === 'en') {
+  if (!restoreEnBundleFromCache()) {
+    i18n.changeLanguage('bg');
+  }
+}
+
+// Записваме винаги само 'en' или 'bg', за да няма несъответствие с bundle
+i18n.on('languageChanged', (lng: string) => {
+  if (typeof localStorage !== 'undefined') {
+    const toSave = lng === 'en' || lng.startsWith('en') ? 'en' : 'bg';
+    localStorage.setItem(STORAGE_KEY, toSave);
+  }
+});
+
+/** Текущ език за API заявки (Gemini, превод): винаги 'en' или 'bg' */
+export function getApiLang(): 'en' | 'bg' {
+  const l = i18n.language;
+  return l === 'en' || (l && String(l).startsWith('en')) ? 'en' : 'bg';
+}
+
+export default i18n;

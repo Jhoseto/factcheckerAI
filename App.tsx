@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import html2canvas from 'html2canvas';
 import { analyzeYouTubeStandard, synthesizeReport } from './services/geminiService';
 import { VideoAnalysis, APIUsage, AnalysisMode, YouTubeVideoMetadata, CostEstimate } from './types';
@@ -16,6 +17,7 @@ import AnalysisLoadingOverlay from './components/common/AnalysisLoadingOverlay';
 import { saveAnalysis } from './services/archiveService';
 
 const App: React.FC = () => {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [streamingProgress, setStreamingProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +49,7 @@ const App: React.FC = () => {
         if (!analysisMode) setAnalysisMode('standard');
       } catch (e: any) {
         console.error('[Metadata Error]', e);
-        setError('Грешка при зареждане на информацията.');
+        setError(t('errors.metadata'));
         setVideoMetadata(null);
       } finally {
         setFetchingMetadata(false);
@@ -60,7 +62,7 @@ const App: React.FC = () => {
   const handleStartAnalysis = async () => {
     const url = youtubeUrl;
     const validation = validateYouTubeUrl(url);
-    if (!validation.valid) { setError('Моля, въведете валиден YouTube URL.'); return; }
+    if (!validation.valid) { setError(t('errors.invalidYoutubeUrl')); return; }
     if (!currentUser) { navigate('/login'); return; }
     
     let estimatedCost = 10;
@@ -68,7 +70,7 @@ const App: React.FC = () => {
       estimatedCost = costEstimates[analysisMode].pointsCost;
     }
     if (userProfile && userProfile.pointsBalance < estimatedCost) {
-      setError(`Недостатъчно точки! Нужни са ${estimatedCost}.`);
+      setError(t('errors.insufficientPoints', { count: estimatedCost }));
       return;
     }
 
@@ -82,7 +84,7 @@ const App: React.FC = () => {
       if (response.usage?.newBalance !== undefined) updateLocalBalance(response.usage.newBalance);
       else refreshProfile();
     } catch (e: any) {
-      setError(e.message || 'Възникна грешка при анализа.');
+      setError(e.message || t('errors.analysisFailed'));
     } finally {
       setLoading(false);
     }
@@ -142,14 +144,12 @@ const App: React.FC = () => {
             <div className="hero-blackhole-bg" aria-hidden />
             <div className="hero-saturn-ring" aria-hidden />
             <h1 className="relative z-10 text-6xl md:text-8xl lg:text-9xl font-serif text-white tracking-tight leading-[1] drop-shadow-2xl">
-              ОДИТ НА <span className="italic text-bronze-gradient">ИСТИНАТА.</span>
+              {t('app.heroTitle').split(' ').slice(0, 2).join(' ')} <span className="italic text-bronze-gradient">{t('app.heroTitle').split(' ').slice(2).join(' ')}</span>
             </h1>
           </div>
 
           <p className="text-[#bbb] text-sm md:text-base max-w-3xl mx-auto leading-relaxed font-light tracking-wide opacity-90 text-center">
-            Професионална рамка за <span className="text-[#C4B091] font-medium">комплексен структурен анализ</span> на информационни активи и верификация на фактически твърдения.
-            <br className="hidden md:block" />
-            Чрез внедрената архитектура на технологията <span className="text-[#C4B091] font-medium">DCGE</span> се извършва безпристрастна диагностика на източниците, осигуряваща математическа точност при дефинирането на достоверност.
+            {t('app.heroSubtitle')}
           </p>
         </div>
       </div>
@@ -163,11 +163,11 @@ const App: React.FC = () => {
             <div className="mb-12 space-y-4">
                 <div className="flex items-center justify-center gap-4 opacity-50">
                     <div className="h-[1px] w-12 bg-[#968B74]"></div>
-                    <span className="text-[10px] font-bold text-[#C4B091] uppercase tracking-[0.4em]">Видео Анализ</span>
+                    <span className="text-[10px] font-bold text-[#C4B091] uppercase tracking-[0.4em]">{t('app.videoAnalysis')}</span>
                     <div className="h-[1px] w-12 bg-[#968B74]"></div>
                 </div>
                 <h2 className="text-3xl md:text-4xl font-serif text-[#E0E0E0]">
-                    YouTube Одит
+                    {t('app.youtubeAudit')}
                 </h2>
             </div>
 
@@ -177,7 +177,7 @@ const App: React.FC = () => {
                     type="text" 
                     value={youtubeUrl}
                     onChange={(e) => setYoutubeUrl(e.target.value)}
-                    placeholder="https://www.youtube.com/watch?v=..." 
+                    placeholder={t('app.youtubePlaceholder')} 
                     className="input-luxury w-full flex-1 px-6 py-4 rounded text-sm placeholder:text-[#666] tracking-wide"
                   />
                   <button 
@@ -185,7 +185,7 @@ const App: React.FC = () => {
                     disabled={loading}
                     className="btn-luxury-solid w-full md:w-auto px-10 py-4 rounded text-[10px] uppercase tracking-[0.2em] whitespace-nowrap"
                   >
-                    {loading ? 'Анализ...' : 'ИЗПЪЛНИ'}
+                    {loading ? t('app.analyzing') : t('app.execute')}
                   </button>
                 </div>
 
@@ -197,7 +197,7 @@ const App: React.FC = () => {
                             <img src={videoMetadata.thumbnailUrl || ''} className="w-full h-full object-cover opacity-60" alt="" />
                         </div>
                         <div>
-                          <p className="text-[10px] text-[#968B74] font-bold uppercase tracking-wider">Открит източник</p>
+                          <p className="text-[10px] text-[#968B74] font-bold uppercase tracking-wider">{t('app.discoveredSource')}</p>
                           <p className="text-xs text-[#ddd] font-medium truncate max-w-[200px]">{videoMetadata.title}</p>
                         </div>
                     </div>
@@ -210,11 +210,11 @@ const App: React.FC = () => {
                               onClick={() => setAnalysisMode('standard')}
                               className={`video-mode-btn px-5 py-3 rounded-lg border text-left min-w-[180px] transition-all duration-300 ${analysisMode === 'standard' ? 'border-[#968B74] bg-[#968B74]/15 text-[#C4B091]' : 'border-[#444] text-[#888] hover:border-[#968B74]/50 hover:text-[#bbb]'}`}
                             >
-                              <span className="block text-[11px] font-bold uppercase tracking-wider">Стандартен анализ</span>
-                              <span className="block text-[10px] text-[#968B74] mt-0.5">{costEstimates.standard.pointsCost} точки</span>
+                              <span className="block text-[11px] font-bold uppercase tracking-wider">{t('app.standardLabel')}</span>
+                              <span className="block text-[10px] text-[#968B74] mt-0.5">{t('app.pointsCost', { count: costEstimates.standard.pointsCost })}</span>
                             </button>
                             <div className="video-mode-tooltip absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2.5 rounded-lg border border-[#968B74]/30 bg-[#1a1a1a] shadow-xl opacity-0 invisible scale-95 translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-hover:translate-y-0 transition-all duration-200 ease-out pointer-events-none z-20 w-56 text-left">
-                              <p className="text-[11px] text-[#C4B091]/95 leading-relaxed">Структуриран одит на твърдения, източници и манипулации. Идеален за бърза проверка на ключови факти.</p>
+                              <p className="text-[11px] text-[#C4B091]/95 leading-relaxed">{t('app.standardTooltip')}</p>
                               <span className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-[#1a1a1a]" />
                             </div>
                           </div>
@@ -224,11 +224,11 @@ const App: React.FC = () => {
                               onClick={() => setAnalysisMode('deep')}
                               className={`video-mode-btn px-5 py-3 rounded-lg border text-left min-w-[180px] transition-all duration-300 ${analysisMode === 'deep' ? 'border-[#968B74] bg-[#968B74]/15 text-[#C4B091]' : 'border-[#444] text-[#888] hover:border-[#968B74]/50 hover:text-[#bbb]'}`}
                             >
-                              <span className="block text-[11px] font-bold uppercase tracking-wider">Дълбок анализ</span>
-                              <span className="block text-[10px] text-[#968B74] mt-0.5">{costEstimates.deep.pointsCost} точки</span>
+                              <span className="block text-[11px] font-bold uppercase tracking-wider">{t('app.deepLabel')}</span>
+                              <span className="block text-[10px] text-[#968B74] mt-0.5">{t('app.pointsCost', { count: costEstimates.deep.pointsCost })}</span>
                             </button>
                             <div className="video-mode-tooltip absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2.5 rounded-lg border border-[#968B74]/30 bg-[#1a1a1a] shadow-xl opacity-0 invisible scale-95 translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-hover:translate-y-0 transition-all duration-200 ease-out pointer-events-none z-20 w-56 text-left">
-                              <p className="text-[11px] text-[#C4B091]/95 leading-relaxed">Пълен мултимодален одит: визуален, вокален и език на тялото, психологически профил и разширен доклад. За максимална дълбочина.</p>
+                              <p className="text-[11px] text-[#C4B091]/95 leading-relaxed">{t('app.deepTooltip')}</p>
                               <span className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-[#1a1a1a]" />
                             </div>
                           </div>

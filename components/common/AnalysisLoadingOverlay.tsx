@@ -3,30 +3,10 @@
  * Таймер, един статус ред (вкл. KB), прогрес-бар, едно изречение на едно място с плавно появяване/изчезване.
  */
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 
-const LOADING_PHASES = [
-  'Инициализиране на защитена връзка...',
-  'Екстракция на аудио-визуални метаданни...',
-  'Семантичен анализ на наративната последователност...',
-  'Крос-рефериране с глобални източници...',
-  'Деконструкция на логически заблуди...',
-  'Финализиране на одит доклад...',
-];
-
-const ANALYSIS_STEPS = [
-  'Инициализиране на DCGE ядрото и зареждане на семантични модели.',
-  'Извличане на аудио-визуални данни от източника.',
-  'Транскрибиране и сегментиране на речевото съдържание.',
-  'Анализ на наративната структура и ключови твърдения.',
-  'Верификация на фактически твърдения с външни източници.',
-  'Идентифициране на логически несъответствия и пропуски.',
-  'Оценка на тоналност и възможни манипулативни техники.',
-  'Крос-рефериране с бази данни за достоверност.',
-  'Синтезиране на междинни изводи по секции.',
-  'Генериране на структуриран одит доклад.',
-  'Прилагане на метрики за надеждност и прозрачност.',
-  'Финализиране на доклада и експортни формати.',
-];
+const LOADING_PHASE_KEYS = ['loading.phase0', 'loading.phase1', 'loading.phase2', 'loading.phase3', 'loading.phase4', 'loading.phase5'] as const;
+const ANALYSIS_STEP_KEYS = ['loading.step0', 'loading.step1', 'loading.step2', 'loading.step3', 'loading.step4', 'loading.step5', 'loading.step6', 'loading.step7', 'loading.step8', 'loading.step9', 'loading.step10', 'loading.step11'] as const;
 
 const STEP_DURATION_MS = 3200;
 const TRANSITION_MS = 450;
@@ -40,6 +20,7 @@ const AnalysisLoadingOverlay: React.FC<AnalysisLoadingOverlayProps> = ({
   visible,
   streamingProgress = null,
 }) => {
+  const { t } = useTranslation();
   const [loadingPhase, setLoadingPhase] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [displayedStepIndex, setDisplayedStepIndex] = useState(0);
@@ -58,7 +39,7 @@ const AnalysisLoadingOverlay: React.FC<AnalysisLoadingOverlayProps> = ({
       setDisplayedStepIndex(0);
       setExitingStepIndex(null);
       interval = setInterval(() => {
-        setLoadingPhase((prev) => (prev + 1) % LOADING_PHASES.length);
+        setLoadingPhase((prev) => (prev + 1) % LOADING_PHASE_KEYS.length);
       }, 3500);
     }
     return () => {
@@ -78,7 +59,7 @@ const AnalysisLoadingOverlay: React.FC<AnalysisLoadingOverlayProps> = ({
   useEffect(() => {
     if (!visible || exitingStepIndex === null) return;
     exitTimeoutRef.current = setTimeout(() => {
-      setDisplayedStepIndex((prev) => (prev + 1) % ANALYSIS_STEPS.length);
+      setDisplayedStepIndex((prev) => (prev + 1) % ANALYSIS_STEP_KEYS.length);
       setExitingStepIndex(null);
     }, TRANSITION_MS);
     return () => {
@@ -109,7 +90,7 @@ const AnalysisLoadingOverlay: React.FC<AnalysisLoadingOverlayProps> = ({
     >
       <div className="w-full max-w-lg flex flex-col items-center gap-6">
         <p className="text-[9px] font-black text-[#968B74] uppercase tracking-[0.35em]">
-          Одит на истината
+          {t('loading.title')}
         </p>
         <p className="text-4xl font-serif text-[#C4B091] tabular-nums tracking-tight">
           {String(Math.floor(elapsedSeconds / 60)).padStart(2, '0')}:
@@ -119,7 +100,7 @@ const AnalysisLoadingOverlay: React.FC<AnalysisLoadingOverlayProps> = ({
           key={streamingProgress || 'phase'}
           className="analysis-status-line text-[12px] text-[#C4B091] font-medium"
         >
-          {streamingProgress || LOADING_PHASES[loadingPhase]}
+          {streamingProgress || t(LOADING_PHASE_KEYS[loadingPhase])}
         </p>
         <div className="w-full h-1.5 bg-[#2a2a2a] rounded-full overflow-hidden">
           <div
@@ -133,7 +114,7 @@ const AnalysisLoadingOverlay: React.FC<AnalysisLoadingOverlayProps> = ({
           key={showingIndex}
           className={`analysis-step-single text-[12px] text-[#C4B091]/90 leading-relaxed text-center max-w-lg border-l-2 border-[#968B74]/30 pl-4 py-2 ${isExiting ? 'analysis-step-out' : 'analysis-step-in'}`}
         >
-          {ANALYSIS_STEPS[showingIndex]}
+          {t(ANALYSIS_STEP_KEYS[showingIndex])}
         </p>
       </div>
       <style>{`

@@ -12,6 +12,8 @@ import ArchivePage from '../components/archive/ArchivePage';
 import PricingPage from '../components/pricing/PricingPage';
 import Login from '../components/auth/Login';
 import Register from '../components/auth/Register';
+import TermsPage from '../components/legal/TermsPage';
+import PrivacyPage from '../components/legal/PrivacyPage';
 
 /**
  * Mobile app shell: bottom tab bar + routes. Use when viewport ≤768px or ?mobile=1.
@@ -33,6 +35,8 @@ const MobileView: React.FC = () => {
           <Route path="/expenses" element={currentUser ? <MobileExpensesPage /> : <Navigate to="/login" replace />} />
           <Route path="/login" element={currentUser ? <Navigate to="/profile" replace /> : <Login />} />
           <Route path="/register" element={currentUser ? <Navigate to="/profile" replace /> : <Register />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

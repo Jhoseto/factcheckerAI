@@ -1,7 +1,9 @@
 import { auth } from '../firebase';
 import { handleApiError } from '../errorHandler';
 import { getLinkAnalysisPrompt } from '../prompts/linkAnalysisPrompt';
+import { getLinkAnalysisPromptEn } from '../prompts/linkAnalysisPrompt.en';
 import { VideoAnalysis, APIUsage } from '../../types';
+import { getApiLang } from '../../i18n';
 
 /**
  * Analyzes a news article URL.
@@ -17,7 +19,8 @@ export const analyzeLinkDeep = async (
         if (!user) throw new Error('User must be logged in');
 
         const token = await user.getIdToken();
-        onProgress?.('Анализиране на статията...');
+        const lang = getApiLang();
+        onProgress?.(lang === 'en' ? 'Analysing article...' : 'Анализиране на статията...');
 
         const response = await fetch('/api/gemini/generate', {
             method: 'POST',
@@ -27,10 +30,13 @@ export const analyzeLinkDeep = async (
             },
             body: JSON.stringify({
                 model: 'gemini-2.5-flash',
-                prompt: getLinkAnalysisPrompt(url),
+                prompt: lang === 'en' ? getLinkAnalysisPromptEn(url) : getLinkAnalysisPrompt(url),
                 mode: 'deep',
                 serviceType: 'linkArticle',
-                systemInstruction: 'You are a professional fact-checker and investigative journalist. Answer ONLY in Bulgarian language.'
+                systemInstruction: lang === 'en'
+                    ? 'You are a professional fact-checker and investigative journalist. Answer ONLY in English language.'
+                    : 'You are a professional fact-checker and investigative journalist. Answer ONLY in Bulgarian language.',
+                lang
             })
         });
 
@@ -59,7 +65,10 @@ export const analyzeLinkDeep = async (
             analysis.claims.length > 0 ||
             analysis.manipulations.length > 0;
         if (!hasContent) {
-            throw new Error('Анализът не съдържа достатъчно информация. Моля, опитайте отново.');
+            const lang = getApiLang();
+            throw new Error(lang === 'en'
+                ? 'The analysis does not contain enough information. Please try again.'
+                : 'Анализът не съдържа достатъчно информация. Моля, опитайте отново.');
         }
 
         return { analysis, usage };
@@ -180,6 +189,14 @@ const transformAnalysis = (rawText: string, pointsCost: number): VideoAnalysis =
 };
 
 const transformVerdict = (verdict: string): any => {
+    const lang = getApiLang();
+    if (lang === 'en') {
+        const mapEn: Record<string, string> = {
+            'TRUE': 'true', 'MOSTLY_TRUE': 'mostly true', 'MIXED': 'partially true',
+            'MOSTLY_FALSE': 'misleading', 'FALSE': 'false', 'UNVERIFIABLE': 'unverifiable'
+        };
+        return mapEn[verdict] || 'partially true';
+    }
     const map: Record<string, string> = {
         'TRUE': 'вярно', 'MOSTLY_TRUE': 'предимно вярно', 'MIXED': 'частично вярно',
         'MOSTLY_FALSE': 'подвеждащо', 'FALSE': 'невярно', 'UNVERIFIABLE': 'непроверимо'

@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLanguageSwitch } from '../../hooks/useLanguageSwitch';
 
 const Navbar: React.FC = () => {
     const { currentUser, userProfile, logout } = useAuth();
     const navigate = useNavigate();
+    const { t } = useTranslation();
+    const { language, setLanguage, isTranslating, translateError } = useLanguageSwitch();
     const [showUserMenu, setShowUserMenu] = useState(false);
     const [menuCoords, setMenuCoords] = useState({ top: 0, right: 0 });
 
@@ -45,7 +49,7 @@ const Navbar: React.FC = () => {
                         <span className="text-[9px] font-sans font-bold tracking-[0.3em] text-[#666] mt-1 opacity-60">AI</span>
                     </h1>
                     <p className="text-[7px] md:text-[8px] font-sans text-[#444] tracking-[0.15em] mt-1.5 opacity-80">
-                        DEEP CONTEXTUAL GENERATIVE ENGINE (DCGE) BY SEREZLIEV | v 4.8.0
+                        {t('nav.brandSubtitle')}
                     </p>
                 </a>
 
@@ -55,7 +59,7 @@ const Navbar: React.FC = () => {
                         onClick={() => scrollToSection('video-analysis')}
                         className="text-[9px] font-bold tracking-[0.25em] text-[#666] hover:text-[#968B74] transition-all duration-500 uppercase relative group"
                     >
-                        ВИДЕО
+                        {t('nav.video')}
                         <span className="absolute -bottom-3 left-1/2 w-0 h-[1px] bg-[#968B74] transition-all duration-500 group-hover:w-full -translate-x-1/2 opacity-50"></span>
                     </button>
 
@@ -63,13 +67,35 @@ const Navbar: React.FC = () => {
                         onClick={() => scrollToSection('link-analysis')}
                         className="text-[9px] font-bold tracking-[0.25em] text-[#666] hover:text-[#968B74] transition-all duration-500 uppercase relative group"
                     >
-                        ЛИНК
+                        {t('nav.link')}
                         <span className="absolute -bottom-3 left-1/2 w-0 h-[1px] bg-[#968B74] transition-all duration-500 group-hover:w-full -translate-x-1/2 opacity-50"></span>
                     </button>
                 </div>
 
                 {/* Profile / Actions */}
                 <div className="flex items-center gap-8">
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setLanguage('bg')}
+                            disabled={isTranslating}
+                            className={`text-[9px] font-bold uppercase tracking-[0.2em] transition-colors px-2 py-1 rounded border ${language === 'bg' ? 'text-[#968B74] border-[#968B74]/40' : 'text-[#666] border-[#333] hover:text-[#968B74] hover:border-[#968B74]/30'}`}
+                        >
+                            BG
+                        </button>
+                        <button
+                            onClick={() => setLanguage('en')}
+                            disabled={isTranslating}
+                            className={`text-[9px] font-bold uppercase tracking-[0.2em] transition-colors px-2 py-1 rounded border ${language === 'en' ? 'text-[#968B74] border-[#968B74]/40' : 'text-[#666] border-[#333] hover:text-[#968B74] hover:border-[#968B74]/30'}`}
+                        >
+                            ENG
+                        </button>
+                        {isTranslating && <span className="text-[8px] text-[#666] uppercase tracking-wider">{t('common.translating')}</span>}
+                        {translateError && (
+                            <span className="text-[8px] text-amber-500/90 max-w-[200px] ml-1" title={translateError}>
+                                {translateError}
+                            </span>
+                        )}
+                    </div>
                     {userProfile ? (
                         <>
                             <button
@@ -79,7 +105,7 @@ const Navbar: React.FC = () => {
                                 <div className="hidden md:block">
                                     <p className="text-[9px] font-bold text-[#968B74] uppercase tracking-[0.2em] group-hover:text-[#C4B091] transition-colors">{userProfile.displayName}</p>
                                     <p className="text-[11px] text-[#C4B091] font-bold font-mono tracking-widest mt-1">
-                                        {(userProfile.pointsBalance || 0).toLocaleString()} PTS
+                                        {(userProfile.pointsBalance || 0).toLocaleString()} {t('common.pts')}
                                     </p>
                                 </div>
                                 <div className="w-9 h-9 rounded-full border border-[#333] bg-[#222] flex items-center justify-center text-[#968B74] text-xs font-serif overflow-hidden shadow-[0_0_15px_rgba(0,0,0,0.5)] group-hover:border-[#968B74]/30 transition-all">
@@ -104,17 +130,17 @@ const Navbar: React.FC = () => {
                                         onClick={(e) => e.stopPropagation()}
                                     >
                                         <button onClick={() => { navigate('/pricing'); setShowUserMenu(false); }} className="w-full text-left px-4 py-3 text-[9px] font-bold text-[#968B74] uppercase tracking-[0.2em] hover:bg-[#252525] rounded transition-colors flex justify-between">
-                                            Купи Точки <span className="text-[#444]">+</span>
+                                            {t('nav.buyPoints')} <span className="text-[#444]">+</span>
                                         </button>
                                         <button onClick={() => { navigate('/archive'); setShowUserMenu(false); }} className="w-full text-left px-4 py-3 text-[9px] font-bold text-[#888] uppercase tracking-[0.2em] hover:bg-[#252525] rounded transition-colors hover:text-[#ddd]">
-                                            Архив
+                                            {t('nav.archive')}
                                         </button>
                                         <button onClick={() => { navigate('/expenses'); setShowUserMenu(false); }} className="w-full text-left px-4 py-3 text-[9px] font-bold text-[#888] uppercase tracking-[0.2em] hover:bg-[#252525] rounded transition-colors hover:text-[#ddd]">
-                                            Разходи
+                                            {t('nav.expenses')}
                                         </button>
                                         <div className="h-[1px] bg-[#333] my-2"></div>
                                         <button onClick={() => { logout(); setShowUserMenu(false); }} className="w-full text-left px-4 py-3 text-[9px] font-bold text-[#888] hover:text-[#ddd] uppercase tracking-[0.2em] hover:bg-[#252525] rounded transition-colors">
-                                            Изход
+                                            {t('nav.logout')}
                                         </button>
                                     </div>
                                 </div>,
@@ -126,7 +152,7 @@ const Navbar: React.FC = () => {
                             onClick={() => navigate('/login')}
                             className="px-8 py-3 border border-[#333] text-[#888] text-[9px] font-bold tracking-[0.25em] uppercase hover:border-[#968B74] hover:text-[#968B74] transition-all rounded-sm bg-transparent hover:bg-[#968B74]/5"
                         >
-                            Вход
+                            {t('nav.login')}
                         </button>
                     )}
                 </div>

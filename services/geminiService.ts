@@ -1,10 +1,14 @@
 import { VideoAnalysis, APIUsage, AnalysisResponse, CostEstimate, YouTubeVideoMetadata, TranscriptionLine, AnalysisMode } from '../types';
 import { handleApiError } from './errorHandler';
 import { auth } from './firebase';
+import { getApiLang } from '../i18n';
 import { calculateCost as calculateCostFromPricing, calculateCostInPoints } from './pricing';
 import { getStandardAnalysisPrompt } from './prompts/standardAnalysisPrompt';
 import { getDeepAnalysisPrompt } from './prompts/deepAnalysisPrompt';
 import { getReportSynthesisPrompt } from './prompts/reportSynthesisPrompt';
+import { getStandardAnalysisPromptEn } from './prompts/standardAnalysisPrompt.en';
+import { getDeepAnalysisPromptEn } from './prompts/deepAnalysisPrompt.en';
+import { getReportSynthesisPromptEn } from './prompts/reportSynthesisPrompt.en';
 import { normalizeYouTubeUrl } from './validation';
 
 /**
@@ -19,6 +23,7 @@ const callGeminiAPI = async (payload: {
   isBatch?: boolean;
   enableGoogleSearch?: boolean;
   mode?: string;
+  lang?: string;
 }, onProgress?: (status: string) => void): Promise<{ text: string; usageMetadata: any; points?: { deducted: number; costInPoints: number; remaining?: number; newBalance?: number } }> => {
 
   const user = auth.currentUser;
@@ -179,10 +184,11 @@ const callGeminiStreamAPI = async (payload: any, token: string, onProgress?: (st
 };
 
 const getAnalysisPrompt = (url: string, mode: AnalysisMode): string => {
+  const lang = getApiLang();
   if (mode === 'deep') {
-    return getDeepAnalysisPrompt(url, 'video');
+    return lang === 'en' ? getDeepAnalysisPromptEn(url, 'video') : getDeepAnalysisPrompt(url, 'video');
   }
-  return getStandardAnalysisPrompt(url, 'video');
+  return lang === 'en' ? getStandardAnalysisPromptEn(url, 'video') : getStandardAnalysisPrompt(url, 'video');
 };
 
 /**
@@ -434,7 +440,18 @@ const transformGeminiResponse = (
   fullMetadata?: YouTubeVideoMetadata,
   transcription?: TranscriptionLine[]
 ): VideoAnalysis => {
+  const responseLang = getApiLang();
+
   const mapVerdict = (verdict: string): 'вярно' | 'предимно вярно' | 'частично вярно' | 'подвеждащо' | 'невярно' | 'непроверимо' => {
+    if (responseLang === 'en') {
+      // EN verdicts are stored as English strings but type still expects BG keys — keep BG for internal type
+      // We store the EN label in the explanation, so here we map to a neutral BG enum key
+      const mapEn: Record<string, 'вярно' | 'предимно вярно' | 'частично вярно' | 'подвеждащо' | 'невярно' | 'непроверимо'> = {
+        'TRUE': 'вярно', 'MOSTLY_TRUE': 'предимно вярно', 'MIXED': 'частично вярно',
+        'MOSTLY_FALSE': 'подвеждащо', 'FALSE': 'невярно', 'UNVERIFIABLE': 'непроверимо'
+      };
+      return mapEn[verdict?.toUpperCase()] || 'непроверимо';
+    }
     const map: Record<string, 'вярно' | 'предимно вярно' | 'частично вярно' | 'подвеждащо' | 'невярно' | 'непроверимо'> = {
       'TRUE': 'вярно', 'MOSTLY_TRUE': 'предимно вярно', 'MIXED': 'частично вярно',
       'MOSTLY_FALSE': 'подвеждащо', 'FALSE': 'невярно', 'UNVERIFIABLE': 'непроверимо'
@@ -443,6 +460,13 @@ const transformGeminiResponse = (
   };
 
   const mapAssessment = (assessment: string): string => {
+    if (responseLang === 'en') {
+      const mapEn: Record<string, string> = {
+        'ACCURATE': 'ACCURATE', 'MOSTLY_ACCURATE': 'MOSTLY ACCURATE',
+        'MIXED': 'MIXED', 'MISLEADING': 'MISLEADING', 'FALSE': 'FALSE'
+      };
+      return mapEn[assessment?.toUpperCase()] || 'UNDETERMINED';
+    }
     const map: Record<string, string> = {
       'ACCURATE': 'ДОСТОВЕРНО', 'MOSTLY_ACCURATE': 'ПРЕДИМНО ДОСТОВЕРНО',
       'MIXED': 'СМЕСЕНО', 'MISLEADING': 'ПОДВЕЖДАЩО', 'FALSE': 'НЕВЯРНО'
@@ -492,12 +516,12 @@ const transformGeminiResponse = (
   }));
 
   const transformedManipulations = manipulations.map((m: any, idx: number) => ({
-    technique: m.technique || 'Неизвестна',
+    technique: m.technique || (responseLang === 'en' ? 'Unknown technique' : 'Неизвестна'),
     timestamp: m.timestamp || '00:00',
-    logic: (m.description || '') + (m.example ? '\n\nПример: ' + m.example : '') + (m.impact ? '\n\nВъздействие: ' + m.impact : ''),
-    effect: m.impact || 'Въздействие върху аудиторията',
+    logic: (m.description || '') + (m.example ? (responseLang === 'en' ? '\n\nExample: ' : '\n\nПример: ') + m.example : '') + (m.impact ? (responseLang === 'en' ? '\n\nImpact: ' : '\n\nВъздействие: ') + m.impact : ''),
+    effect: m.impact || (responseLang === 'en' ? 'Impact on the audience' : 'Въздействие върху аудиторията'),
     severity: m.severity || (0.5 + (idx * 0.1)),
-    counterArgument: m.counterArgument || 'Проверка на първоизточници.'
+    counterArgument: m.counterArgument || (responseLang === 'en' ? 'Verify primary sources.' : 'Проверка на първоизточници.')
   }));
 
   const timeline = allClaims.length > 0
@@ -512,7 +536,65 @@ const transformGeminiResponse = (
     ? `\n\n**Метаданни на видеоклипа:**\n- **Заглавие:** ${fullMetadata.title}\n- **Автор:** ${fullMetadata.author}\n- **Продължителност:** ${fullMetadata.durationFormatted}\n- **ID:** ${fullMetadata.videoId}`
     : (videoTitle ? `\n\n**Метаданни:**\n- **Заглавие:** ${videoTitle}\n- **Автор:** ${videoAuthor || 'Неизвестен'}` : '');
 
-  const constructedReport = (rawResponse?.finalInvestigativeReport) || `
+  const constructedReport = (rawResponse?.finalInvestigativeReport) || (responseLang === 'en' ? `
+# FINAL INVESTIGATIVE REPORT
+
+## Executive Summary
+${rawResponse?.summary || 'No summary available.'}
+
+## Key Findings and Fact Checks
+${(allClaims || []).slice(0, 10).map((c: any) => `
+### "${c.claim || c.quote}"${c.speaker ? ` - ${c.speaker}` : ''}${c.timestamp ? ` [${c.timestamp}]` : ''}
+
+**Verdict:** ${c.verdict || 'UNVERIFIABLE'}
+
+**Evidence and verification:**
+${c.evidence || c.factualVerification || 'No information available'}
+
+${c.comparison ? `**Comparison with other sources:**\n${c.comparison}\n` : ''}
+${c.logicalAnalysis ? `**Logical analysis:**\n${c.logicalAnalysis}\n` : ''}
+${Array.isArray(c.sources) && c.sources.length > 0 ? `**Sources:** ${c.sources.join(', ')}\n` : ''}
+`).join('\n---\n')}
+
+${manipulations.length > 0 ? `
+## Discovered Manipulation Techniques
+
+${manipulations.map((m: any) => `
+### ${m.technique}${m.speaker ? ` (used by ${m.speaker})` : ''} [${m.timestamp || '00:00'}]
+
+${m.description || ''}
+
+${m.example ? `**Concrete example:**\n"${m.example}"\n` : ''}
+${m.impact ? `**Impact on the audience:**\n${m.impact}\n` : ''}
+${m.counterArgument ? `**How to protect yourself:**\n${m.counterArgument}\n` : ''}
+`).join('\n---\n')}
+` : ''}
+
+## Geopolitical Context and Historical Parallels
+${rawResponse?.geopoliticalContext || 'Not applicable'}
+
+${rawResponse?.historicalParallel ? `\n### Historical Precedents\n${rawResponse.historicalParallel}\n` : ''}
+
+## Psycholinguistic Analysis
+${rawResponse?.psychoLinguisticAnalysis || 'No data'}
+
+## Strategic Intent
+${rawResponse?.strategicIntent || 'No data'}
+
+## Narrative Architecture
+${rawResponse?.narrativeArchitecture || 'No data'}
+
+## Technical Forensics
+${rawResponse?.technicalForensics || 'No data'}
+
+## Social Impact
+${rawResponse?.socialImpactPrediction || 'No data'}
+
+## Conclusion and Recommendations
+${rawResponse?.recommendations || 'Critical evaluation of the presented information is recommended.'}
+
+${metadataSection}
+`.trim() : `
 # ФИНАЛЕН РАЗСЛЕДВАЩ ДОКЛАД
 
 ## Изпълнително резюме
@@ -570,7 +652,7 @@ ${rawResponse?.socialImpactPrediction || 'Няма данни'}
 ${rawResponse?.recommendations || 'Препоръчва се критично осмисляне на представената информация.'}
 
 ${metadataSection}
-`.trim();
+`.trim());
 
   return {
     id: crypto.randomUUID(),
@@ -648,7 +730,10 @@ export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTub
     const normalizedUrl = normalizeYouTubeUrl(url);
     const prompt = getAnalysisPrompt(normalizedUrl, mode) + (videoMetadata ? `\n\nVideo Context: Title: "${videoMetadata.title}", Author: "${videoMetadata.author}", Duration: ${videoMetadata.durationFormatted}.` : '');
 
-    const systemInstruction = "You are an ELITE fact-checker and investigative journalist with 20+ years of experience. Your mission is to create an EXCEPTIONAL, CRITICAL, and OBJECTIVE analysis that reveals all hidden viewpoints, manipulations, and facts. CRITICAL INSTRUCTIONS: 1) Extract ALL important claims, quotes, and manipulations from the video. 2) Do NOT generate transcription - return empty array for 'transcription'. 3) Output all text in BULGARIAN. 4) Keep JSON Enum values in English. 5) Create a FINAL INVESTIGATIVE REPORT that is a masterpiece of journalism.";
+    const lang = getApiLang();
+    const systemInstruction = lang === 'en'
+      ? "You are an ELITE fact-checker and investigative journalist with 20+ years of experience. Your mission is to create an EXCEPTIONAL, CRITICAL, and OBJECTIVE analysis. CRITICAL INSTRUCTIONS: 1) Extract ALL important claims, quotes, and manipulations. 2) Do NOT generate transcription - return empty array for 'transcription'. 3) Output ALL text in ENGLISH. 4) Keep JSON Enum values in English. 5) Create a FINAL INVESTIGATIVE REPORT that is a masterpiece of journalism."
+      : "You are an ELITE fact-checker and investigative journalist with 20+ years of experience. Your mission is to create an EXCEPTIONAL, CRITICAL, and OBJECTIVE analysis that reveals all hidden viewpoints, manipulations, and facts. CRITICAL INSTRUCTIONS: 1) Extract ALL important claims, quotes, and manipulations from the video. 2) Do NOT generate transcription - return empty array for 'transcription'. 3) Output all text in BULGARIAN. 4) Keep JSON Enum values in English. 5) Create a FINAL INVESTIGATIVE REPORT that is a masterpiece of journalism.";
 
     const payload = {
       model: model,
@@ -664,7 +749,8 @@ export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTub
         duration: videoMetadata.duration,
         durationFormatted: videoMetadata.durationFormatted,
         thumbnailUrl: videoMetadata.thumbnailUrl // YouTube API returns this
-      } : undefined
+      } : undefined,
+      lang: getApiLang()
     };
 
     // 3. Call Gemini API (streaming for video, regular for text)
@@ -737,7 +823,8 @@ export const analyzeYouTubeBatch = async (url: string): Promise<AnalysisResponse
       prompt: prompt,
       systemInstruction: "You are an ELITE fact-checker. Do NOT generate transcription - return empty array for 'transcription'. Output valid JSON only in Bulgarian.",
       videoUrl: url,
-      isBatch: true
+      isBatch: true,
+      lang: getApiLang()
     };
 
     // 3. Call Gemini API
@@ -799,7 +886,8 @@ export const synthesizeReport = async (analysis: VideoAnalysis): Promise<string>
   const token = await auth.currentUser?.getIdToken();
   if (!token) throw new Error('Not authenticated');
 
-  const prompt = getReportSynthesisPrompt({
+  const reportLang = getApiLang();
+  const reportArgs = {
     videoTitle: analysis.videoTitle,
     videoAuthor: analysis.videoAuthor,
     summary: analysis.summary.overallSummary,
@@ -826,7 +914,8 @@ export const synthesizeReport = async (analysis: VideoAnalysis): Promise<string>
     historicalParallel: analysis.summary.historicalParallel,
     socialImpactPrediction: analysis.summary.socialImpactPrediction,
     mode: analysis.analysisMode || 'standard'
-  });
+  };
+  const prompt = reportLang === 'en' ? getReportSynthesisPromptEn(reportArgs) : getReportSynthesisPrompt(reportArgs);
 
   const response = await fetch('/api/gemini/synthesize-report', {
     method: 'POST',
@@ -834,7 +923,7 @@ export const synthesizeReport = async (analysis: VideoAnalysis): Promise<string>
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
     },
-    body: JSON.stringify({ prompt })
+    body: JSON.stringify({ prompt, lang: getApiLang() })
   });
 
   if (!response.ok) {

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import Navbar from './components/common/Navbar';
+import LegalFooter from './components/common/LegalFooter';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
 import PricingPage from './components/pricing/PricingPage';
@@ -10,6 +11,8 @@ import LinkAuditPage from './components/linkAudit/LinkAuditPage';
 
 import ArchivePage from './components/archive/ArchivePage';
 import ReportPage from './components/report/ReportPage';
+import TermsPage from './components/legal/TermsPage';
+import PrivacyPage from './components/legal/PrivacyPage';
 import App from './App';
 import { MobileView } from './mobileView';
 
@@ -49,6 +52,7 @@ const AppRouter: React.FC = () => {
     return (
         <>
             <Navbar />
+            <LegalFooter />
             <Routes>
                 {/* Public routes */}
                 <Route
@@ -88,8 +92,8 @@ const AppRouter: React.FC = () => {
                 <Route path="/analysis-result" element={<ReportPage />} />
                 <Route path="/report/:id" element={<ReportPage />} />
 
-
-
+                <Route path="/terms" element={<TermsPage />} />
+                <Route path="/privacy" element={<PrivacyPage />} />
 
                 {/* Fallback */}
                 <Route path="*" element={<Navigate to="/" replace />} />

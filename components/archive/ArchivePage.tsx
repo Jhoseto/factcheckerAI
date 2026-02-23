@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { getUserAnalyses, SavedAnalysis, deleteAnalysis } from '../../services/archiveService';
 
@@ -10,6 +11,7 @@ const LIMITS = {
 };
 
 const ArchivePage: React.FC = () => {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const { currentUser } = useAuth();
     
@@ -39,13 +41,13 @@ const ArchivePage: React.FC = () => {
 
     const handleDelete = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (window.confirm('Сигурни ли сте, че искате да изтриете този анализ?')) {
+        if (window.confirm(t('archive.confirmDelete'))) {
             try {
                 await deleteAnalysis(id);
                 setAnalyses(prev => prev.filter(a => a.id !== id));
             } catch (error) {
                 console.error('Error deleting analysis', error);
-                alert('Грешка при изтриване.');
+                alert(t('archive.deleteError'));
             }
         }
     };
@@ -75,10 +77,10 @@ const ArchivePage: React.FC = () => {
 
     const getTypeLabel = (type: string) => {
         switch (type) {
-            case 'video': return 'Видео Анализ';
-            case 'link': return 'Линк Одит';
-            case 'social': return 'Социален Одит';
-            default: return 'Анализ';
+            case 'video': return t('archive.videoAnalysis');
+            case 'link': return t('archive.linkAudit');
+            case 'social': return t('archive.socialAudit');
+            default: return t('archive.analysis');
         }
     };
 
@@ -116,14 +118,14 @@ const ArchivePage: React.FC = () => {
                         <div className="flex items-center justify-center md:justify-start gap-3">
                             <span className="h-[1px] w-8 bg-[#968B74]/60"></span>
                             <span className="text-[10px] font-bold text-[#C4B091] uppercase tracking-[0.3em]">
-                                Библиотека
+                                {t('archive.library')}
                             </span>
                         </div>
                         <h1 className="text-4xl md:text-5xl font-serif text-[#E0E0E0] tracking-tight">
-                            АРХИВ НА <span className="italic text-bronze-gradient">АНАЛИЗИ</span>
+                            {t('archive.archiveTitleShort')} <span className="italic text-bronze-gradient">{t('archive.archiveTitleHighlight')}</span>
                         </h1>
                         <p className="text-xs text-[#888] max-w-xl mx-auto md:mx-0 pt-2 uppercase tracking-wide">
-                            Управлявайте вашето портфолио от дигитални разследвания.
+                            {t('archive.archiveSubtitle')}
                         </p>
                     </div>
                 </div>
@@ -132,7 +134,7 @@ const ArchivePage: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
                     <div className={`editorial-card p-6 bg-[#252525]`}>
                         <div className="flex justify-between items-center mb-3">
-                            <span className="text-[9px] font-bold text-[#888] uppercase tracking-widest">Видео Слотове</span>
+                            <span className="text-[9px] font-bold text-[#888] uppercase tracking-widest">{t('archive.videoSlots')}</span>
                             <span className={`text-[10px] font-bold ${counts.video >= LIMITS.video ? 'text-red-500' : 'text-[#C4B091]'}`}>{counts.video} / {LIMITS.video}</span>
                         </div>
                         <div className="w-full h-1 bg-[#1a1a1a] rounded-full overflow-hidden">
@@ -142,7 +144,7 @@ const ArchivePage: React.FC = () => {
 
                     <div className={`editorial-card p-6 bg-[#252525]`}>
                         <div className="flex justify-between items-center mb-3">
-                            <span className="text-[9px] font-bold text-[#888] uppercase tracking-widest">Линк Слотове</span>
+                            <span className="text-[9px] font-bold text-[#888] uppercase tracking-widest">{t('archive.linkSlots')}</span>
                             <span className={`text-[10px] font-bold ${counts.link >= LIMITS.link ? 'text-red-500' : 'text-emerald-500'}`}>{counts.link} / {LIMITS.link}</span>
                         </div>
                         <div className="w-full h-1 bg-[#1a1a1a] rounded-full overflow-hidden">
@@ -152,7 +154,7 @@ const ArchivePage: React.FC = () => {
 
                     <div className={`editorial-card p-6 bg-[#252525]`}>
                         <div className="flex justify-between items-center mb-3">
-                            <span className="text-[9px] font-bold text-[#888] uppercase tracking-widest">Социални Слотове</span>
+                            <span className="text-[9px] font-bold text-[#888] uppercase tracking-widest">{t('archive.socialSlots')}</span>
                             <span className={`text-[10px] font-bold ${counts.social >= LIMITS.social ? 'text-red-500' : 'text-purple-500'}`}>{counts.social} / {LIMITS.social}</span>
                         </div>
                         <div className="w-full h-1 bg-[#1a1a1a] rounded-full overflow-hidden">
@@ -173,7 +175,7 @@ const ArchivePage: React.FC = () => {
                                     : 'bg-[#1a1a1a] text-[#666] border border-[#333] hover:border-[#968B74] hover:text-[#968B74]'
                                     }`}
                             >
-                                {f === 'all' ? 'Всички' : getTypeLabel(f).split(' ')[0]}
+                                {f === 'all' ? t('archive.all') : getTypeLabel(f).split(' ')[0]}
                             </button>
                         ))}
                     </div>
@@ -182,7 +184,7 @@ const ArchivePage: React.FC = () => {
                         <div className="relative flex-1 md:w-64">
                             <input
                                 type="text"
-                                placeholder="ТЪРСЕНЕ..."
+                                placeholder={t('archive.searchPlaceholder')}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="input-luxury w-full pl-9 pr-4 py-2 rounded-sm text-[10px] uppercase tracking-widest placeholder:text-[#444]"
@@ -196,8 +198,8 @@ const ArchivePage: React.FC = () => {
                             onChange={(e) => setSortOrder(e.target.value as any)}
                             className="input-luxury px-4 py-2 rounded-sm text-[10px] uppercase tracking-widest cursor-pointer"
                         >
-                            <option value="date_desc">Най-нови</option>
-                            <option value="date_asc">Най-стари</option>
+                            <option value="date_desc">{t('archive.sortNewest')}</option>
+                            <option value="date_asc">{t('archive.sortOldest')}</option>
                         </select>
                     </div>
                 </div>
@@ -206,9 +208,9 @@ const ArchivePage: React.FC = () => {
                 <div className="space-y-4 mt-8">
                     {filteredAnalyses.length === 0 ? (
                         <div className="text-center py-24 bg-[#252525] border border-[#333] rounded-xl opacity-50">
-                            <h3 className="text-xs font-bold text-[#888] uppercase tracking-widest mb-2">Няма намерени досиета</h3>
+                            <h3 className="text-xs font-bold text-[#888] uppercase tracking-widest mb-2">{t('archive.noResults')}</h3>
                             <button onClick={() => navigate('/')} className="mt-4 text-[#C4B091] text-[9px] font-bold uppercase tracking-widest hover:underline">
-                                Стартирай Нов Анализ
+                                {t('archive.startNewAnalysis')}
                             </button>
                         </div>
                     ) : (

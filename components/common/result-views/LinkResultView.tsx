@@ -18,10 +18,15 @@ interface LinkResultViewProps {
 }
 
 import ShareModal from '../ShareModal';
+import { useTranslatedReport } from '../../../hooks/useTranslatedReport';
+import { useTranslation } from 'react-i18next';
 
 const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, onSave, onReset, slotUsage, isSaved = false }) => {
+    const { t } = useTranslation();
     const { currentUser } = useAuth();
     const [activeTab, setActiveTab] = useState<'summary' | 'claims' | 'manipulation' | 'profile' | 'rhetoric' | 'comments' | 'report'>('summary');
+    const linkReportText = analysis.summary.finalInvestigativeReport || '';
+    const { displayText: linkReportDisplayText, loading: linkReportTranslating } = useTranslatedReport(analysis.id, linkReportText);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
     const handleShare = async () => {
@@ -51,32 +56,32 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                 <MetricBlock label="Пропаганден Индекс" value={analysis.summary.detailedStats.propagandaScore} color="red" />
             </div>
             <div className="editorial-card p-5 border-l-2 border-l-[#968B74] mt-4 mb-4">
-                <p className="text-[8px] font-black text-[#666] uppercase tracking-widest mb-2">КЛАСИФИКАЦИЯ</p>
+                <p className="text-[8px] font-black text-[#666] uppercase tracking-widest mb-2">{t('analysis.classification')}</p>
                 <span className={`font-black text-sm md:text-base block leading-tight uppercase tracking-tighter ${analysis.summary.finalClassification === 'ACCURATE' ? 'text-[#7cb87c]' : analysis.summary.finalClassification === 'MISLEADING' ? 'text-[#d4a574]' : analysis.summary.finalClassification === 'FALSE' ? 'text-[#c66]' : 'text-[#C4B091]'}`}>
                     {analysis.summary.finalClassification === 'ACCURATE' ? 'ДОСТОВЕРНО' : analysis.summary.finalClassification === 'MOSTLY_ACCURATE' ? 'ПРЕДИМНО ТОЧНО' : analysis.summary.finalClassification === 'MIXED' ? 'СМЕСЕНИ ДАННИ' : analysis.summary.finalClassification === 'MISLEADING' ? 'ПОДВЕЖДАЩО' : 'НЕВЯРНО'}
                 </span>
             </div>
             <div className="p-5 bg-[#252525] border border-[#333] rounded-sm">
-                <p className="text-[7px] font-black text-[#968B74] uppercase tracking-widest mb-2">Цена на анализа</p>
-                <p className="text-lg font-black text-bronze-gradient">{price} точки</p>
+                <p className="text-[7px] font-black text-[#968B74] uppercase tracking-widest mb-2">{t('analysis.priceOfAnalysis')}</p>
+                <p className="text-lg font-black text-bronze-gradient">{price} {t('common.points')}</p>
             </div>
             <div className="p-5 bg-[#252525] border border-[#333] rounded-sm">
-                <p className="text-[7px] font-black text-[#666] uppercase tracking-widest mb-2">Източник</p>
-                <p className="text-xs font-black text-[#C4B091] truncate">{(() => { try { return new URL(url).hostname; } catch { return url || 'Неизвестен източник'; } })()}</p>
+                <p className="text-[7px] font-black text-[#666] uppercase tracking-widest mb-2">{t('report.source')}</p>
+                <p className="text-xs font-black text-[#C4B091] truncate">{(() => { try { return new URL(url).hostname; } catch { return url || t('report.unknownSource'); } })()}</p>
             </div>
             <div className="flex flex-col gap-4">
                 {!isSaved && onSave && (
-                    <button onClick={onSave} disabled={isFull} className={`px-5 py-3.5 text-[10px] font-black uppercase tracking-widest w-full rounded-sm ${isFull ? 'bg-[#333] text-[#555] cursor-not-allowed border border-[#333]' : 'btn-luxury-solid'}`} title={isFull ? 'Достигнали сте лимита за този тип анализи' : 'Запази в архив'}>
-                        {isFull ? 'НЯМА СВОБОДНИ СЛОТОВЕ' : `ЗАПАЗИ В АРХИВ (${slotUsage?.used ?? 0}/${slotUsage?.max ?? 0})`}
+                    <button onClick={onSave} disabled={isFull} className={`px-5 py-3.5 text-[10px] font-black uppercase tracking-widest w-full rounded-sm ${isFull ? 'bg-[#333] text-[#555] cursor-not-allowed border border-[#333]' : 'btn-luxury-solid'}`} title={isFull ? t('common.archiveLimitReached') : t('common.saveToArchive')}>
+                        {isFull ? t('common.noSlots') : t('common.saveToArchiveSlots', { used: slotUsage?.used ?? 0, max: slotUsage?.max ?? 0 })}
                     </button>
                 )}
                 <div className="w-full relative group">
                     <button onClick={isSaved ? handleShare : undefined} disabled={!isSaved} className={`px-5 py-3.5 text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2 w-full rounded-sm ${isSaved ? 'btn-luxury-solid cursor-pointer' : 'bg-[#333] text-[#555] cursor-not-allowed border border-[#333]'}`}>
-                        СПОДЕЛИ ДОКЛАДА
+                        {t('common.shareReport')}
                     </button>
                     {!isSaved && (
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#252525] border border-[#968B74]/30 text-[#C4B091] text-[9px] font-bold uppercase tracking-wide rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
-                            Запазете доклада, за да го споделите
+                            {t('common.saveToShare')}
                             <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#252525]"></div>
                         </div>
                     )}
@@ -577,8 +582,9 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                                     <p className="text-[9px] font-black text-[#968B74] uppercase tracking-[0.3em] mb-2">ОФИЦИАЛЕН ДОКЛАД</p>
                                     <h2 className="text-3xl md:text-4xl font-black text-[#C4B091]">Заключителен Анализ</h2>
                                 </div>
+                                {linkReportTranslating && <p className="text-[#968B74] text-sm mb-4">{t('loading.translating')}</p>}
                                 <div className="max-w-none space-y-1 font-sans text-[15px] md:text-base leading-[1.7] text-[#ddd]">
-                                    {(analysis.summary.finalInvestigativeReport || '').split(/\n/).map((line, idx) => {
+                                    {linkReportDisplayText.split(/\n/).map((line, idx) => {
                                         const trimmed = line.trim();
                                         if (!trimmed) return <br key={idx} />;
                                         if (/^\d+\.\s/.test(trimmed)) {

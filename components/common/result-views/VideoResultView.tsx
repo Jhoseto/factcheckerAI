@@ -6,6 +6,8 @@ import ReliabilityChart from '../../ReliabilityChart';
 import MetricBlock from '../MetricBlock';
 import { useAuth } from '../../../contexts/AuthContext';
 import { makeAnalysisPublic } from '../../../services/archiveService';
+import { useTranslatedReport } from '../../../hooks/useTranslatedReport';
+import { useTranslation } from 'react-i18next';
 
 interface VideoResultViewProps {
     analysis: VideoAnalysis;
@@ -100,7 +102,8 @@ const MultimodalSection: React.FC<{ title: string; content?: string; color: stri
 };
 
 const ReportView: React.FC<{ analysis: VideoAnalysis; reportRef?: React.RefObject<HTMLElement>; reportLoading?: boolean }> = ({ analysis, reportRef, reportLoading }) => {
-    const reportText = analysis.synthesizedReport || analysis.summary.finalInvestigativeReport || '';
+    const rawReportText = analysis.synthesizedReport || analysis.summary.finalInvestigativeReport || '';
+    const { displayText: reportText, loading: reportTranslating } = useTranslatedReport(analysis.id, rawReportText);
 
     // Parse markdown-like report into structured sections
     const renderReportContent = (text: string) => {
@@ -257,6 +260,7 @@ const ReportView: React.FC<{ analysis: VideoAnalysis; reportRef?: React.RefObjec
 import ShareModal from '../ShareModal';
 
 const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoading, onSaveToArchive, onReset, slotUsage, isSaved = false }) => {
+    const { t } = useTranslation();
     const { currentUser } = useAuth();
     const [activeTab, setActiveTab] = useState<'summary' | 'claims' | 'manipulation' | 'report' | 'visual' | 'bodyLanguage' | 'vocal' | 'deception' | 'humor' | 'psychological' | 'cultural'>('summary');
     const [isExporting, setIsExporting] = useState(false);
@@ -321,16 +325,16 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
     const sidebarContent = (
         <>
                 <div className="grid grid-cols-2 lg:grid-cols-1 gap-5">
-                    <MetricBlock label="Индекс на Достоверност" value={analysis.summary.credibilityIndex} color="emerald" />
-                    <MetricBlock label="Индекс на Манипулация" value={analysis.summary.manipulationIndex} color="orange" />
+                    <MetricBlock label={t('analysis.credibilityIndex')} value={analysis.summary.credibilityIndex} color="emerald" />
+                    <MetricBlock label={t('analysis.manipulationIndex')} value={analysis.summary.manipulationIndex} color="orange" />
                 </div>
                 <div className="editorial-card p-5 border-l-2 border-l-[#968B74] mt-4 mb-4">
-                    <p className="text-[8px] font-black text-[#666] uppercase tracking-widest mb-2">КЛАСИФИКАЦИЯ</p>
+                    <p className="text-[8px] font-black text-[#666] uppercase tracking-widest mb-2">{t('analysis.classification')}</p>
                     <span className="text-[#C4B091] font-black text-sm md:text-base block leading-tight uppercase tracking-tighter">{analysis.summary.finalClassification}</span>
                 </div>
                 <div className="p-5 bg-[#252525] border border-[#333] rounded-sm">
-                    <p className="text-[7px] font-black text-[#968B74] uppercase tracking-widest mb-2">Цена на анализа</p>
-                    <p className="text-lg font-black text-bronze-gradient">{(analysis.pointsCost ?? 0).toLocaleString('bg-BG')} точки</p>
+                    <p className="text-[7px] font-black text-[#968B74] uppercase tracking-widest mb-2">{t('analysis.priceOfAnalysis')}</p>
+                    <p className="text-lg font-black text-bronze-gradient">{(analysis.pointsCost ?? 0).toLocaleString('bg-BG')} {t('common.points')}</p>
                 </div>
                 <div className="flex flex-col gap-4">
                     {!isSaved && onSaveToArchive && (
@@ -339,7 +343,7 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
                             disabled={slotUsage ? slotUsage.used >= slotUsage.max : false}
                             className={slotUsage && slotUsage.used >= slotUsage.max ? 'px-5 py-3.5 text-[10px] font-black uppercase tracking-widest w-full rounded-sm bg-[#333] text-[#555] cursor-not-allowed border border-[#333]' : 'btn-luxury-solid px-5 py-3.5 text-[10px] font-black uppercase tracking-widest w-full rounded-sm'}
                         >
-                            {slotUsage && slotUsage.used >= slotUsage.max ? 'НЯМА СВОБОДНИ СЛОТОВЕ' : `ЗАПАЗИ В АРХИВ (${slotUsage?.used ?? 0}/${slotUsage?.max ?? 0})`}
+                            {slotUsage && slotUsage.used >= slotUsage.max ? t('common.noSlots') : t('common.saveToArchiveSlots', { used: slotUsage?.used ?? 0, max: slotUsage?.max ?? 0 })}
                         </button>
                     )}
                     <div className="w-full relative group">
@@ -348,18 +352,18 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
                             disabled={!isSaved}
                             className={`px-5 py-3.5 text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2 w-full rounded-sm ${isSaved ? 'btn-luxury-solid' : 'bg-[#333] text-[#555] cursor-not-allowed border border-[#333]'}`}
                         >
-                            СПОДЕЛИ ДОКЛАДА
+                            {t('common.shareReport')}
                         </button>
                         {!isSaved && (
                             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#252525] border border-[#968B74]/30 text-[#C4B091] text-[9px] font-bold uppercase tracking-wide rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
-                                Запазете доклада, за да го споделите
+                                {t('common.saveToShare')}
                                 <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#252525]"></div>
                             </div>
                         )}
                     </div>
                     {onReset && (
                         <button onClick={onReset} className="btn-luxury px-5 py-3.5 text-[10px] font-black uppercase tracking-widest w-full rounded-sm flex items-center justify-center gap-2 hover:border-[#8b4a4a] hover:text-[#c66]" title="Затвори и Нов Анализ">
-                            <span>✕</span> ЗАТВОРИ
+                            <span>✕</span> {t('common.close')}
                         </button>
                     )}
                 </div>
@@ -368,15 +372,15 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
 
     const tabsBarContent = (() => {
         const baseTabsBefore = [
-            { id: 'summary', label: 'Резюме' },
-            { id: 'claims', label: 'Твърдения' },
-            { id: 'manipulation', label: 'Манипулация' }
+            { id: 'summary', label: t('analysis.tabSummary') },
+            { id: 'claims', label: t('analysis.tabClaims') },
+            { id: 'manipulation', label: t('analysis.tabManipulation') }
         ];
         const deepTabs = analysis.analysisMode === 'deep' ? [
-            { id: 'visual', label: 'Визуален' }, { id: 'bodyLanguage', label: 'Тяло' }, { id: 'vocal', label: 'Вокал' },
-            { id: 'deception', label: 'Измама' }, { id: 'humor', label: 'Хумор' }, { id: 'psychological', label: 'Психо' }, { id: 'cultural', label: 'Културен' }
+            { id: 'visual', label: t('analysis.tabVisual') }, { id: 'bodyLanguage', label: t('analysis.tabBodyLanguage') }, { id: 'vocal', label: t('analysis.tabVocal') },
+            { id: 'deception', label: t('analysis.tabDeception') }, { id: 'humor', label: t('analysis.tabHumor') }, { id: 'psychological', label: t('analysis.tabPsychological') }, { id: 'cultural', label: t('analysis.tabCultural') }
         ] : [];
-        const finalTabs = [...baseTabsBefore, ...deepTabs, { id: 'report', label: 'Финален доклад' }];
+        const finalTabs = [...baseTabsBefore, ...deepTabs, { id: 'report', label: t('analysis.tabFinalReport') }];
         return (
             <>
                 {finalTabs.map(tab => {
