@@ -52,7 +52,7 @@ function validateJsonResponse(responseText, serviceType = 'link') {
     if (!responseText || responseText.length < 10) {
         return { valid: false, code: 'AI_EMPTY_RESPONSE' };
     }
-    
+
     let trimmed = responseText.trim();
 
     // Step 1: Extract JSON from markdown code blocks (before stripping markers)
@@ -72,7 +72,7 @@ function validateJsonResponse(responseText, serviceType = 'link') {
             let jsonEnd = -1;
             let inString = false;
             let escapeNext = false;
-            
+
             for (let i = jsonStart; i < trimmed.length; i++) {
                 const char = trimmed[i];
                 if (escapeNext) { escapeNext = false; continue; }
@@ -86,7 +86,7 @@ function validateJsonResponse(responseText, serviceType = 'link') {
                     }
                 }
             }
-            
+
             if (jsonEnd !== -1) {
                 trimmed = trimmed.substring(jsonStart, jsonEnd + 1);
             } else {
@@ -99,7 +99,7 @@ function validateJsonResponse(responseText, serviceType = 'link') {
             }
         }
     }
-    
+
     // Step 3: Clean up common JSON issues
     trimmed = trimmed.replace(/,(\s*[}\]])/g, '$1');
     trimmed = trimmed.replace(/([^:])\/\/[^\n]*/g, '$1');
@@ -111,37 +111,24 @@ function validateJsonResponse(responseText, serviceType = 'link') {
     {
         let sanitized = '';
         let inString = false;
-        
+
         for (let i = 0; i < trimmed.length; i++) {
             const ch = trimmed[i];
             const code = trimmed.charCodeAt(i);
-            
+
             if (inString && ch === '\\') {
                 sanitized += ch;
                 i++;
                 if (i < trimmed.length) sanitized += trimmed[i];
                 continue;
             }
-            
+
             if (ch === '"') {
-                if (!inString) {
-                    inString = true;
-                    sanitized += ch;
-                } else {
-                    // Look ahead: if next non-whitespace is : , } ] or end → closing quote
-                    let la = i + 1;
-                    while (la < trimmed.length && /\s/.test(trimmed[la])) la++;
-                    const next = la < trimmed.length ? trimmed[la] : '';
-                    if (next === ':' || next === ',' || next === '}' || next === ']' || next === '') {
-                        inString = false;
-                        sanitized += ch;
-                    } else {
-                        sanitized += '\\"';
-                    }
-                }
+                inString = !inString;
+                sanitized += ch;
                 continue;
             }
-            
+
             if (inString && code < 0x20) {
                 switch (code) {
                     case 0x0A: sanitized += '\\n'; break;
@@ -153,7 +140,7 @@ function validateJsonResponse(responseText, serviceType = 'link') {
                 }
                 continue;
             }
-            
+
             sanitized += ch;
         }
         trimmed = sanitized.trim();
@@ -304,7 +291,7 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                     config: {
                         systemInstruction: sysInstr,
                         temperature: 0.7,
-                        maxOutputTokens: isDeepMode ? 65536 : 20000,
+                        maxOutputTokens: 8192, // Changed from conditional to fixed 8192
                         responseMimeType: tools ? undefined : 'application/json',
                         tools
                     }
@@ -473,14 +460,14 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
         } else if (!systemInstruction) {
             enhancedSystemInstruction = 'You are a professional fact-checker. Respond ONLY with valid JSON.\n\n' + getLanguageInstruction(lang);
         }
-        
+
         const stream = await ai.models.generateContentStream({
             model: model || 'gemini-2.5-flash',
             contents,
             config: {
                 systemInstruction: enhancedSystemInstruction,
                 temperature: 0.7,
-                maxOutputTokens: isDeepMode ? 65536 : 50000,
+                maxOutputTokens: 8192, // Changed from conditional to fixed 8192
                 responseMimeType: tools ? undefined : 'application/json',
                 mediaResolution: 'MEDIA_RESOLUTION_LOW',
                 tools
@@ -500,7 +487,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
                 // Function calls are handled automatically by Gemini, we just track them
                 continue;
             }
-            
+
             const chunkText = chunk.text || '';
             if (chunkText) {
                 fullText += chunkText;
@@ -511,7 +498,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             }
             if (chunk.usageMetadata) streamUsage = chunk.usageMetadata;
         }
-        
+
         clearInterval(heartbeat);
 
         const usage = streamUsage || { promptTokenCount: 0, candidatesTokenCount: 0, totalTokenCount: 0 };
@@ -520,8 +507,8 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
         const validation = validateJsonResponse(fullText, serviceType || 'video');
         if (!validation.valid) {
             console.error(`[Gemini Stream] Validation failed: ${validation.code}`, validation.error || '', `(${fullText.length} chars)`);
-            sendSSE('error', { 
-                error: 'AI върна невалиден формат. Никакви точки не бяха таксувани.', 
+            sendSSE('error', {
+                error: 'AI върна невалиден формат. Никакви точки не бяха таксувани.',
                 code: validation.code,
                 details: validation.error || 'Unknown validation error'
             });

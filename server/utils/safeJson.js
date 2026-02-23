@@ -41,20 +41,8 @@ function escapeControlCharsInStrings(text) {
         }
 
         if (ch === '"') {
-            if (!inString) {
-                inString = true;
-                result += ch;
-            } else {
-                let la = i + 1;
-                while (la < text.length && /\s/.test(text[la])) la++;
-                const next = la < text.length ? text[la] : '';
-                if (next === ':' || next === ',' || next === '}' || next === ']' || next === '') {
-                    inString = false;
-                    result += ch;
-                } else {
-                    result += '\\"';
-                }
-            }
+            inString = !inString;
+            result += ch;
             continue;
         }
 
