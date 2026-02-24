@@ -12,9 +12,9 @@ import fs from 'fs/promises';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const router = express.Router();
 
-/** API key: dedicated translate key or fallback to Gemini key (same GCP project often has both enabled). */
+/** За превод се използва САМО GOOGLE_TRANSLATE_API_KEY. */
 function getTranslateApiKey() {
-  return process.env.GOOGLE_TRANSLATE_API_KEY || process.env.GEMINI_API_KEY || process.env.API_KEY;
+  return process.env.GOOGLE_TRANSLATE_API_KEY;
 }
 
 const BATCH_SIZE = 50;
@@ -89,7 +89,7 @@ router.get('/translate', async (req, res) => {
   }
   const currentApiKey = getTranslateApiKey();
   if (!currentApiKey) {
-    return res.status(503).json({ error: 'Translation service not configured (GOOGLE_TRANSLATE_API_KEY or GEMINI_API_KEY)' });
+    return res.status(503).json({ error: 'Translation service not configured (GOOGLE_TRANSLATE_API_KEY).' });
   }
 
   try {
@@ -154,7 +154,7 @@ router.post('/translate-text', express.json({ limit: '500kb' }), async (req, res
   }
   const currentApiKey = getTranslateApiKey();
   if (!currentApiKey) {
-    return res.status(503).json({ error: 'Translation service not configured (GOOGLE_TRANSLATE_API_KEY or GEMINI_API_KEY)' });
+    return res.status(503).json({ error: 'Translation service not configured (GOOGLE_TRANSLATE_API_KEY).' });
   }
 
   try {
