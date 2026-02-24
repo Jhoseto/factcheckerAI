@@ -5,7 +5,7 @@
  * Produces a native English analysis without any post-translation overhead.
  */
 export const getDeepAnalysisPromptEn = (url: string, type: 'video' | 'news'): string => {
-    return `You are an elite fact-checker, investigative journalist, and media analyst with over 20 years of experience. Your task is to produce an EXCEPTIONALLY DETAILED, PROFESSIONAL, CRITICAL, and OBJECTIVE analysis of this ${type === 'video' ? 'video' : 'article'} that reveals all hidden perspectives, manipulations, and facts.
+  return `You are an elite fact-checker, investigative journalist, and media analyst with over 20 years of experience. Your task is to produce an EXCEPTIONALLY DETAILED, PROFESSIONAL, CRITICAL, and OBJECTIVE analysis of this ${type === 'video' ? 'video' : 'article'} that reveals all hidden perspectives, manipulations, and facts.
 
 YOUR MISSION: Reveal the truth. Find every manipulation. Verify every claim. Give the user EXCEPTIONAL insight that helps them understand reality.
 
@@ -238,21 +238,51 @@ Return the result as JSON in the following format:
     "semanticDensity": 0.0,
     "contextualStability": 0.0
   },
-  "geopoliticalContext": "EXCEPTIONALLY DETAILED geopolitical context analysis in English. Compare the events/claims with real geopolitical situations, historical precedents, economic data. Give unique factual comparisons. Analyse the interests of all participating parties. Explain the hidden geopolitical dynamics.",
-  "historicalParallel": "MULTIPLE historical parallels and context in English. Find specific historical events that are similar, compare in detail with the past, show what we can learn from history. Analyse patterns and cycles. Explain what happened then and what could happen now.",
-  "psychoLinguisticAnalysis": "IN-DEPTH psycholinguistic analysis in English. Analyse language, words, tone, rhetoric at multiple levels. How the audience is influenced at a subconscious level. What the hidden messages are. Which cognitive biases are exploited. How framing and priming are done.",
-  "strategicIntent": "DETAILED strategic intent analysis in English. What is really being attempted at every level (immediate, medium-term, long-term). What the hidden goals are. Who benefits (cui bono analysis). What the alternative explanations are. Whether there is coordination with other actors.",
-  "narrativeArchitecture": "IN-DEPTH narrative architecture analysis in English. How the story is structured at a dramaturgical level. What the sequence is and why it was chosen. How the narrative is built for maximum impact. What storytelling techniques are used. How narrative flow is manipulated to achieve an emotional response.",
-  "technicalForensics": "DETAILED technical forensics in English. Check ALL data, statistics, and charts for manipulations with concrete examples. Analyse the technical accuracy of ALL claims. Check for data misrepresentation, cherry-picking, false correlations, misleading visualisations. Provide alternative interpretations of the data.",
-  "socialImpactPrediction": "DETAILED social impact prediction in English. How this content can affect society at multiple levels (individual, group, societal). Which groups are affected and how. What the risks are (polarisation, radicalisation, misinformation spread). What the second-order and third-order effects are. How it may spread and evolve.",
-  "visualAnalysis": "DETAILED visual analysis in English (video only). Describe what is visible — setting, clothing, symbols, decor, colours, lighting, camera angles. Check for visual manipulations and hidden messages. Analyse whether the environment was deliberately chosen for manipulative purposes. Give concrete examples with timestamps.",
-  "bodyLanguageAnalysis": "IN-DEPTH body language analysis in English (video with people). Analyse body language, micro-expressions, eye contact, facial expressions, gestures, posture, proxemics, nervous behaviours for EVERY participant. Check whether nonverbal communication CONTRADICTS what is said. Assess signs of discomfort, stress, confidence, deception. Give concrete observations with timestamps and participant names.",
-  "vocalAnalysis": "DETAILED vocal and paralinguistic analysis in English (video/audio). Analyse tone of voice, pitch, tempo, pauses, vocal intensity, hesitations, articulation, emphasis, laughter for EVERY participant. Check for signs of nervousness, insecurity, manipulation, sarcasm, sincerity. Give concrete examples with timestamps.",
-  "deceptionAnalysis": "IN-DEPTH honesty/deception analysis in English. Rate the credibility score (0.0–1.0) for EVERY participant. Check for deception indicators — evasive answers, contradictions, verbal/nonverbal mismatch, defensive behaviour, micro-expressions, cognitive load, timeline inconsistencies. Assess the spectrum from pure lie to complete truth. Give detailed justification with concrete examples.",
-  "humorAnalysis": "DETAILED humour and satire analysis in English. Identify the type of humour (sarcasm, irony, dark humour, etc.). Analyse the purpose — healthy joke vs mockery vs deflection vs manipulation. Assess whether it is manipulative vs genuine, punching up vs punching down, hostile vs good-natured. Check for passive-aggressive humour and timing. Give concrete examples with timestamps.",
-  "psychologicalProfile": "IN-DEPTH psychological profile of participants in English. Analyse personality traits, manipulation tactics (gaslighting, guilt-tripping, victim playing), power dynamics, emotional intelligence, cognitive biases, level of preparation for EVERY participant. Assess who dominates, who manipulates, who is sincere. Give a detailed breakdown.",
-  "culturalSymbolicAnalysis": "DETAILED cultural and symbolic analysis in English. Analyse cultural references, dog whistles, archetypes (hero, villain, victim, saviour), religious/national/political symbols. Check for cultural appropriation and exploitation of cultural traumas. Explain the hidden cultural messages and codes. Give concrete examples.",
-  "recommendations": "DETAILED recommendations for users in English. How to protect themselves from the manipulations on a practical level. What they need to know to recognise these techniques. How to verify the information step by step. What questions to ask. What red flags to look for. How to develop critical thinking skills.",
+  "geopoliticalContext": [
+    { "point": "Key Aspect", "details": "EXCEPTIONALLY DETAILED analysis without markdown. Maximum 2-3 timestamps total (e.g. 1:20, 3:15)." }
+  ],
+  "historicalParallel": [
+    { "point": "Historical Event", "details": "Detailed comparison with the past..." }
+  ],
+  "psychoLinguisticAnalysis": [
+    { "point": "Linguistic Technique", "details": "Where and how it is used (max 2 timestamps)..." }
+  ],
+  "strategicIntent": [
+    { "point": "Hidden Goal", "details": "Who benefits and why..." }
+  ],
+  "narrativeArchitecture": [
+    { "point": "Story Structure", "details": "How the narrative is built..." }
+  ],
+  "technicalForensics": [
+    { "point": "Data Review", "details": "Analysis of specific statistics or charts..." }
+  ],
+  "socialImpactPrediction": [
+    { "point": "Risk to Society", "details": "Which groups are affected..." }
+  ],
+  "visualAnalysis": [
+    { "point": "Visual Element", "details": "Analysis of setting, lighting, or symbols (max 3 timestamps)..." }
+  ],
+  "bodyLanguageAnalysis": [
+    { "point": "Body Language and Gestures", "details": "Analysis of a specific participant. IMPORTANT: No huge lists of times. Maximum 3 key timestamps total for the entire array!" }
+  ],
+  "vocalAnalysis": [
+    { "point": "Vocal Tone", "details": "Analysis of voice. IMPORTANT: Maximum 3 timestamps allowed for this element!" }
+  ],
+  "deceptionAnalysis": [
+    { "point": "Honesty Assessment", "details": "How credible the participant is and why. No numbered lists inside the text." }
+  ],
+  "humorAnalysis": [
+    { "point": "Humor Type", "details": "What kind of humor is used. NO markdown bullets (*) inside the text field itself." }
+  ],
+  "psychologicalProfile": [
+    { "point": "Psychological Profile", "details": "Analysis of a specific participant..." }
+  ],
+  "culturalSymbolicAnalysis": [
+    { "point": "Cultural Reference", "details": "Symbols and archetypes..." }
+  ],
+  "recommendations": [
+    { "point": "Recommendation", "details": "What viewers need to know..." }
+  ],
   "biasIndicators": {
     "politicalBias": "LEFT" | "CENTER_LEFT" | "CENTER" | "CENTER_RIGHT" | "RIGHT" | "UNCLEAR",
     "emotionalLanguage": "DETAILED examples of emotionally charged language in English with analysis of each example",

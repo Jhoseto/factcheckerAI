@@ -12,9 +12,18 @@ import fs from 'fs/promises';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const router = express.Router();
 
-const API_KEY = process.env.GOOGLE_TRANSLATE_API_KEY;
 const BATCH_SIZE = 50;
 const MAX_CHAR_PER_BATCH = 28000;
+
+function decodeHtmlEntities(str) {
+  if (typeof str !== 'string') return str;
+  return str
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
 
 function flattenLeaves(obj, prefix = '', keys = [], values = []) {
   if (typeof obj !== 'object' || obj === null) {
@@ -61,7 +70,7 @@ async function translateBatch(texts, target, apiKey) {
     throw new Error(`Google Translate API error: ${res.status} ${err}`);
   }
   const data = await res.json();
-  return (data.data?.translations || []).map((t) => t.translatedText || '');
+  return (data.data?.translations || []).map((t) => decodeHtmlEntities(t.translatedText || ''));
 }
 
 /**
@@ -73,7 +82,8 @@ router.get('/translate', async (req, res) => {
   if (!target || target === 'bg') {
     return res.status(400).json({ error: 'Missing or invalid target (e.g. target=en)' });
   }
-  if (!API_KEY) {
+  const currentApiKey = process.env.GOOGLE_TRANSLATE_API_KEY;
+  if (!currentApiKey) {
     return res.status(503).json({ error: 'Translation service not configured (GOOGLE_TRANSLATE_API_KEY)' });
   }
 
@@ -90,7 +100,7 @@ router.get('/translate', async (req, res) => {
     const translated = [];
     for (let i = 0; i < values.length; i += BATCH_SIZE) {
       const batch = values.slice(i, i + BATCH_SIZE);
-      const batchResults = await translateBatch(batch, target, API_KEY);
+      const batchResults = await translateBatch(batch, target, currentApiKey);
       translated.push(...batchResults);
     }
 
@@ -137,13 +147,14 @@ router.post('/translate-text', express.json({ limit: '500kb' }), async (req, res
   if (!target || target === 'bg') {
     return res.status(400).json({ error: 'Missing or invalid target (e.g. target=en)' });
   }
-  if (!API_KEY) {
+  const currentApiKey = process.env.GOOGLE_TRANSLATE_API_KEY;
+  if (!currentApiKey) {
     return res.status(503).json({ error: 'Translation service not configured (GOOGLE_TRANSLATE_API_KEY)' });
   }
 
   try {
     const chunks = chunkLongText(text);
-    const translatedChunks = await translateBatch(chunks, target, API_KEY);
+    const translatedChunks = await translateBatch(chunks, target, currentApiKey);
     const translatedText = translatedChunks.join('');
     res.json({ translatedText: translatedText || text });
   } catch (err) {

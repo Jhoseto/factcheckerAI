@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
+import { useTranslation, Trans } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 
 const Login: React.FC = () => {
@@ -115,10 +115,27 @@ const Login: React.FC = () => {
                     </div>
 
                     <p className="text-[9px] text-[#888] leading-relaxed px-1">
-                        С натискане на бутона по-долу вие приемате{' '}
-                        <Link to="/terms" target="_blank" rel="noopener noreferrer" className="text-[8px] font-normal text-[#968B74] hover:text-[#C4B091] border-b border-[#968B74]/30">Правилата и условията за ползване</Link>
-                        {' '}и{' '}
-                        <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="text-[8px] font-normal text-[#968B74] hover:text-[#C4B091] border-b border-[#968B74]/30">Политиката за поверителност</Link>.
+                        <Trans
+                            i18nKey="auth.termsAndPrivacyLinkWithLinks"
+                            components={{
+                                termsLink: (
+                                    <Link
+                                        to="/terms"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-[8px] font-normal text-[#968B74] hover:text-[#C4B091] border-b border-[#968B74]/30"
+                                    />
+                                ),
+                                privacyLink: (
+                                    <Link
+                                        to="/privacy"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-[8px] font-normal text-[#968B74] hover:text-[#C4B091] border-b border-[#968B74]/30"
+                                    />
+                                ),
+                            }}
+                        />
                     </p>
                     <div className="flex items-start gap-3 p-3 bg-[#121212] rounded-sm border border-[#222]">
                         <input

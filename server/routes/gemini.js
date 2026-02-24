@@ -291,7 +291,7 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                     config: {
                         systemInstruction: sysInstr,
                         temperature: 0.7,
-                        maxOutputTokens: 8192, // Changed from conditional to fixed 8192
+                        maxOutputTokens: 65536, // Gemini 2.5 Flash supports up to 64K output tokens
                         responseMimeType: tools ? undefined : 'application/json',
                         tools
                     }
@@ -461,42 +461,72 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             enhancedSystemInstruction = 'You are a professional fact-checker. Respond ONLY with valid JSON.\n\n' + getLanguageInstruction(lang);
         }
 
-        const stream = await ai.models.generateContentStream({
-            model: model || 'gemini-2.5-flash',
-            contents,
-            config: {
-                systemInstruction: enhancedSystemInstruction,
-                temperature: 0.7,
-                maxOutputTokens: 8192, // Changed from conditional to fixed 8192
-                responseMimeType: tools ? undefined : 'application/json',
-                mediaResolution: 'MEDIA_RESOLUTION_LOW',
-                tools
-            }
-        });
-
         let fullText = '';
         let streamUsage = null;
         let chunkCount = 0;
         let functionCallCount = 0;
 
-        for await (const chunk of stream) {
-            // Handle function calls (Google Search tool invocations)
-            if (chunk.functionCalls && chunk.functionCalls.length > 0) {
-                functionCallCount += chunk.functionCalls.length;
-                sendSSE('progress', { status: `Търсене в Google (${functionCallCount} заявки)...` });
-                // Function calls are handled automatically by Gemini, we just track them
-                continue;
+        if (isDeepMode && tools) {
+            // DEEP MODE: Use generateContent instead of Stream. 
+            // Google Search tool calls take 1-2 minutes and break SSE streaming connections.
+            // By awaiting the full generation here, the server holds the connection stable,
+            // while we ping heartbeats. Then we "fake" the stream back to the client.
+            sendSSE('progress', { status: 'Изготвяне на (DCGE) и задълбочен анализ (може да отнеме до няколко минути)...' });
+
+            const response = await ai.models.generateContent({
+                model: model || 'gemini-2.5-flash',
+                contents,
+                config: {
+                    systemInstruction: enhancedSystemInstruction,
+                    temperature: 0.7,
+                    maxOutputTokens: 65536,
+                    responseMimeType: undefined, // Must be undefined for tools
+                    mediaResolution: 'MEDIA_RESOLUTION_LOW',
+                    tools
+                }
+            });
+
+            fullText = response.text || '';
+            streamUsage = response.usageMetadata || null;
+
+            // Simulate streaming the result back to the UI so it doesn't look frozen
+            const chunkSize = 2000;
+            for (let i = 0; i < fullText.length; i += chunkSize) {
+                sendSSE('progress', { status: `Синтезиране (${Math.round(i / 1024)} KB)...` });
+                await new Promise(r => setTimeout(r, 50)); // tiny delay
             }
 
-            const chunkText = chunk.text || '';
-            if (chunkText) {
-                fullText += chunkText;
-                chunkCount++;
-                if (chunkCount % 5 === 0) {
-                    sendSSE('progress', { status: `Анализиране (${Math.round(fullText.length / 1024)} KB)...` });
+        } else {
+            // STANDARD MODE: Safe to use true streaming
+            const stream = await ai.models.generateContentStream({
+                model: model || 'gemini-2.5-flash',
+                contents,
+                config: {
+                    systemInstruction: enhancedSystemInstruction,
+                    temperature: 0.7,
+                    maxOutputTokens: 65536,
+                    responseMimeType: 'application/json',
+                    mediaResolution: 'MEDIA_RESOLUTION_LOW'
                 }
+            });
+
+            for await (const chunk of stream) {
+                if (chunk.functionCalls && chunk.functionCalls.length > 0) {
+                    functionCallCount += chunk.functionCalls.length;
+                    sendSSE('progress', { status: `Търсене в Google (${functionCallCount} заявки)...` });
+                    continue;
+                }
+
+                const chunkText = chunk.text || '';
+                if (chunkText) {
+                    fullText += chunkText;
+                    chunkCount++;
+                    if (chunkCount % 5 === 0) {
+                        sendSSE('progress', { status: `Анализиране (${Math.round(fullText.length / 1024)} KB)...` });
+                    }
+                }
+                if (chunk.usageMetadata) streamUsage = chunk.usageMetadata;
             }
-            if (chunk.usageMetadata) streamUsage = chunk.usageMetadata;
         }
 
         clearInterval(heartbeat);
@@ -507,6 +537,15 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
         const validation = validateJsonResponse(fullText, serviceType || 'video');
         if (!validation.valid) {
             console.error(`[Gemini Stream] Validation failed: ${validation.code}`, validation.error || '', `(${fullText.length} chars)`);
+
+            try {
+                const fs = await import('fs');
+                fs.writeFileSync(`failed_gemini_stream.txt`, fullText);
+                console.log('Saved failed JSON to failed_gemini_stream.txt for debugging.');
+            } catch (err) {
+                console.error('Failed to write debug file', err);
+            }
+
             sendSSE('error', {
                 error: 'AI върна невалиден формат. Никакви точки не бяха таксувани.',
                 code: validation.code,
@@ -558,6 +597,34 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
 
         const deductResult = await deductPointsFromUser(userId, finalPoints, description, metadata);
         const newBalance = deductResult.newBalance ?? balanceNow - finalPoints;
+
+        // ── Log Real Token Costs to Server Console ────────────────────────────
+        try {
+            // Gemini 1.5 / 2.5 Flash Pricing Tiers
+            // Media (Video/Audio) is converted to tokens (Video: ~263 tokens/sec, Audio: 32 tokens/sec)
+            // and included in the promptTokenCount.
+            const isOver128k = promptTokens > 128000;
+            const inputRate = isOver128k ? 0.15 : 0.075;
+            const outputRate = isOver128k ? 0.60 : 0.30;
+
+            const promptCostUsd = (promptTokens / 1000000) * inputRate;
+            const candidatesCostUsd = (candidatesTokens / 1000000) * outputRate;
+            const totalCostUsd = promptCostUsd + candidatesCostUsd;
+
+            console.log('\n=========================================');
+            console.log(`🧠 [DEEP ANALYSIS] API USAGE REPORT`);
+            console.log(`=========================================`);
+            console.log(`► Type: ${isDeepMode ? 'Deep' : 'Standard'} Analysis`);
+            console.log(`► Prompt Tokens: ${promptTokens.toLocaleString()} (${promptCostUsd.toFixed(6)} USD)`);
+            console.log(`► Output Tokens: ${candidatesTokens.toLocaleString()} (${candidatesCostUsd.toFixed(6)} USD)`);
+            console.log(`► Total Tokens: ${(promptTokens + candidatesTokens).toLocaleString()}`);
+            console.log(`► Estimated Real Cost: $${totalCostUsd.toFixed(6)} USD`);
+            console.log(`► Points Deducted: ${finalPoints} pts`);
+            console.log(`=========================================\n`);
+        } catch (e) {
+            console.log('[Cost Logger Error]', e.message);
+        }
+
         sendSSE('points_deducted', { newBalance });
         res.end();
 

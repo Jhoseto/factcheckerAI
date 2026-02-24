@@ -72,9 +72,9 @@ const MobileProfile: React.FC = () => {
         </button>
 
         <p className="text-[10px] font-normal text-amber-900/90 flex flex-wrap gap-0 justify-center items-center mt-2">
-          <Link to="/terms" className="hover:text-amber-900 transition-colors uppercase tracking-wider">ПРАВИЛА И УСЛОВИЯ ЗА ПОЛЗВАНЕ</Link>
+          <Link to="/terms" className="hover:text-amber-900 transition-colors uppercase tracking-wider">{t('legal.terms')}</Link>
           <span className="text-amber-900/60 mx-1">  |  </span>
-          <Link to="/privacy" className="hover:text-amber-900 transition-colors uppercase tracking-wider">ПОЛИТИКА ЗА ПОВЕРИТЕЛНОСТ</Link>
+          <Link to="/privacy" className="hover:text-amber-900 transition-colors uppercase tracking-wider">{t('legal.privacy')}</Link>
         </p>
       </main>
     </MobileSafeArea>

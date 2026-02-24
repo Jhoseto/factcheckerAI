@@ -14,11 +14,13 @@
     "passcode": "Passcode",
     "emailIdentity": "Email Identity",
     "acceptTerms": "Приемам ПРАВИЛА И УСЛОВИЯ ЗА ПОЛЗВАНЕ и ПОЛИТИКА ЗА ПОВЕРИТЕЛНОСТ",
+    "registerAcceptWithLinks": "Приемам <termsLink>Правилата и условията</termsLink> и <privacyLink>Политиката за поверителност</privacyLink>",
     "googleAccess": "Google Access",
     "secureAccess": "Secure Access",
     "accessSystem": "ACCESS SYSTEM",
     "authenticating": "Authenticating...",
     "termsAndPrivacyLink": "С натискане на бутона по-долу вие приемате Правилата и условията за ползване и Политиката за поверителност.",
+    "termsAndPrivacyLinkWithLinks": "С натискане на бутона по-долу вие приемате <termsLink>Правилата и условията за ползване</termsLink> и <privacyLink>Политиката за поверителност</privacyLink>.",
     "noCredentials": "No credentials?",
     "requestAccess": "Request Access",
     "restrictedArea": "Restricted Area • Authorized Personnel Only",
@@ -181,7 +183,9 @@
     "step11": "Финализиране на доклада и експортни формати."
   },
   "legal": {
-    "terms": "Правила и условия",
+    "ariaLabel": "Правни документи",
+    "backHome": "Назад към началото",
+    "terms": "Правила и условия за ползване",
     "privacy": "Политика за поверителност"
   }
 }
