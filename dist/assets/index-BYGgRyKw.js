@@ -4636,11 +4636,7 @@ REQUIREMENT: Minimum 18–25 paragraphs TOTAL. Each section must be developed an
 
 Example: `:`
 
-Пример: `)+_.example:"")+(_.impact?(s==="en"?`
-
-Impact: `:`
-
-Въздействие: `)+_.impact:""),effect:_.impact||(s==="en"?"Impact on the audience":"Въздействие върху аудиторията"),severity:_.severity||.5+D*.1,counterArgument:_.counterArgument||(s==="en"?"Verify primary sources.":"Проверка на първоизточници.")})),U=g.length>0?g.map((_,D)=>{var O;return{time:`${String(Math.floor(D*5)).padStart(2,"0")}:${String(D*30%60).padStart(2,"0")}`,reliability:_&&["TRUE","MOSTLY_TRUE"].includes(_.verdict)?.9:.3,event:((O=_==null?void 0:_.claim)==null?void 0:O.substring(0,50))||"Твърдение"}}):[{time:"00:00",reliability:.5,event:"Начало"}],I=i?`
+Пример: `)+_.example:""),effect:_.impact||(s==="en"?"Impact on the audience":"Въздействие върху аудиторията"),severity:_.severity||.5+D*.1,counterArgument:_.counterArgument||(s==="en"?"Verify primary sources.":"Проверка на първоизточници.")})),U=g.length>0?g.map((_,D)=>{var O;return{time:`${String(Math.floor(D*5)).padStart(2,"0")}:${String(D*30%60).padStart(2,"0")}`,reliability:_&&["TRUE","MOSTLY_TRUE"].includes(_.verdict)?.9:.3,event:((O=_==null?void 0:_.claim)==null?void 0:O.substring(0,50))||"Твърдение"}}):[{time:"00:00",reliability:.5,event:"Начало"}],I=i?`
 
 **Метаданни на видеоклипа:**
 - **Заглавие:** ${i.title}
