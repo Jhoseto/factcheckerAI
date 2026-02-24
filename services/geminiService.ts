@@ -518,7 +518,7 @@ const transformGeminiResponse = (
   const transformedManipulations = manipulations.map((m: any, idx: number) => ({
     technique: m.technique || (responseLang === 'en' ? 'Unknown technique' : 'Неизвестна'),
     timestamp: m.timestamp || '00:00',
-    logic: (m.description || '') + (m.example ? (responseLang === 'en' ? '\n\nExample: ' : '\n\nПример: ') + m.example : '') + (m.impact ? (responseLang === 'en' ? '\n\nImpact: ' : '\n\nВъздействие: ') + m.impact : ''),
+    logic: (m.description || '') + (m.example ? (responseLang === 'en' ? '\n\nExample: ' : '\n\nПример: ') + m.example : ''),
     effect: m.impact || (responseLang === 'en' ? 'Impact on the audience' : 'Въздействие върху аудиторията'),
     severity: m.severity || (0.5 + (idx * 0.1)),
     counterArgument: m.counterArgument || (responseLang === 'en' ? 'Verify primary sources.' : 'Проверка на първоизточници.')

@@ -63,7 +63,7 @@ function validateJsonResponse(responseText, serviceType = 'link') {
         // Strip leftover markdown fences
         trimmed = trimmed.replace(/```json\s*/g, '').replace(/\s*```/g, '');
 
-        // Step 2: Find the outermost JSON object in the text
+        // Step 2: Find the outermost JSON object (brace-aware; treat unescaped " inside string as content)
         const jsonStart = trimmed.search(/[{\[]/);
         if (jsonStart !== -1) {
             const startChar = trimmed[jsonStart];
@@ -77,7 +77,21 @@ function validateJsonResponse(responseText, serviceType = 'link') {
                 const char = trimmed[i];
                 if (escapeNext) { escapeNext = false; continue; }
                 if (char === '\\' && inString) { escapeNext = true; continue; }
-                if (char === '"') { inString = !inString; continue; }
+                if (char === '"') {
+                    if (inString) {
+                        // Possibly closing quote: if next non-space is : , } ] then it's structural
+                        let j = i + 1;
+                        while (j < trimmed.length && /[\s\n\r]/.test(trimmed[j])) j++;
+                        const next = trimmed[j];
+                        if (next === ':' || next === ',' || next === '}' || next === ']') {
+                            inString = false;
+                        }
+                        // else unescaped internal quote, stay inString
+                    } else {
+                        inString = true;
+                    }
+                    continue;
+                }
                 if (!inString) {
                     if (char === startChar) depth++;
                     else if (char === endChar) {
@@ -451,14 +465,14 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
         sendSSE('progress', { status: 'Стартиране на DCGE модела...' });
 
         // Enhanced system instruction for Deep mode with tools + output language
-        let enhancedSystemInstruction = (systemInstruction || '') + '\n\n' + getLanguageInstruction(lang);
+        const jsonRule = 'Output exactly one valid JSON object: start with { and end with }. Escape any quote inside string values (use \\"). No markdown, no text before or after.';
+        let enhancedSystemInstruction = (systemInstruction || '') + '\n\n' + getLanguageInstruction(lang) + '\n\n' + jsonRule;
         if (isDeepMode && tools) {
             enhancedSystemInstruction +=
                 '\n\nCRITICAL: After using Google Search tools, you MUST respond with a complete, valid JSON object. ' +
-                'Do not include any text before or after the JSON. The JSON must start with { and end with }. ' +
-                'All tool results should be integrated into the JSON response, not returned separately.';
+                'Do not include any text before or after the JSON. All tool results should be integrated into the JSON response, not returned separately.';
         } else if (!systemInstruction) {
-            enhancedSystemInstruction = 'You are a professional fact-checker. Respond ONLY with valid JSON.\n\n' + getLanguageInstruction(lang);
+            enhancedSystemInstruction = 'You are a professional fact-checker. Respond ONLY with valid JSON.\n\n' + getLanguageInstruction(lang) + '\n\n' + jsonRule;
         }
 
         let fullText = '';

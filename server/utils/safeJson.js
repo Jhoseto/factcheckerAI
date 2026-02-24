@@ -107,7 +107,7 @@ export function safeJsonParse(jsonString) {
         }
 
         if (!inString) {
-            // If it's a markdown leftover or garbage at the end, break
+            // Only treat backtick as end when outside string (backticks inside JSON strings are valid)
             if (ch === '`') {
                 break;
             }
@@ -138,6 +138,21 @@ export function safeJsonParse(jsonString) {
     repaired = repaired.replace(/,(\s*[}\]])/g, '$1');
 
     try { return JSON.parse(repaired); } catch (_) { }
+
+    // Pass 6: Try truncating at last N closing braces (trailing garbage or broken tail)
+    for (const source of [noComments, repaired]) {
+        const candidates = [];
+        for (let i = source.length - 1; i >= 0 && candidates.length < 60; i--) {
+            if (source[i] === '}') candidates.push(i);
+        }
+        for (const end of candidates) {
+            const slice = source.slice(0, end + 1).replace(/,(\s*[}\]])/g, '$1');
+            if (slice.length < 20) continue;
+            try {
+                return JSON.parse(slice);
+            } catch (_) { }
+        }
+    }
 
     throw new Error('Unrepairable JSON');
 }
