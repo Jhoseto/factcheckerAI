@@ -78,6 +78,23 @@ async function translateBatch(texts, target, apiKey) {
   return (data.data?.translations || []).map((t) => decodeHtmlEntities(t.translatedText || ''));
 }
 
+/** Resolve path to locales/bg.json (works from project root or from server/routes). */
+async function getLocalesPath() {
+  const candidates = [
+    path.join(process.cwd(), 'locales', 'bg.json'),
+    path.join(__dirname, '..', '..', 'locales', 'bg.json'),
+  ];
+  for (const p of candidates) {
+    try {
+      await fs.access(p);
+      return p;
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
 /**
  * GET /api/translate?target=en
  * Returns translated bg.json for the target language.
@@ -93,7 +110,11 @@ router.get('/translate', async (req, res) => {
   }
 
   try {
-    const localesPath = path.join(__dirname, '..', '..', 'locales', 'bg.json');
+    const localesPath = await getLocalesPath();
+    if (!localesPath) {
+      console.error('[Translate] locales/bg.json not found (tried cwd and __dirname).');
+      return res.status(503).json({ error: 'Locales file not found on server.' });
+    }
     const raw = await fs.readFile(localesPath, 'utf8');
     const bgJson = JSON.parse(raw);
     const { keys, values } = flattenLeaves(bgJson);
@@ -114,7 +135,8 @@ router.get('/translate', async (req, res) => {
     res.json(out);
   } catch (err) {
     console.error('[Translate] Error:', err.message);
-    res.status(500).json({ error: err.message || 'Translation failed' });
+    const code = err.message?.includes('API error') ? 502 : 500;
+    res.status(code).json({ error: err.message || 'Translation failed' });
   }
 });
 
