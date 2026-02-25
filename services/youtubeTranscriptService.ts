@@ -1,4 +1,5 @@
 import { TranscriptionLine } from '../types';
+import { auth } from './firebase';
 
 /**
  * Format timestamp from seconds to MM:SS or HH:MM:SS
@@ -13,107 +14,6 @@ const formatTimestamp = (seconds: number): string => {
     }
     return `${minutes}:${secs.toString().padStart(2, '0')}`;
 };
-
-/**
- * Clean JSON response from markdown code blocks
- */
-const cleanJsonResponse = (text: string): string => {
-    let cleaned = text.trim();
-
-    // First, try to extract JSON from markdown code blocks
-    const jsonBlockMatch = cleaned.match(/```json\s*([\s\S]*?)\s*```/);
-    if (jsonBlockMatch) {
-        cleaned = jsonBlockMatch[1].trim();
-    } else {
-        // Try generic code block
-        const codeBlockMatch = cleaned.match(/```[a-z]*\s*([\s\S]*?)\s*```/);
-        if (codeBlockMatch) {
-            cleaned = codeBlockMatch[1].trim();
-        }
-    }
-
-    // Remove any remaining ``` markers
-    cleaned = cleaned.replace(/```/g, '').trim();
-
-    // If text doesn't start with [ or {, aggressively search for JSON array/object
-    if (!cleaned.startsWith('[') && !cleaned.startsWith('{')) {
-        const jsonStart = cleaned.search(/[{\[]/);
-        if (jsonStart !== -1) {
-            const startChar = cleaned[jsonStart];
-            const endChar = startChar === '{' ? '}' : ']';
-            let depth = 0;
-            let jsonEnd = -1;
-            let inString = false;
-            let escapeNext = false;
-
-            // Properly track depth considering strings (which can contain { } [ ])
-            for (let i = jsonStart; i < cleaned.length; i++) {
-                const char = cleaned[i];
-
-                if (escapeNext) {
-                    escapeNext = false;
-                    continue;
-                }
-
-                if (char === '\\') {
-                    escapeNext = true;
-                    continue;
-                }
-
-                if (char === '"' && !escapeNext) {
-                    inString = !inString;
-                    continue;
-                }
-
-                if (!inString) {
-                    if (char === startChar) depth++;
-                    else if (char === endChar) {
-                        depth--;
-                        if (depth === 0) {
-                            jsonEnd = i;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            if (jsonEnd !== -1) {
-                cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
-            } else {
-                // If we couldn't find the end, try to find the last } or ]
-                const lastBrace = cleaned.lastIndexOf('}');
-                const lastBracket = cleaned.lastIndexOf(']');
-                const lastEnd = Math.max(lastBrace, lastBracket);
-                if (lastEnd > jsonStart) {
-                    cleaned = cleaned.substring(jsonStart, lastEnd + 1);
-                }
-            }
-        } else {
-            // No { or [ found, return empty string to trigger error
-            return '';
-        }
-    }
-
-    // Remove trailing commas before } or ]
-    cleaned = cleaned.replace(/,(\s*[}\]])/g, '$1');
-
-    // Remove any trailing text after the JSON
-    const lastBrace = cleaned.lastIndexOf('}');
-    const lastBracket = cleaned.lastIndexOf(']');
-    const lastJsonChar = Math.max(lastBrace, lastBracket);
-    if (lastJsonChar !== -1 && lastJsonChar < cleaned.length - 1) {
-        cleaned = cleaned.substring(0, lastJsonChar + 1);
-    }
-
-    return cleaned.trim();
-};
-
-/**
- * Extract YouTube transcript via server-side Gemini API
- * Returns structured transcript with timestamps and speaker information
- */
-
-import { auth } from './firebase';
 
 /**
  * Extract YouTube transcript via server-side Gemini API
@@ -181,20 +81,16 @@ export const extractYouTubeTranscript = async (url: string): Promise<Transcripti
 
         const data = await response.json();
 
-        if (!data.text) {
+        if (!data.text || typeof data.text !== 'string') {
             throw new Error('Gemini API не върна транскрипция');
         }
 
-        // Clean and parse JSON
-        const cleaned = cleanJsonResponse(data.text);
         let transcript: any[];
-
         try {
-            transcript = JSON.parse(cleaned);
+            transcript = JSON.parse(data.text);
         } catch (parseError: any) {
-            console.error('JSON parse error:', parseError);
-            console.error('Cleaned text:', cleaned.substring(0, 500));
-            throw new Error('Грешка при парсиране на транскрипцията. Gemini върна невалиден JSON.');
+            console.error('Transcript JSON parse error:', parseError);
+            throw new Error('Грешка при парсиране на транскрипцията. Моля, опитайте отново.');
         }
 
         // Validate and transform to TranscriptionLine[]

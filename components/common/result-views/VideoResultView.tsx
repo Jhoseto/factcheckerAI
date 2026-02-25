@@ -8,6 +8,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { makeAnalysisPublic } from '../../../services/archiveService';
 import { useTranslatedReport } from '../../../hooks/useTranslatedReport';
 import { useTranslation } from 'react-i18next';
+import { TabIcon, SectionIcon } from './DeepTabIcons';
 
 interface VideoResultViewProps {
     analysis: VideoAnalysis;
@@ -48,7 +49,8 @@ const translateMetricName = (key: string): string => {
 };
 
 const renderBoldBronze = (text: string) => {
-    const parts = text.split(/(\*\*[^*]+\*\*)/g);
+    const s = typeof text === 'string' ? text : String(text ?? '');
+    const parts = s.split(/(\*\*[^*]+\*\*)/g);
     return parts.map((part, i) =>
         part.startsWith('**') && part.endsWith('**')
             ? <strong key={i} className="text-[#C4B091] font-semibold">{part.slice(2, -2)}</strong>
@@ -56,10 +58,13 @@ const renderBoldBronze = (text: string) => {
     );
 };
 
-const MultimodalSection: React.FC<{ title: string; content?: string; color: string }> = ({ title, content }) => {
-    if (!content || content === 'Няма данни') return null;
+const MultimodalSection: React.FC<{ title: string; content?: string | unknown; color: string; icon?: React.ReactNode }> = ({ title, content, icon }) => {
+    const text = typeof content === 'string' ? content : (content && typeof content === 'object' && content !== null
+        ? String((content as { text?: string }).text ?? (content as { summary?: string }).summary ?? (content as Record<string, unknown>).content ?? '')
+        : '');
+    if (!text || text === 'Няма данни') return null;
 
-    const segments = content.split(/(?=\d+\.\s)/).map(s => s.trim()).filter(Boolean);
+    const segments = text.split(/(?=\d+\.\s)/).map((s: string) => s.trim()).filter(Boolean);
 
     const renderSegment = (segment: string, idx: number) => {
         const numMatch = segment.match(/^(\d+)\.\s*(.*)/s);
@@ -91,7 +96,8 @@ const MultimodalSection: React.FC<{ title: string; content?: string; color: stri
 
     return (
         <div className="editorial-card p-6 md:p-10 border-l-2 border-l-[#968B74]/50 animate-fadeIn">
-            <div className="mb-6 pb-4 border-b border-[#333]">
+            <div className="mb-6 pb-4 border-b border-[#333] flex items-center gap-3">
+                {icon && <span className="text-[#968B74]">{icon}</span>}
                 <h3 className="text-xl md:text-2xl font-black text-[#C4B091] uppercase tracking-tight">{title}</h3>
             </div>
             <div className="max-w-none">
@@ -107,7 +113,9 @@ const ReportView: React.FC<{ analysis: VideoAnalysis; reportRef?: React.RefObjec
 
     // Parse markdown-like report into structured sections
     const renderReportContent = (text: string) => {
-        const sections = text.split(/\n(?=# )/).filter(Boolean);
+        const str = typeof text === 'string' ? text : '';
+        if (!str) return null;
+        const sections = str.split(/\n(?=# )/).filter(Boolean);
 
         return sections.map((section, sIdx) => {
             const lines = section.split('\n');
@@ -126,7 +134,8 @@ const ReportView: React.FC<{ analysis: VideoAnalysis; reportRef?: React.RefObjec
                     )}
                     <div className={`text-[#ddd] text-[15px] md:text-base leading-[1.7] font-sans ${sIdx === 0 ? 'first-letter:text-5xl first-letter:font-black first-letter:mr-3 first-letter:float-left first-letter:leading-none first-letter:text-[#C4B091]' : ''}`}>
                         {bodyLines.map((line, lIdx) => {
-                            const trimmed = line.trim();
+                            const lineStr = typeof line === 'string' ? line : (line != null && typeof line === 'object' && 'details' in line ? String((line as { details?: unknown }).details) : String(line ?? ''));
+                            const trimmed = lineStr.trim();
                             if (!trimmed) return null;
                             if (trimmed.startsWith('## ')) {
                                 return <h5 key={lIdx} className="text-base md:text-lg font-black text-[#C4B091] uppercase mt-8 mb-3 tracking-tight border-b border-[#968B74]/30 pb-2">{trimmed.replace(/^##\s*/, '')}</h5>;
@@ -164,7 +173,8 @@ const ReportView: React.FC<{ analysis: VideoAnalysis; reportRef?: React.RefObjec
 
     // Render inline markdown (bold, italic)
     const renderInlineMarkdown = (text: string) => {
-        const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
+        const s = typeof text === 'string' ? text : String(text ?? '');
+        const parts = s.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
         return parts.map((part, i) => {
             if (part.startsWith('**') && part.endsWith('**')) {
                 return <strong key={i} className="font-black text-[#C4B091]">{part.slice(2, -2)}</strong>;
@@ -207,17 +217,20 @@ const ReportView: React.FC<{ analysis: VideoAnalysis; reportRef?: React.RefObjec
                         <div className="p-6 bg-[#1a1a1a] border border-[#333] rounded-sm">
                             <h4 className="text-[8px] font-black text-[#968B74] uppercase tracking-widest mb-6 border-b border-[#333] pb-2 text-center">АНАЛИТИЧНИ МЕТРИКИ</h4>
                             <div className="space-y-6">
-                                {Object.entries(analysis.summary.detailedStats).map(([key, val], idx) => (
-                                    <div key={idx}>
-                                        <div className="flex justify-between text-[7px] font-black uppercase mb-1">
-                                            <span className="text-[#666]">{translateMetricName(key)}</span>
-                                            <span className="text-[#C4B091]">{Math.round((val as number) * 100)}%</span>
+                                {Object.entries(analysis.summary.detailedStats || {}).map(([key, val], idx) => {
+                                    const num = typeof val === 'number' && !Number.isNaN(val) ? val : 0;
+                                    return (
+                                        <div key={idx}>
+                                            <div className="flex justify-between text-[7px] font-black uppercase mb-1">
+                                                <span className="text-[#666]">{translateMetricName(key)}</span>
+                                                <span className="text-[#C4B091]">{Math.round(num * 100)}%</span>
+                                            </div>
+                                            <div className="w-full h-1 bg-[#333] rounded-full overflow-hidden">
+                                                <div className="h-full bg-[#968B74]" style={{ width: `${num * 100}%` }}></div>
+                                            </div>
                                         </div>
-                                        <div className="w-full h-1 bg-[#333] rounded-full overflow-hidden">
-                                            <div className="h-full bg-[#968B74]" style={{ width: `${(val as number) * 100}%` }}></div>
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
 
@@ -232,7 +245,7 @@ const ReportView: React.FC<{ analysis: VideoAnalysis; reportRef?: React.RefObjec
                         <div className="p-6 bg-[#252525] border border-[#333] rounded-sm">
                             <h4 className="text-[9px] font-black text-[#968B74] uppercase mb-4 tracking-widest">СТРАТЕГИЧЕСКО НАМЕРЕНИЕ</h4>
                             <p className="text-[15px] text-[#ccc] leading-[1.6]">
-                                {analysis.summary.strategicIntent}
+                                {typeof analysis.summary.strategicIntent === 'string' ? analysis.summary.strategicIntent : (analysis.summary.strategicIntent != null && typeof analysis.summary.strategicIntent === 'object' && 'details' in analysis.summary.strategicIntent ? String((analysis.summary.strategicIntent as { details?: unknown }).details) : String(analysis.summary.strategicIntent ?? ''))}
                             </p>
                         </div>
 
@@ -393,6 +406,7 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
                             disabled={isDisabled}
                             className={`text-[10px] font-black uppercase tracking-[0.15em] whitespace-nowrap pb-1 relative transition-all flex items-center gap-2 ${isDisabled ? 'text-[#444] cursor-not-allowed' : activeTab === tab.id ? 'text-[#C4B091]' : 'text-[#666] hover:text-[#C4B091]'}`}
                         >
+                            <TabIcon id={tab.id as import('./DeepTabIcons').TabId} className="w-4 h-4" />
                             {tab.label}
                             {isReportTab && reportLoading && <span className="inline-block w-3 h-3 border-2 border-[#968B74] border-t-transparent rounded-full animate-spin"></span>}
                             {activeTab === tab.id && !isDisabled && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#968B74]"></div>}
@@ -462,7 +476,9 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
                                 </div>
                             </div>
                             <div className="space-y-3">
-                                <h3 className="text-[9px] font-black text-[#968B74] uppercase tracking-widest border-b border-[#968B74]/50 pb-1 inline-block">Изпълнително Резюме</h3>
+                                <h3 className="text-[9px] font-black text-[#968B74] uppercase tracking-widest border-b border-[#968B74]/50 pb-1 inline-flex items-center gap-2">
+                                    <SectionIcon id="summary" className="w-4 h-4" /> Изпълнително Резюме
+                                </h3>
                                 <p className="text-[#ddd] text-base md:text-lg leading-[1.65]  border-l-2 border-[#968B74] pl-6 py-2 bg-[#252525]/50">„{analysis.summary.overallSummary}“</p>
                             </div>
                             <div className="pt-4"><ReliabilityChart data={analysis.timeline} claims={analysis.claims} totalDuration={analysis.summary.totalDuration} /></div>
@@ -471,6 +487,10 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
 
                     {activeTab === 'claims' && (
                         <div className="space-y-6 animate-fadeIn">
+                            <div className="flex items-center gap-3 pb-4 border-b border-[#333]">
+                                <SectionIcon id="claims" />
+                                <h3 className="text-xl md:text-2xl font-black text-[#C4B091] uppercase tracking-tight">Твърдения за верификация</h3>
+                            </div>
                             {(analysis.claims || []).length === 0 && (
                                 <p className="text-[#666] text-sm">Няма извлечени твърдения за верификация. Опитайте Deep анализ за пълен списък.</p>
                             )}
@@ -493,7 +513,10 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
                     {activeTab === 'manipulation' && (
                         <div className="space-y-8 animate-fadeIn">
                             <div className="pl-6 md:pl-8 border-b border-[#968B74]/30 pb-6 mb-8">
-                                <h3 className="text-xl md:text-2xl font-black uppercase mb-3 text-[#C4B091] tracking-tight">Деконструкция на Манипулациите</h3>
+                                <div className="flex items-center gap-3 mb-3">
+                                    <SectionIcon id="manipulation" />
+                                    <h3 className="text-xl md:text-2xl font-black uppercase text-[#C4B091] tracking-tight">Деконструкция на Манипулациите</h3>
+                                </div>
                                 <p className="text-sm text-[#C4B091]/90 leading-relaxed">Всички идентифицирани манипулативни техники с конкретни примери от видеото и анализ на въздействието им върху аудиторията.</p>
                             </div>
                             <div className="grid grid-cols-1 gap-6">
@@ -546,44 +569,46 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
 
                     {activeTab === 'visual' && (
                         <div className="space-y-6 animate-fadeIn">
-                            <MultimodalSection title="🎥 Визуален Анализ" content={analysis.visualAnalysis} color="indigo" />
+                            <MultimodalSection title="Визуален анализ" content={analysis.visualAnalysis} color="indigo" icon={<SectionIcon id="visual" />} />
                         </div>
                     )}
                     {activeTab === 'bodyLanguage' && (
                         <div className="space-y-6 animate-fadeIn">
-                            <MultimodalSection title="🙋 Език на тялото & Невербална комуникация" content={analysis.bodyLanguageAnalysis} color="indigo" />
+                            <MultimodalSection title="Език на тялото и невербална комуникация" content={analysis.bodyLanguageAnalysis} color="indigo" icon={<SectionIcon id="bodyLanguage" />} />
                         </div>
                     )}
                     {activeTab === 'vocal' && (
                         <div className="space-y-6 animate-fadeIn">
-                            <MultimodalSection title="🎤 Вокален & Паралингвистичен анализ" content={analysis.vocalAnalysis} color="indigo" />
+                            <MultimodalSection title="Вокален и паралингвистичен анализ" content={analysis.vocalAnalysis} color="indigo" icon={<SectionIcon id="vocal" />} />
                         </div>
                     )}
                     {activeTab === 'deception' && (
                         <div className="space-y-6 animate-fadeIn">
-                            <MultimodalSection title="🔍 Анализ на Честност & Измама" content={analysis.deceptionAnalysis} color="indigo" />
+                            <MultimodalSection title="Честност и измама" content={analysis.deceptionAnalysis} color="indigo" icon={<SectionIcon id="deception" />} />
                         </div>
                     )}
                     {activeTab === 'humor' && (
                         <div className="space-y-6 animate-fadeIn">
-                            <MultimodalSection title="😄 Анализ на Хумор & Сатира" content={analysis.humorAnalysis} color="indigo" />
+                            <MultimodalSection title="Хумор и сатира" content={analysis.humorAnalysis} color="indigo" icon={<SectionIcon id="humor" />} />
                         </div>
                     )}
                     {activeTab === 'psychological' && (
                         <div className="space-y-6 animate-fadeIn">
-                            <MultimodalSection title="🧠 Психологически Профил на участниците" content={analysis.psychologicalProfile} color="indigo" />
+                            <MultimodalSection title="Психологически профил" content={analysis.psychologicalProfile} color="indigo" icon={<SectionIcon id="psychological" />} />
                         </div>
                     )}
                     {activeTab === 'cultural' && (
                         <div className="space-y-6 animate-fadeIn">
-                            <MultimodalSection title="🏛️ Културен & Символен анализ" content={analysis.culturalSymbolicAnalysis} color="indigo" />
+                            <MultimodalSection title="Културен и символен анализ" content={analysis.culturalSymbolicAnalysis} color="indigo" icon={<SectionIcon id="cultural" />} />
                         </div>
                     )}
 
                     {activeTab === 'report' && (
                         <div className="space-y-6 animate-fadeIn">
                             <div className="p-6 bg-[#252525] border border-[#333] flex justify-between items-center rounded-sm">
-                                <h4 className="text-sm font-black uppercase tracking-widest text-[#C4B091]">Пълен Експертен Одит (Досие)</h4>
+                                <h4 className="text-sm font-black uppercase tracking-widest text-[#C4B091] flex items-center gap-2">
+                                    <SectionIcon id="report" className="w-4 h-4" /> Пълен Експертен Одит (Досие)
+                                </h4>
                                 <button onClick={handleSaveFullReport} disabled={isExporting} className="btn-luxury-solid px-6 py-2 text-[9px] tracking-[0.2em] flex items-center gap-2 rounded-sm">
                                     {isExporting ? 'ГЕНЕРИРАНЕ...' : 'СВАЛИ PNG'}
                                 </button>

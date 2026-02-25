@@ -584,7 +584,7 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                                 </div>
                                 {linkReportTranslating && <p className="text-[#968B74] text-sm mb-4">{t('loading.translating')}</p>}
                                 <div className="max-w-none space-y-1 font-sans text-[15px] md:text-base leading-[1.7] text-[#ddd]">
-                                    {linkReportDisplayText.split(/\n/).map((line, idx) => {
+                                    {(typeof linkReportDisplayText === 'string' ? linkReportDisplayText : '').split(/\n/).map((line, idx) => {
                                         const trimmed = line.trim();
                                         if (!trimmed) return <br key={idx} />;
                                         if (/^\d+\.\s/.test(trimmed)) {

@@ -191,243 +191,16 @@ const getAnalysisPrompt = (url: string, mode: AnalysisMode): string => {
   return lang === 'en' ? getStandardAnalysisPromptEn(url, 'video') : getStandardAnalysisPrompt(url, 'video');
 };
 
-/**
- * Clean JSON response from markdown code blocks and fix common issues
- * Handles cases where Gemini adds text before/after JSON like "Here is a JSON response: {...}"
- */
-export const cleanJsonResponse = (text: string): string => {
-  let cleaned = text.trim();
-
-  // First, try to extract JSON from markdown code blocks
-  const jsonBlockMatch = cleaned.match(/```json\s*([\s\S]*?)\s*```/);
-  if (jsonBlockMatch) {
-    cleaned = jsonBlockMatch[1].trim();
-  } else {
-    const codeBlockMatch = cleaned.match(/```[a-z]*\s*([\s\S]*?)\s*```/);
-    if (codeBlockMatch) {
-      cleaned = codeBlockMatch[1].trim();
-    }
-  }
-
-  cleaned = cleaned.replace(/```/g, '').trim();
-
-  // If text doesn't start with { or [, aggressively search for JSON object/array
-  if (!cleaned.startsWith('{') && !cleaned.startsWith('[')) {
-    // Find the first occurrence of { or [
-    const jsonStart = cleaned.search(/[{\[]/);
-    if (jsonStart !== -1) {
-      const startChar = cleaned[jsonStart];
-      const endChar = startChar === '{' ? '}' : ']';
-      let depth = 0;
-      let jsonEnd = -1;
-      let inString = false;
-      let escapeNext = false;
-
-      // Properly track depth considering strings (which can contain { } [ ])
-      for (let i = jsonStart; i < cleaned.length; i++) {
-        const char = cleaned[i];
-
-        if (escapeNext) {
-          escapeNext = false;
-          continue;
-        }
-
-        if (char === '\\') {
-          escapeNext = true;
-          continue;
-        }
-
-        if (char === '"' && !escapeNext) {
-          inString = !inString;
-          continue;
-        }
-
-        if (!inString) {
-          if (char === startChar) depth++;
-          else if (char === endChar) {
-            depth--;
-            if (depth === 0) {
-              jsonEnd = i;
-              break;
-            }
-          }
-        }
-      }
-
-      if (jsonEnd !== -1) {
-        cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
-      } else {
-        // If we couldn't find the end, try to find the last } or ]
-        const lastBrace = cleaned.lastIndexOf('}');
-        const lastBracket = cleaned.lastIndexOf(']');
-        const lastEnd = Math.max(lastBrace, lastBracket);
-        if (lastEnd > jsonStart) {
-          cleaned = cleaned.substring(jsonStart, lastEnd + 1);
-        }
-      }
-    } else {
-      // No { or [ found, return empty string to trigger error
-      return '';
-    }
-  }
-
-  // Remove trailing commas before } or ]
-  cleaned = cleaned.replace(/,(\s*[}\]])/g, '$1');
-
-  // Remove single-line comments (// ...) - be careful not to remove URLs
-  cleaned = cleaned.replace(/([^:])\/\/[^\n]*/g, '$1');
-
-  // Remove multi-line comments
-  cleaned = cleaned.replace(/\/\*[\s\S]*?\*\//g, '');
-
-  // === ROBUST JSON SANITIZER ===
-  // When responseMimeType is not 'application/json' (deep mode with Google Search tools),
-  // the model may produce: (1) literal control chars inside strings, (2) unescaped quotes
-  // inside strings, (3) truncated JSON. This sanitizer handles all three.
-  {
-    let result = '';
-    let inStr = false;
-    let i = 0;
-
-    while (i < cleaned.length) {
-      const ch = cleaned[i];
-      const code = cleaned.charCodeAt(i);
-
-      // Handle escape sequences inside strings
-      if (inStr && ch === '\\') {
-        // Pass through the escape sequence (\ + next char)
-        result += ch;
-        i++;
-        if (i < cleaned.length) {
-          result += cleaned[i];
-          i++;
-        }
-        continue;
-      }
-
-      // Handle quote characters
-      if (ch === '"') {
-        if (!inStr) {
-          // Opening a string
-          inStr = true;
-          result += ch;
-          i++;
-          continue;
-        }
-
-        // We're inside a string and hit a quote — is it the closing quote or an unescaped internal quote?
-        // Look ahead to see if this quote is structural (followed by : , } ] or whitespace+structural)
-        let lookAhead = i + 1;
-        while (lookAhead < cleaned.length && /\s/.test(cleaned[lookAhead])) {
-          lookAhead++;
-        }
-        const nextSignificant = lookAhead < cleaned.length ? cleaned[lookAhead] : '';
-
-        if (nextSignificant === ':' || nextSignificant === ',' || nextSignificant === '}' ||
-          nextSignificant === ']' || nextSignificant === '' || nextSignificant === '"') {
-          // This is a structural closing quote
-          inStr = false;
-          result += ch;
-          i++;
-          continue;
-        }
-
-        // This quote is inside the string value — escape it
-        result += '\\"';
-        i++;
-        continue;
-      }
-
-      // Handle control characters inside strings
-      if (inStr && code < 0x20) {
-        switch (code) {
-          case 0x0A: result += '\\n'; break;
-          case 0x0D: result += '\\r'; break;
-          case 0x09: result += '\\t'; break;
-          case 0x08: result += '\\b'; break;
-          case 0x0C: result += '\\f'; break;
-          default: result += '\\u' + code.toString(16).padStart(4, '0'); break;
-        }
-        i++;
-        continue;
-      }
-
-      // Normal character
-      result += ch;
-      i++;
-    }
-    cleaned = result;
-  }
-
-  // Remove any trailing text after the JSON (common when Gemini adds explanations)
-  const lastBrace = cleaned.lastIndexOf('}');
-  const lastBracket = cleaned.lastIndexOf(']');
-  const lastJsonChar = Math.max(lastBrace, lastBracket);
-  if (lastJsonChar !== -1 && lastJsonChar < cleaned.length - 1) {
-    cleaned = cleaned.substring(0, lastJsonChar + 1);
-  }
-
-  // === TRUNCATED JSON REPAIR ===
-  // If the JSON still fails to parse, try to close any open strings and brackets
-  try {
-    JSON.parse(cleaned);
-  } catch (e) {
-    if (e instanceof SyntaxError) {
-      let repaired = cleaned;
-
-      // Scan to find open structures
-      let inString = false;
-      let escapeNext = false;
-      const stack: string[] = [];
-
-      for (let i = 0; i < repaired.length; i++) {
-        const ch = repaired[i];
-        if (escapeNext) { escapeNext = false; continue; }
-        if (ch === '\\' && inString) { escapeNext = true; continue; }
-        if (ch === '"') { inString = !inString; continue; }
-        if (!inString) {
-          if (ch === '{') stack.push('}');
-          else if (ch === '[') stack.push(']');
-          else if (ch === '}' || ch === ']') stack.pop();
-        }
-      }
-
-      // Close unterminated string
-      if (inString) repaired += '"';
-
-      // Remove trailing incomplete values
-      repaired = repaired.replace(/,\s*"[^"]*"?\s*:\s*"?[^"}\]]*$/, '');
-      repaired = repaired.replace(/,\s*"[^"]*$/, '');
-      repaired = repaired.replace(/,\s*$/, '');
-
-      // Re-scan and close all open brackets/braces
-      const stack2: string[] = [];
-      let inStr2 = false;
-      let esc2 = false;
-      for (let i = 0; i < repaired.length; i++) {
-        const ch = repaired[i];
-        if (esc2) { esc2 = false; continue; }
-        if (ch === '\\' && inStr2) { esc2 = true; continue; }
-        if (ch === '"') { inStr2 = !inStr2; continue; }
-        if (!inStr2) {
-          if (ch === '{') stack2.push('}');
-          else if (ch === '[') stack2.push(']');
-          else if (ch === '}' || ch === ']') stack2.pop();
-        }
-      }
-      while (stack2.length > 0) repaired += stack2.pop();
-
-      try {
-        JSON.parse(repaired);
-        cleaned = repaired;
-      } catch (e2) {
-        console.error('[cleanJsonResponse] JSON repair failed:', (e2 as Error).message);
-      }
-    }
-  }
-
-  return cleaned.trim();
-};
+/** Convert deep-analysis array format [{ point, details }, ...] to string for MultimodalSection (numbered list). */
+function formatMultimodalField(value: unknown): string | undefined {
+  if (typeof value === 'string') return value || undefined;
+  if (!Array.isArray(value) || value.length === 0) return undefined;
+  return value.map((item: any, i: number) => {
+    const point = item?.point ?? item?.title ?? '';
+    const details = item?.details ?? item?.description ?? item?.text ?? '';
+    return `${i + 1}. ${point}${details ? ': ' + details : ''}`;
+  }).join('\n\n').trim() || undefined;
+}
 
 /**
  * Transform Gemini API response to VideoAnalysis format
@@ -714,14 +487,14 @@ ${metadataSection}
     pointsCost: 0, // Will be set by caller
     analysisMode: model.includes('2.5') ? 'standard' : 'deep',
 
-    // Multimodal analysis fields (deep analysis only)
-    visualAnalysis: rawResponse?.visualAnalysis,
-    bodyLanguageAnalysis: rawResponse?.bodyLanguageAnalysis,
-    vocalAnalysis: rawResponse?.vocalAnalysis,
-    deceptionAnalysis: rawResponse?.deceptionAnalysis,
-    humorAnalysis: rawResponse?.humorAnalysis,
-    psychologicalProfile: rawResponse?.psychologicalProfile,
-    culturalSymbolicAnalysis: rawResponse?.culturalSymbolicAnalysis
+    // Multimodal analysis fields (deep analysis only) — Gemini returns arrays of { point, details }; convert to string for UI
+    visualAnalysis: formatMultimodalField(rawResponse?.visualAnalysis),
+    bodyLanguageAnalysis: formatMultimodalField(rawResponse?.bodyLanguageAnalysis),
+    vocalAnalysis: formatMultimodalField(rawResponse?.vocalAnalysis),
+    deceptionAnalysis: formatMultimodalField(rawResponse?.deceptionAnalysis),
+    humorAnalysis: formatMultimodalField(rawResponse?.humorAnalysis),
+    psychologicalProfile: formatMultimodalField(rawResponse?.psychologicalProfile),
+    culturalSymbolicAnalysis: formatMultimodalField(rawResponse?.culturalSymbolicAnalysis)
   };
 };
 
@@ -756,24 +529,16 @@ export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTub
     // 3. Call Gemini API (streaming for video, regular for text)
     const data = await callGeminiAPI(payload, onProgress);
 
-    // Validate response before parsing
     if (!data.text || typeof data.text !== 'string') {
       throw new Error('Gemini API не върна валиден отговор');
     }
 
     let rawResponse: any;
-
-    // Both modes parse JSON from response
-    const cleanedText = cleanJsonResponse(data.text);
-    if (!cleanedText) {
-      throw new Error('Не може да се извлече JSON от отговора на Gemini API');
-    }
-
     try {
-      rawResponse = JSON.parse(cleanedText);
+      rawResponse = JSON.parse(data.text);
     } catch (parseError: any) {
       console.error('[GeminiService] JSON parse error:', parseError?.message || parseError);
-      throw new Error('Gemini API върна невалиден JSON формат. Моля, опитайте отново.');
+      throw new Error('AI върна невалиден формат. Моля, опитайте отново.');
     }
 
     const transcription: TranscriptionLine[] = [];
@@ -830,22 +595,16 @@ export const analyzeYouTubeBatch = async (url: string): Promise<AnalysisResponse
     // 3. Call Gemini API
     const data = await callGeminiAPI(payload);
 
-    // Validate response before parsing
     if (!data.text || typeof data.text !== 'string') {
       throw new Error('Gemini API не върна валиден отговор');
     }
 
-    const cleanedText = cleanJsonResponse(data.text);
-    if (!cleanedText) {
-      throw new Error('Не може да се извлече JSON от отговора на Gemini API');
-    }
-
     let rawResponse: any;
     try {
-      rawResponse = JSON.parse(cleanedText);
+      rawResponse = JSON.parse(data.text);
     } catch (parseError: any) {
       console.error('[GeminiService] JSON parse error:', parseError?.message || parseError);
-      throw new Error('Gemini API върна невалиден JSON формат.');
+      throw new Error('AI върна невалиден формат. Моля, опитайте отново.');
     }
 
     const transcription: TranscriptionLine[] = [];

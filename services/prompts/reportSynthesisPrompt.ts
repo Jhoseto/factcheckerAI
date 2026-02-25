@@ -21,12 +21,13 @@ export const getReportSynthesisPrompt = (analysisData: {
     socialImpactPrediction?: string;
     mode: string;
 }): string => {
+    const str = (x: unknown) => (typeof x === 'string' ? x : (x != null ? String(x) : ''));
     const claimsSummary = (analysisData.claims || []).slice(0, 15).map((c, i) =>
-        `${i + 1}. "${c.claim}" → ${c.verdict}${c.speaker ? ` (${c.speaker})` : ''}${c.evidence ? ` | ${c.evidence.substring(0, 150)}` : ''}`
+        `${i + 1}. "${str(c.claim)}" → ${str(c.verdict)}${c.speaker ? ` (${str(c.speaker)})` : ''}${c.evidence ? ` | ${str(c.evidence).substring(0, 150)}` : ''}`
     ).join('\n');
 
     const manipulationsSummary = (analysisData.manipulations || []).slice(0, 10).map((m, i) =>
-        `${i + 1}. ${m.technique}${m.description ? `: ${m.description.substring(0, 150)}` : ''}${m.impact ? ` | Въздействие: ${m.impact.substring(0, 100)}` : ''}`
+        `${i + 1}. ${str(m.technique)}${m.description ? `: ${str(m.description).substring(0, 150)}` : ''}${m.impact ? ` | Въздействие: ${str(m.impact).substring(0, 100)}` : ''}`
     ).join('\n');
 
     return `Ти си независим експерт по факт-чек и медиа анализ. Направи DCGE Report (${new Date().toISOString()}). Получаваш суровите данни от анализа на видео материала и трябва да напишеш професионален доклад.
@@ -53,15 +54,15 @@ ${claimsSummary || 'Няма данни'}
 РАЗКРИТИ МАНИПУЛАЦИИ:
 ${manipulationsSummary || 'Няма данни'}
 
-${analysisData.geopoliticalContext && analysisData.geopoliticalContext !== 'Неприложимо' ? `ГЕОПОЛИТИЧЕСКИ КОНТЕКСТ: ${analysisData.geopoliticalContext.substring(0, 500)}` : ''}
-${analysisData.strategicIntent && analysisData.strategicIntent !== 'Няма данни' ? `СТРАТЕГИЧЕСКО НАМЕРЕНИЕ: ${analysisData.strategicIntent.substring(0, 500)}` : ''}
-${analysisData.narrativeArchitecture && analysisData.narrativeArchitecture !== 'Няма данни' ? `НАРАТИВНА АРХИТЕКТУРА: ${analysisData.narrativeArchitecture.substring(0, 500)}` : ''}
-${analysisData.psychoLinguisticAnalysis && analysisData.psychoLinguisticAnalysis !== 'Няма данни' ? `ПСИХОЛИНГВИСТИЧЕН АНАЛИЗ: ${analysisData.psychoLinguisticAnalysis.substring(0, 300)}` : ''}
-${analysisData.socialImpactPrediction && analysisData.socialImpactPrediction !== 'Няма данни' ? `СОЦИАЛНО ВЪЗДЕЙСТВИЕ: ${analysisData.socialImpactPrediction.substring(0, 300)}` : ''}
+${(x => x && x !== 'Неприложимо' ? `ГЕОПОЛИТИЧЕСКИ КОНТЕКСТ: ${x.substring(0, 500)}` : '')(str(analysisData.geopoliticalContext))}
+${(x => x && x !== 'Няма данни' ? `СТРАТЕГИЧЕСКО НАМЕРЕНИЕ: ${x.substring(0, 500)}` : '')(str(analysisData.strategicIntent))}
+${(x => x && x !== 'Няма данни' ? `НАРАТИВНА АРХИТЕКТУРА: ${x.substring(0, 500)}` : '')(str(analysisData.narrativeArchitecture))}
+${(x => x && x !== 'Няма данни' ? `ПСИХОЛИНГВИСТИЧЕН АНАЛИЗ: ${x.substring(0, 300)}` : '')(str(analysisData.psychoLinguisticAnalysis))}
+${(x => x && x !== 'Няма данни' ? `СОЦИАЛНО ВЪЗДЕЙСТВИЕ: ${x.substring(0, 300)}` : '')(str(analysisData.socialImpactPrediction))}
 
 ═══ КРАЙ НА СУРОВИТЕ ДАННИ ═══
 
-Сега напиши DCGE Report със следната структура. Използвай MARKDOWN форматиране (# за заглавия). Всяка секция е ОБЯЗАТЕЛНО поне 2–4 параграфа, не по една-две изречения.
+Сега напиши DCGE Report със следната структура. Използвай MARKDOWN форматиране (# за заглавия). Всяка секция е ОБЕЗАТЕЛНО поне 2–4 параграфа, не по едно-две изречения.
 
 # ИЗПЪЛНИТЕЛНО РЕЗЮМЕ
 Минимум 3–4 параграфа. Какво разкрихме? Каква е голямата картина? Защо е важно? Кого засяга?
@@ -81,11 +82,11 @@ ${analysisData.socialImpactPrediction && analysisData.socialImpactPrediction !==
 # ЕКСПЕРТНА ОЦЕНКА
 Минимум 2–3 параграфа. Професионално експертно мнение. Обективна оценка. Силни и слаби страни на материала. Ясно посочени критерии.
 
-# ЗАКЛЮЧЕНИЕ И ПРЕПОРЪКИ
-Минимум 2 параграфа. Заключителни мисли. Какви въпроси остават? Какво би трябвало да знае потребителят?
+# ЗАКЛЮЧЕНИЕ
+Минимум 2 параграфа. Заключителни мисли. Какви въпроси остават?
 
 # КРАЙ
 Само един ред: DCGE Report (${new Date().toISOString()})
 
-ИЗИСКВАНЕ: Минимум 18–25 параграфа ОБЩО. Всяка секция трябва да е разгъната и конкретна. Кратките, повърхностни отговори са НЕПРИЕМЛИМИ. Докладът трябва да е толкова добър, че потребителят да каже "WOW – това е истински журналистически анализ!"`;
+ИЗИСКВАНЕ: Всяка секция трябва да е разгъната и конкретна. Кратките, повърхностни отговори са НЕПРИЕМЛИМИ. Докладът трябва да е толкова добър, че потребителят да каже "WOW – това е истински журналистически анализ!"`;
 };

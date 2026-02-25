@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import type { VideoAnalysis } from '../types';
 import MobileHeader from './components/MobileHeader';
 import ReliabilityChart from '../components/ReliabilityChart';
+import { TabIcon } from '../components/common/result-views/DeepTabIcons';
 
 type TabId = 'summary' | 'claims' | 'manipulation' | 'report' | 'visual' | 'bodyLanguage' | 'vocal' | 'deception' | 'humor' | 'psychological' | 'cultural';
 
@@ -142,6 +143,7 @@ const MobileResultView: React.FC<MobileResultViewProps> = ({ analysis, reportLoa
                       : 'bg-slate-100 text-slate-500 active:bg-slate-200'
                   }`}
                 >
+                  <TabIcon id={tab.id as import('../components/common/result-views/DeepTabIcons').TabId} className="w-3.5 h-3.5 mr-1.5 shrink-0" />
                   {tab.label}
                 </button>
               );

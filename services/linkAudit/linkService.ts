@@ -101,13 +101,10 @@ const deriveClassification = (overallAssessment: string, metrics: any): string =
 const transformAnalysis = (rawText: string, pointsCost: number): VideoAnalysis => {
     let raw: any = {};
     try {
-        const jsonStart = rawText.indexOf('{');
-        const jsonEnd = rawText.lastIndexOf('}');
-        if (jsonStart !== -1 && jsonEnd > jsonStart) {
-            raw = JSON.parse(rawText.substring(jsonStart, jsonEnd + 1));
-        }
-    } catch {
-        console.error('[LinkService] Failed to parse Gemini JSON');
+        raw = JSON.parse(rawText);
+    } catch (e) {
+        console.error('[LinkService] Failed to parse response JSON:', e);
+        throw new Error('Невалиден формат на отговора от сървъра. Моля, опитайте отново.');
     }
 
     const classification = deriveClassification(raw.overallAssessment, raw.detailedMetrics);

@@ -22,12 +22,13 @@ export const getReportSynthesisPromptEn = (analysisData: {
     socialImpactPrediction?: string;
     mode: string;
 }): string => {
+    const str = (x: unknown) => (typeof x === 'string' ? x : (x != null ? String(x) : ''));
     const claimsSummary = (analysisData.claims || []).slice(0, 15).map((c, i) =>
-        `${i + 1}. "${c.claim}" → ${c.verdict}${c.speaker ? ` (${c.speaker})` : ''}${c.evidence ? ` | ${c.evidence.substring(0, 150)}` : ''}`
+        `${i + 1}. "${str(c.claim)}" → ${str(c.verdict)}${c.speaker ? ` (${str(c.speaker)})` : ''}${c.evidence ? ` | ${str(c.evidence).substring(0, 150)}` : ''}`
     ).join('\n');
 
     const manipulationsSummary = (analysisData.manipulations || []).slice(0, 10).map((m, i) =>
-        `${i + 1}. ${m.technique}${m.description ? `: ${m.description.substring(0, 150)}` : ''}${m.impact ? ` | Impact: ${m.impact.substring(0, 100)}` : ''}`
+        `${i + 1}. ${str(m.technique)}${m.description ? `: ${str(m.description).substring(0, 150)}` : ''}${m.impact ? ` | Impact: ${str(m.impact).substring(0, 100)}` : ''}`
     ).join('\n');
 
     return `You are an independent expert in fact-checking and media analysis. Produce a DCGE Report (${new Date().toISOString()}). You are given the raw data from the analysis of a video and must write a professional report.
@@ -54,11 +55,11 @@ ${claimsSummary || 'No data'}
 DISCOVERED MANIPULATIONS:
 ${manipulationsSummary || 'No data'}
 
-${analysisData.geopoliticalContext && analysisData.geopoliticalContext !== 'N/A' && analysisData.geopoliticalContext !== 'Неприложимо' ? `GEOPOLITICAL CONTEXT: ${analysisData.geopoliticalContext.substring(0, 500)}` : ''}
-${analysisData.strategicIntent && analysisData.strategicIntent !== 'No data' && analysisData.strategicIntent !== 'Няма данни' ? `STRATEGIC INTENT: ${analysisData.strategicIntent.substring(0, 500)}` : ''}
-${analysisData.narrativeArchitecture && analysisData.narrativeArchitecture !== 'No data' && analysisData.narrativeArchitecture !== 'Няма данни' ? `NARRATIVE ARCHITECTURE: ${analysisData.narrativeArchitecture.substring(0, 500)}` : ''}
-${analysisData.psychoLinguisticAnalysis && analysisData.psychoLinguisticAnalysis !== 'No data' && analysisData.psychoLinguisticAnalysis !== 'Няма данни' ? `PSYCHOLINGUISTIC ANALYSIS: ${analysisData.psychoLinguisticAnalysis.substring(0, 300)}` : ''}
-${analysisData.socialImpactPrediction && analysisData.socialImpactPrediction !== 'No data' && analysisData.socialImpactPrediction !== 'Няма данни' ? `SOCIAL IMPACT: ${analysisData.socialImpactPrediction.substring(0, 300)}` : ''}
+${(x => x && x !== 'N/A' && x !== 'Неприложимо' ? `GEOPOLITICAL CONTEXT: ${x.substring(0, 500)}` : '')(str(analysisData.geopoliticalContext))}
+${(x => x && x !== 'No data' && x !== 'Няма данни' ? `STRATEGIC INTENT: ${x.substring(0, 500)}` : '')(str(analysisData.strategicIntent))}
+${(x => x && x !== 'No data' && x !== 'Няма данни' ? `NARRATIVE ARCHITECTURE: ${x.substring(0, 500)}` : '')(str(analysisData.narrativeArchitecture))}
+${(x => x && x !== 'No data' && x !== 'Няма данни' ? `PSYCHOLINGUISTIC ANALYSIS: ${x.substring(0, 300)}` : '')(str(analysisData.psychoLinguisticAnalysis))}
+${(x => x && x !== 'No data' && x !== 'Няма данни' ? `SOCIAL IMPACT: ${x.substring(0, 300)}` : '')(str(analysisData.socialImpactPrediction))}
 
 ═══ END OF RAW DATA ═══
 
