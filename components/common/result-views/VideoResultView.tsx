@@ -48,7 +48,8 @@ const translateMetricName = (key: string): string => {
 };
 
 const renderBoldBronze = (text: string) => {
-    const parts = text.split(/(\*\*[^*]+\*\*)/g);
+    const s = typeof text === 'string' ? text : String(text ?? '');
+    const parts = s.split(/(\*\*[^*]+\*\*)/g);
     return parts.map((part, i) =>
         part.startsWith('**') && part.endsWith('**')
             ? <strong key={i} className="text-[#C4B091] font-semibold">{part.slice(2, -2)}</strong>
@@ -56,10 +57,13 @@ const renderBoldBronze = (text: string) => {
     );
 };
 
-const MultimodalSection: React.FC<{ title: string; content?: string; color: string }> = ({ title, content }) => {
-    if (!content || content === 'Няма данни') return null;
+const MultimodalSection: React.FC<{ title: string; content?: string | unknown; color: string }> = ({ title, content }) => {
+    const text = typeof content === 'string' ? content : (content && typeof content === 'object' && content !== null
+        ? String((content as { text?: string }).text ?? (content as { summary?: string }).summary ?? (content as Record<string, unknown>).content ?? '')
+        : '');
+    if (!text || text === 'Няма данни') return null;
 
-    const segments = content.split(/(?=\d+\.\s)/).map(s => s.trim()).filter(Boolean);
+    const segments = text.split(/(?=\d+\.\s)/).map((s: string) => s.trim()).filter(Boolean);
 
     const renderSegment = (segment: string, idx: number) => {
         const numMatch = segment.match(/^(\d+)\.\s*(.*)/s);
@@ -107,7 +111,9 @@ const ReportView: React.FC<{ analysis: VideoAnalysis; reportRef?: React.RefObjec
 
     // Parse markdown-like report into structured sections
     const renderReportContent = (text: string) => {
-        const sections = text.split(/\n(?=# )/).filter(Boolean);
+        const str = typeof text === 'string' ? text : '';
+        if (!str) return null;
+        const sections = str.split(/\n(?=# )/).filter(Boolean);
 
         return sections.map((section, sIdx) => {
             const lines = section.split('\n');
@@ -164,7 +170,8 @@ const ReportView: React.FC<{ analysis: VideoAnalysis; reportRef?: React.RefObjec
 
     // Render inline markdown (bold, italic)
     const renderInlineMarkdown = (text: string) => {
-        const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
+        const s = typeof text === 'string' ? text : String(text ?? '');
+        const parts = s.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
         return parts.map((part, i) => {
             if (part.startsWith('**') && part.endsWith('**')) {
                 return <strong key={i} className="font-black text-[#C4B091]">{part.slice(2, -2)}</strong>;
