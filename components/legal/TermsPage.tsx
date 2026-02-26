@@ -12,8 +12,8 @@ const TermsPage: React.FC = () => {
     const { displayText, loading } = useTranslatedReport('legal_terms', termsMd);
 
     return (
-        <div className="min-h-screen pt-32 pb-24 px-6 md:px-12">
-            <div className="max-w-3xl mx-auto editorial-card p-8 md:p-12 bg-[#151515]/80 backdrop-blur-md">
+        <div className="min-h-screen pt-32 pb-24 px-6 md:px-12 max-md:pt-20 max-md:pb-28 max-md:px-4">
+            <div className="max-w-3xl mx-auto editorial-card p-8 md:p-12 max-md:p-6 bg-[#151515]/80 backdrop-blur-md">
                 {loading && <p className="text-[#968B74] text-sm mb-4">{t('common.translating')}</p>}
                 <div className="prose prose-invert max-w-none text-[#ddd]">
                     {renderLegalMd(displayText)}

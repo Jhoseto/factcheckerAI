@@ -1,13 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { getUserTransactions, Transaction } from '../services/transactionService';
 import MobileSafeArea from './components/MobileSafeArea';
 import MobileHeader from './components/MobileHeader';
 
+const dateLocale = (lng: string) => (lng === 'en' || lng?.startsWith('en') ? 'en-GB' : 'bg-BG');
+
 const MobileExpensesPage: React.FC = () => {
+  const { t, i18n } = useTranslation();
   const { currentUser, userProfile } = useAuth();
   const navigate = useNavigate();
+  const locale = dateLocale(i18n.language);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'deductions' | 'purchases'>('deductions');
@@ -95,31 +100,31 @@ const MobileExpensesPage: React.FC = () => {
 
   if (loading) {
     return (
-      <MobileSafeArea>
-        <MobileHeader title="История на точките" />
-        <div className="flex h-full items-center justify-center bg-slate-50">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-900"></div>
+      <MobileSafeArea className="bg-[#1a1a1a]">
+        <MobileHeader title={t('mobile.pointsHistory')} />
+        <div className="flex h-full items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#333] border-t-[#968B74]"></div>
         </div>
       </MobileSafeArea>
     );
   }
 
   return (
-    <MobileSafeArea>
-      <MobileHeader title="История на точките" />
-      <main className="flex flex-col flex-1 px-4 pt-6 pb-8 overflow-y-auto">
+    <MobileSafeArea className="bg-[#1a1a1a]">
+      <MobileHeader title={t('mobile.pointsHistory')} />
+      <main className="flex flex-col flex-1 px-4 pt-6 pb-24 overflow-y-auto overscroll-contain">
         {/* Balance Display */}
-        <div className="bg-white rounded-xl p-4 mb-4 border border-slate-200 shadow-sm">
+        <div className="bg-[#252525] rounded-xl p-4 mb-4 border border-[#333]">
           <div className="flex justify-between items-center">
             <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Баланс</p>
-              <p className="text-2xl font-black text-slate-900">{userProfile?.pointsBalance?.toLocaleString() ?? 0}</p>
+              <p className="text-[10px] font-bold text-[#888] uppercase tracking-widest mb-1">{t('mobile.balance')}</p>
+              <p className="text-2xl font-black text-[#E0E0E0]">{userProfile?.pointsBalance?.toLocaleString() ?? 0}</p>
             </div>
             <div className="text-right">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
-                {activeTab === 'deductions' ? 'Похарчени' : 'Заредени'}
+              <p className="text-[10px] font-bold text-[#888] uppercase tracking-widest mb-1">
+                {activeTab === 'deductions' ? t('mobile.spent') : t('mobile.loaded')}
               </p>
-              <p className="text-2xl font-black text-slate-700">
+              <p className="text-2xl font-black text-[#ccc]">
                 {activeTab === 'deductions' 
                   ? transactions.filter(t => t.type === 'deduction').length
                   : transactions.filter(t => t.type === 'purchase' || t.type === 'bonus').length
@@ -131,83 +136,83 @@ const MobileExpensesPage: React.FC = () => {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-2 gap-3 mb-4">
-          <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Изразходени</p>
-            <p className="text-lg font-black text-amber-900">
+          <div className="bg-[#252525] p-3 rounded-xl border border-[#333]">
+            <p className="text-[9px] font-bold text-[#888] uppercase tracking-widest mb-1">{t('mobile.spentTotal')}</p>
+            <p className="text-lg font-black text-[#C4B091]">
               {Math.abs(transactions.filter(t => t.type === 'deduction').reduce((acc, curr) => acc + curr.amount, 0)).toLocaleString()}
             </p>
           </div>
-          <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Закупени</p>
-            <p className="text-lg font-black text-emerald-600">
+          <div className="bg-[#252525] p-3 rounded-xl border border-[#333]">
+            <p className="text-[9px] font-bold text-[#888] uppercase tracking-widest mb-1">{t('mobile.purchasedTotal')}</p>
+            <p className="text-lg font-black text-emerald-400">
               {transactions.filter(t => t.type === 'purchase').reduce((acc, curr) => acc + curr.amount, 0).toLocaleString()}
             </p>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="mb-4 flex gap-2 bg-slate-50 p-1 rounded-xl">
+        <div className="mb-4 flex gap-2 bg-[#252525] p-1 rounded-xl border border-[#333]">
           <button
             onClick={() => {
               setActiveTab('deductions');
               setFilter('all');
             }}
-            className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest transition-colors rounded-lg ${
+            className={`flex-1 min-h-[44px] py-2.5 text-[10px] font-black uppercase tracking-widest transition-colors rounded-lg touch-manipulation ${
               activeTab === 'deductions'
-                ? 'bg-white text-amber-900 shadow-sm'
-                : 'text-slate-500'
+                ? 'bg-[#968B74] text-[#1a1a1a]'
+                : 'text-[#888]'
             }`}
           >
-            Похарчени
+            {t('mobile.spent')}
           </button>
           <button
             onClick={() => {
               setActiveTab('purchases');
               setFilter('all');
             }}
-            className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest transition-colors rounded-lg ${
+            className={`flex-1 min-h-[44px] py-2.5 text-[10px] font-black uppercase tracking-widest transition-colors rounded-lg touch-manipulation ${
               activeTab === 'purchases'
-                ? 'bg-white text-emerald-600 shadow-sm'
-                : 'text-slate-500'
+                ? 'bg-emerald-700/60 text-white'
+                : 'text-[#888]'
             }`}
           >
-            Заредени
+            {t('mobile.loaded')}
           </button>
         </div>
 
         {/* Filters */}
         {activeTab === 'deductions' && (
-          <div className="mb-4 overflow-x-auto -mx-4 px-4">
-            <div className="flex gap-2 min-w-max">
+          <div className="mb-4 overflow-x-auto -mx-4 px-4 mobile-no-scrollbar">
+            <div className="flex gap-2 min-w-max pb-1">
               <button
                 onClick={() => setFilter('all')}
-                className={`px-3 py-2 text-[9px] font-black uppercase tracking-widest transition-colors rounded-lg whitespace-nowrap ${
+                className={`min-h-[44px] px-4 py-2.5 text-[9px] font-black uppercase tracking-widest transition-colors rounded-lg whitespace-nowrap touch-manipulation ${
                   filter === 'all'
-                    ? 'bg-amber-900 text-white'
-                    : 'bg-slate-50 text-slate-400'
+                    ? 'bg-[#968B74] text-[#1a1a1a]'
+                    : 'bg-[#252525] text-[#888] border border-[#333]'
                 }`}
               >
-                Всички
+                {t('archive.all')}
               </button>
               <button
                 onClick={() => setFilter('video')}
-                className={`px-3 py-2 text-[9px] font-black uppercase tracking-widest transition-colors rounded-lg whitespace-nowrap ${
+                className={`min-h-[44px] px-4 py-2.5 text-[9px] font-black uppercase tracking-widest transition-colors rounded-lg whitespace-nowrap touch-manipulation ${
                   filter === 'video'
-                    ? 'bg-amber-900 text-white'
-                    : 'bg-slate-50 text-slate-400'
+                    ? 'bg-[#968B74] text-[#1a1a1a]'
+                    : 'bg-[#252525] text-[#888] border border-[#333]'
                 }`}
               >
-                Видео
+                {t('mobile.filterVideo')}
               </button>
               <button
                 onClick={() => setFilter('link')}
-                className={`px-3 py-2 text-[9px] font-black uppercase tracking-widest transition-colors rounded-lg whitespace-nowrap ${
+                className={`min-h-[44px] px-4 py-2.5 text-[9px] font-black uppercase tracking-widest transition-colors rounded-lg whitespace-nowrap touch-manipulation ${
                   filter === 'link'
-                    ? 'bg-amber-900 text-white'
-                    : 'bg-slate-50 text-slate-400'
+                    ? 'bg-[#968B74] text-[#1a1a1a]'
+                    : 'bg-[#252525] text-[#888] border border-[#333]'
                 }`}
               >
-                Линкове
+                {t('mobile.filterLinks')}
               </button>
             </div>
           </div>
@@ -217,12 +222,12 @@ const MobileExpensesPage: React.FC = () => {
         <div className="relative mb-4">
           <input
             type="text"
-            placeholder="Търсене..."
+            placeholder={t('mobile.searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-8 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-amber-900 placeholder:text-slate-400"
+            className="w-full min-h-[44px] pl-10 pr-4 py-3 bg-[#252525] border border-[#333] rounded-xl text-sm font-medium text-[#E0E0E0] focus:outline-none focus:border-[#968B74] placeholder:text-[#666]"
           />
-          <svg className="w-4 h-4 text-slate-400 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 text-[#666] absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
         </div>
@@ -232,37 +237,37 @@ const MobileExpensesPage: React.FC = () => {
           <select
             value={sortOrder}
             onChange={(e) => setSortOrder(e.target.value as any)}
-            className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 focus:outline-none focus:border-amber-900 uppercase tracking-wide"
+            className="w-full min-h-[44px] px-3 py-3 bg-[#252525] border border-[#333] rounded-xl text-sm font-bold text-[#E0E0E0] focus:outline-none focus:border-[#968B74] uppercase tracking-wide"
           >
-            <option value="date_desc">Най-нови</option>
-            <option value="date_asc">Най-стари</option>
-            <option value="points_desc">Най-скъпи</option>
-            <option value="video">Видео</option>
-            <option value="link">Линкове</option>
+            <option value="date_desc">{t('mobile.sortNewest')}</option>
+            <option value="date_asc">{t('mobile.sortOldest')}</option>
+            <option value="points_desc">{t('mobile.sortByPoints')}</option>
+            <option value="video">{t('mobile.filterVideo')}</option>
+            <option value="link">{t('mobile.filterLinks')}</option>
           </select>
         </div>
 
         {/* Transactions List */}
         <div className="space-y-3">
           {filteredTransactions.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-xl border border-slate-100">
-              <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="text-center py-12 bg-[#252525] rounded-xl border border-[#333]">
+              <div className="w-16 h-16 bg-[#1a1a1a] rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-[#555]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
-              <p className="text-sm text-slate-500 font-medium">Няма намерени транзакции</p>
+              <p className="text-sm text-[#888] font-medium">{t('mobile.noTransactions')}</p>
             </div>
           ) : (
             filteredTransactions.map((tx) => (
               <div
                 key={tx.id}
-                className="bg-white p-4 border border-slate-100 rounded-xl shadow-sm flex gap-3"
+                className="bg-[#252525] p-4 border border-[#333] rounded-xl flex gap-3"
               >
                 {/* Thumbnail / Icon */}
                 <div className="flex-shrink-0">
                   {tx.metadata?.thumbnailUrl ? (
-                    <div className="w-16 h-12 relative overflow-hidden rounded-lg bg-slate-100">
+                    <div className="w-16 h-12 relative overflow-hidden rounded-lg bg-[#1a1a1a]">
                       <img
                         src={tx.metadata.thumbnailUrl}
                         alt="Video Thumbnail"
@@ -276,7 +281,7 @@ const MobileExpensesPage: React.FC = () => {
                     </div>
                   ) : (
                     <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                      tx.type === 'deduction' ? 'bg-red-50 text-red-500' : 'bg-emerald-50 text-emerald-600'
+                      tx.type === 'deduction' ? 'bg-red-900/30 text-red-400' : 'bg-emerald-900/30 text-emerald-400'
                     }`}>
                       {tx.type === 'deduction' ? (
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -300,14 +305,14 @@ const MobileExpensesPage: React.FC = () => {
                         href={tx.metadata.videoId ? `https://youtube.com/watch?v=${tx.metadata.videoId}` : '#'}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-sm font-black text-slate-900 line-clamp-2 leading-tight block"
+                        className="text-sm font-black text-[#E0E0E0] line-clamp-2 leading-tight block"
                       >
                         {tx.metadata.videoTitle}
                       </a>
-                      <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">
-                        {tx.metadata.videoAuthor && <span className="text-slate-800">{tx.metadata.videoAuthor}</span>}
-                        {tx.metadata.videoAuthor && <span className="mx-2 text-slate-300">•</span>}
-                        {new Date(tx.createdAt).toLocaleDateString('bg-BG', {
+                      <p className="text-[9px] text-[#888] font-bold uppercase tracking-wider">
+                        {tx.metadata.videoAuthor && <span className="text-[#aaa]">{tx.metadata.videoAuthor}</span>}
+                        {tx.metadata.videoAuthor && <span className="mx-2 text-[#555]">•</span>}
+                        {new Date(tx.createdAt).toLocaleDateString(locale, {
                           day: 'numeric',
                           month: 'short',
                           hour: '2-digit',
@@ -317,11 +322,11 @@ const MobileExpensesPage: React.FC = () => {
                     </div>
                   ) : (
                     <div className="space-y-1">
-                      <h4 className="text-sm font-black text-slate-900 uppercase tracking-wide">
+                      <h4 className="text-sm font-black text-[#E0E0E0] uppercase tracking-wide">
                         {tx.description}
                       </h4>
-                      <p className="text-[9px] text-slate-400 font-medium uppercase tracking-widest">
-                        {new Date(tx.createdAt).toLocaleDateString('bg-BG', {
+                      <p className="text-[9px] text-[#888] font-medium uppercase tracking-widest">
+                        {new Date(tx.createdAt).toLocaleDateString(locale, {
                           day: 'numeric',
                           month: 'short',
                           hour: '2-digit',
@@ -335,12 +340,12 @@ const MobileExpensesPage: React.FC = () => {
                 {/* Amount */}
                 <div className="text-right flex-shrink-0 flex flex-col justify-center">
                   <p className={`text-lg font-black tracking-tight ${
-                    tx.type === 'deduction' ? 'text-red-500' : 'text-emerald-600'
+                    tx.type === 'deduction' ? 'text-red-400' : 'text-emerald-400'
                   }`}>
                     {tx.type === 'deduction' ? '-' : '+'}{Math.abs(tx.amount).toLocaleString()}
                   </p>
-                  <p className="text-[8px] font-bold opacity-60 uppercase">
-                    точки
+                  <p className="text-[8px] font-bold text-[#888] uppercase">
+                    {t('mobile.pointsLabel')}
                   </p>
                 </div>
               </div>

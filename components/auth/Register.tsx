@@ -87,7 +87,7 @@ const Register: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden py-10">
+        <div className="min-h-screen flex items-center justify-center px-4 max-md:py-6 max-md:px-4 relative overflow-hidden py-10">
             <div className="premium-bg-wrapper">
                 <div className="premium-wave-1"></div>
                 <div className="premium-wave-2"></div>

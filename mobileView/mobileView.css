@@ -2,6 +2,11 @@
 
 .mobile-root {
   background-color: #1a1a1a;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-root main {
+  overscroll-behavior-y: contain;
 }
 
 .mobile-root *::selection {

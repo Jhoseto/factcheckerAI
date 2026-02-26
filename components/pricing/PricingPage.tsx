@@ -4,9 +4,12 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { PRICING_TIERS } from '../../config/pricingConfig';
 
+const numberLocale = (lng: string) => (lng === 'en' || lng?.startsWith('en') ? 'en-GB' : 'bg-BG');
+
 const PricingPage: React.FC = () => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const navigate = useNavigate();
+    const locale = numberLocale(i18n.language);
     const { currentUser } = useAuth();
     const TIER_NAMES: Record<string, string> = {
         starter: t('pricing.tierStarter'),
@@ -48,7 +51,7 @@ const PricingPage: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen relative overflow-hidden pt-40 pb-24">
+        <div className="min-h-screen relative overflow-hidden pt-40 pb-24 max-md:pt-6 max-md:pb-28">
              {/* Background */}
              <div className="premium-bg-wrapper">
                 <div className="premium-wave-1"></div>
@@ -57,7 +60,7 @@ const PricingPage: React.FC = () => {
                 <div className="premium-texture"></div>
             </div>
 
-            <div className="max-w-7xl mx-auto px-6 relative z-10 animate-fadeUp">
+            <div className="max-w-7xl mx-auto px-6 max-md:px-4 relative z-10 animate-fadeUp">
                 
                 {/* Header */}
                 <div className="text-center mb-24 space-y-8">
@@ -99,10 +102,10 @@ const PricingPage: React.FC = () => {
 
                             <div className="py-6 border-y border-[#333] flex-1">
                                 <ul className="space-y-3">
-                                    {tier.features.map((feature, idx) => (
+                                    {tier.features.map((_, idx) => (
                                         <li key={idx} className="flex items-center gap-3 text-xs text-[#aaa] tracking-wide">
                                             <span className="w-1 h-1 bg-[#968B74] rounded-full shadow-[0_0_5px_#968B74] flex-shrink-0"></span>
-                                            <span>{feature}</span>
+                                            <span>{t(`pricing.feature${idx + 1}`)}</span>
                                         </li>
                                     ))}
                                 </ul>
@@ -110,13 +113,13 @@ const PricingPage: React.FC = () => {
 
                             <div className="space-y-4">
                                 <div className="text-center">
-                                    <p className="text-2xl font-serif text-bronze-gradient">{tier.totalPoints.toLocaleString('bg-BG')}</p>
+                                    <p className="text-2xl font-serif text-bronze-gradient">{tier.totalPoints.toLocaleString(locale)}</p>
                                     <p className="text-[9px] text-[#555] uppercase tracking-[0.3em] mt-1">{t('pricing.totalPoints')}</p>
                                 </div>
                                 <button
                                     onClick={() => handlePurchase(tier)}
                                     disabled={loading !== null}
-                                    className={`w-full py-3 text-[10px] font-black uppercase tracking-[0.25em] transition-all ${tier.popular ? 'btn-luxury-solid rounded-sm' : 'btn-luxury rounded-sm hover:text-[#C4B091] hover:border-[#C4B091]'}`}
+                                    className={`w-full py-3 max-md:min-h-[44px] max-md:py-3.5 text-[10px] font-black uppercase tracking-[0.25em] transition-all ${tier.popular ? 'btn-luxury-solid rounded-sm' : 'btn-luxury rounded-sm hover:text-[#C4B091] hover:border-[#C4B091]'}`}
                                 >
                                     {loading === tier.id ? t('pricing.processing') : t('pricing.choosePlan')}
                                 </button>

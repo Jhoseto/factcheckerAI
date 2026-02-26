@@ -23,7 +23,10 @@ const MobileView: React.FC = () => {
 
   return (
     <div className="mobile-root h-screen flex flex-col overflow-hidden">
-      <main className="flex-1 min-h-0 overflow-y-auto pb-20">
+      <main
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain"
+        style={{ paddingBottom: 'max(5rem, env(safe-area-inset-bottom, 0px) + 5rem)' }}
+      >
         <Routes>
           <Route path="/" element={<MobileHome />} />
           <Route path="/audit" element={<MobileAudit />} />

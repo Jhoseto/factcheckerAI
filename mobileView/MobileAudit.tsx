@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { analyzeYouTubeStandard } from '../services/geminiService';
 import { getYouTubeMetadata } from '../services/youtubeMetadataService';
@@ -11,14 +12,10 @@ import type { AnalysisMode, YouTubeVideoMetadata, CostEstimate } from '../types'
 import MobileSafeArea from './components/MobileSafeArea';
 import MobileHeader from './components/MobileHeader';
 
-const LOADING_PHASES = [
-  'Изпращане на заявка...',
-  'Анализиране на видеото...',
-  'Проверка на твърдения...',
-  'Финализиране на доклада...',
-];
+const LOADING_PHASE_KEYS = ['mobile.loadingPhase1', 'mobile.loadingPhase2', 'mobile.loadingPhase3', 'mobile.loadingPhase4'] as const;
 
 const MobileAudit: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { currentUser, userProfile, updateLocalBalance, refreshProfile } = useAuth();
 
@@ -51,7 +48,7 @@ const MobileAudit: React.FC = () => {
       } catch {
         setVideoMetadata(null);
         setCostEstimates(null);
-        setError('Невалиден линк или видео.');
+        setError(t('mobile.invalidLinkOrVideo'));
       } finally {
         setFetchingMetadata(false);
       }
@@ -61,7 +58,7 @@ const MobileAudit: React.FC = () => {
 
   useEffect(() => {
     if (!loading) return;
-    const t = setInterval(() => setLoadingPhase(p => (p + 1) % LOADING_PHASES.length), 3500);
+    const t = setInterval(() => setLoadingPhase(p => (p + 1) % LOADING_PHASE_KEYS.length), 3500);
     return () => clearInterval(t);
   }, [loading]);
 
@@ -76,12 +73,12 @@ const MobileAudit: React.FC = () => {
 
   const handleStartAnalysis = async () => {
     if (!analysisMode) {
-      setError('Изберете режим на одит.');
+      setError(t('mobile.selectAuditMode'));
       return;
     }
     const validation = validateYouTubeUrl(youtubeUrl);
     if (!validation.valid) {
-      setError(validation.error || 'Невалиден YouTube URL.');
+      setError(validation.error || t('errors.invalidYoutubeUrl'));
       return;
     }
     if (!currentUser) {
@@ -91,7 +88,7 @@ const MobileAudit: React.FC = () => {
     }
     const estimatedCost = costEstimates?.[analysisMode]?.pointsCost ?? (analysisMode === 'deep' ? 10 : 5);
     if (userProfile && userProfile.pointsBalance < estimatedCost) {
-      setError(`Нужни са ${estimatedCost} точки. Купете от Pricing.`);
+      setError(t('common.needPointsBuy', { count: estimatedCost }));
       return;
     }
 
@@ -132,7 +129,7 @@ const MobileAudit: React.FC = () => {
       return;
     }
     if (userProfile && userProfile.pointsBalance < FIXED_PRICES.linkArticle) {
-      setError(`Нужни са ${FIXED_PRICES.linkArticle} точки. Купете от Pricing.`);
+      setError(t('common.needPointsBuy', { count: FIXED_PRICES.linkArticle }));
       return;
     }
 
@@ -158,17 +155,17 @@ const MobileAudit: React.FC = () => {
 
   if (loading || linkLoading) {
     return (
-      <MobileSafeArea className="flex flex-col bg-white">
+      <MobileSafeArea className="flex flex-col">
         <div className="flex-1 flex flex-col items-center justify-center px-6">
-          <div className="w-full max-w-[280px] h-1 bg-slate-100 rounded-full overflow-hidden mb-8">
-            <div className="h-full w-1/2 bg-amber-900 rounded-full mobile-loading-bar" />
+          <div className="w-full max-w-[280px] h-1 bg-[#333] rounded-full overflow-hidden mb-8">
+            <div className="h-full w-1/2 bg-[#968B74] rounded-full mobile-loading-bar" />
           </div>
-          <p className="text-[10px] font-black text-amber-900 uppercase tracking-[0.3em] mb-2">Одит на истината</p>
-          <p className="text-2xl font-mono font-black text-slate-900 tabular-nums tracking-tight">
+          <p className="text-[10px] font-black text-[#C4B091] uppercase tracking-[0.3em] mb-2">{t('loading.title')}</p>
+          <p className="text-2xl font-mono font-black text-[#E0E0E0] tabular-nums tracking-tight">
             {String(Math.floor(elapsedSeconds / 60)).padStart(2, '0')}:{String(elapsedSeconds % 60).padStart(2, '0')}
           </p>
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-4 text-center min-h-[3rem]">
-            {streamingProgress || LOADING_PHASES[loadingPhase]}
+          <p className="text-[10px] font-black text-[#888] uppercase tracking-widest mt-4 text-center min-h-[3rem]">
+            {streamingProgress || t(LOADING_PHASE_KEYS[loadingPhase])}
           </p>
         </div>
       </MobileSafeArea>
@@ -177,82 +174,82 @@ const MobileAudit: React.FC = () => {
 
   return (
     <MobileSafeArea>
-      <MobileHeader title="Одит" />
-      <main className="flex flex-col flex-1 px-4 pt-6 pb-8 overflow-y-auto">
+      <MobileHeader title={t('mobile.audit')} />
+      <main className="flex flex-col flex-1 px-4 pt-6 pb-24 overflow-y-auto">
         {/* YouTube Video Section */}
         <div className="relative mb-6 mobile-fade-in">
-          <div className="rounded-2xl bg-gradient-to-br from-amber-50/50 via-white to-amber-50/30 border border-amber-900/10 p-6 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+          <div className="rounded-2xl bg-[#252525] border border-[#333] p-5 sm:p-6">
             <div className="flex items-center justify-center gap-2 mb-3">
-              <span className="h-[1px] w-8 bg-amber-900/40" />
-              <span className="text-[10px] font-black text-amber-900 uppercase tracking-[0.4em]">YouTube Видео Одит</span>
-              <span className="h-[1px] w-8 bg-amber-900/40" />
+              <span className="h-[1px] w-8 bg-[#968B74]/40" />
+              <span className="text-[10px] font-black text-[#C4B091] uppercase tracking-[0.4em]">{t('mobile.youtubeVideoAudit')}</span>
+              <span className="h-[1px] w-8 bg-[#968B74]/40" />
             </div>
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight leading-tight italic serif text-center mb-6">
-              Анализирай <span className="text-amber-900">видео</span> поток
+            <h2 className="text-xl sm:text-2xl font-serif font-black text-[#E0E0E0] tracking-tight leading-tight text-center mb-5">
+              {t('mobile.analyzeVideoStream')}
             </h2>
 
-            <div className="mobile-editorial-card rounded-xl overflow-hidden mb-5 mobile-fade-in-delay-1">
+            <div className="rounded-xl border border-[#333] bg-[#1a1a1a] overflow-hidden mb-4 mobile-fade-in-delay-1">
               <input
                 type="text"
                 value={youtubeUrl}
                 onChange={(e) => setYoutubeUrl(e.target.value)}
-                placeholder="Поставете YouTube линк..."
-                className="w-full px-4 py-4 text-base text-slate-900 font-bold placeholder:text-slate-400 focus:outline-none focus-visible:ring-0 bg-transparent"
+                placeholder={t('mobile.placeholderYoutube')}
+                className="w-full px-4 py-3.5 min-h-[44px] text-base text-[#E0E0E0] font-medium placeholder:text-[#666] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#968B74]/40 bg-transparent"
               />
               {fetchingMetadata && (
                 <div className="px-4 pb-3 flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-900 rounded-full animate-spin" />
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Зареждане...</span>
+                  <div className="w-4 h-4 border-2 border-[#333] border-t-[#968B74] rounded-full animate-spin" />
+                  <span className="text-[10px] font-bold text-[#888] uppercase tracking-wider">{t('mobile.loading')}</span>
                 </div>
               )}
             </div>
 
             {error && (
-              <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 mobile-fade-in">
-                <p className="text-sm font-medium text-red-800">{error}</p>
+              <div className="mb-4 px-4 py-3 rounded-xl bg-red-900/20 border border-red-800/50 mobile-fade-in">
+                <p className="text-sm font-medium text-red-300">{error}</p>
               </div>
             )}
 
             {videoMetadata && !fetchingMetadata && (
-              <div className="mobile-editorial-card rounded-xl p-4 mb-5 flex items-center gap-4 mobile-fade-in">
+              <div className="rounded-xl border border-[#333] bg-[#1a1a1a] p-4 mb-4 flex items-center gap-4 mobile-fade-in">
                 <span className="text-2xl">📹</span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-black text-slate-900 truncate">{videoMetadata.title}</p>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">{videoMetadata.author} · {videoMetadata.durationFormatted}</p>
+                  <p className="text-sm font-black text-[#E0E0E0] truncate">{videoMetadata.title}</p>
+                  <p className="text-[10px] text-[#888] font-bold uppercase tracking-wider mt-0.5">{videoMetadata.author} · {videoMetadata.durationFormatted}</p>
                 </div>
               </div>
             )}
 
             {costEstimates && (
               <div className="space-y-4 mb-6 mobile-fade-in mobile-fade-in-delay-2">
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Режим на одит</p>
+                <p className="text-[10px] font-black text-[#888] uppercase tracking-widest text-center">{t('mobile.auditMode')}</p>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => setAnalysisMode('standard')}
-                    className={`mobile-tap rounded-xl border-2 p-4 text-left transition-all duration-200 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-900/20 focus-visible:ring-offset-2 ${
+                    className={`mobile-tap rounded-xl border-2 p-4 min-h-[44px] text-left transition-all duration-200 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-[#968B74]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a] ${
                       analysisMode === 'standard'
-                        ? 'border-amber-900 bg-amber-50/50 shadow-[0_1px_3px_0_rgba(0,0,0,0.05)]'
-                        : 'border-slate-100 bg-white active:border-amber-900/30'
+                        ? 'border-[#968B74] bg-[#968B74]/15'
+                        : 'border-[#333] bg-[#1a1a1a] active:border-[#968B74]/50'
                     }`}
                   >
-                    <p className="text-[10px] font-black text-amber-900 uppercase tracking-widest">Стандартен Одит</p>
-                    <p className="text-xl font-black text-slate-900 mt-1">
-                      {costEstimates.standard.pointsCost} <span className="text-xs uppercase opacity-40">точки</span>
+                    <p className="text-[10px] font-black text-[#C4B091] uppercase tracking-widest">{t('app.standardLabel')}</p>
+                    <p className="text-lg font-black text-[#E0E0E0] mt-1">
+                      {costEstimates.standard.pointsCost} <span className="text-xs text-[#888] uppercase">{t('mobile.pointsLabel')}</span>
                     </p>
                   </button>
                   <button
                     type="button"
                     onClick={() => setAnalysisMode('deep')}
-                    className={`mobile-tap rounded-xl border-2 p-4 text-left transition-all duration-200 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20 focus-visible:ring-offset-2 ${
+                    className={`mobile-tap rounded-xl border-2 p-4 min-h-[44px] text-left transition-all duration-200 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-[#968B74]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a] ${
                       analysisMode === 'deep'
-                        ? 'border-slate-900 bg-slate-50 shadow-[0_1px_3px_0_rgba(0,0,0,0.05)]'
-                        : 'border-slate-100 bg-white active:border-slate-900/30'
+                        ? 'border-[#968B74] bg-[#968B74]/15'
+                        : 'border-[#333] bg-[#1a1a1a] active:border-[#968B74]/50'
                     }`}
                   >
-                    <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Задълбочен Одит</p>
-                    <p className="text-xl font-black text-slate-900 mt-1">
-                      {costEstimates.deep.pointsCost} <span className="text-xs uppercase opacity-40">точки</span>
+                    <p className="text-[10px] font-black text-[#C4B091] uppercase tracking-widest">{t('app.deepLabel')}</p>
+                    <p className="text-lg font-black text-[#E0E0E0] mt-1">
+                      {costEstimates.deep.pointsCost} <span className="text-xs text-[#888] uppercase">{t('mobile.pointsLabel')}</span>
                     </p>
                   </button>
                 </div>
@@ -261,9 +258,9 @@ const MobileAudit: React.FC = () => {
                   type="button"
                   onClick={handleStartAnalysis}
                   disabled={!analysisMode}
-                  className="mobile-tap w-full py-4 rounded-xl bg-amber-900 text-white text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-200 disabled:opacity-50 disabled:active:scale-100 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-900/30 focus-visible:ring-offset-2 hover:bg-slate-900 active:scale-[0.98]"
+                  className="mobile-tap w-full py-3.5 min-h-[48px] rounded-xl bg-[#968B74] text-[#1a1a1a] text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-200 disabled:opacity-50 disabled:active:scale-100 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C4B091] focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a] active:scale-[0.98]"
                 >
-                  Одит
+                  {t('mobile.audit')}
                 </button>
               </div>
             )}
@@ -271,36 +268,36 @@ const MobileAudit: React.FC = () => {
         </div>
 
         {/* Divider */}
-        <div className="relative my-8 mobile-fade-in">
+        <div className="relative my-6 mobile-fade-in">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-slate-200/60"></div>
+            <div className="w-full border-t border-[#333]" />
           </div>
           <div className="relative flex justify-center">
-            <div className="bg-white px-4">
-              <div className="h-1 w-16 bg-gradient-to-r from-transparent via-amber-900/20 to-transparent rounded-full"></div>
+            <div className="bg-[#1a1a1a] px-4">
+              <div className="h-1 w-16 bg-gradient-to-r from-transparent via-[#968B74]/30 to-transparent rounded-full" />
             </div>
           </div>
         </div>
 
         {/* Link Audit Section */}
         <div className="relative mobile-fade-in">
-          <div className="rounded-2xl bg-gradient-to-br from-slate-50/50 via-white to-slate-50/30 border border-slate-900/10 p-6 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+          <div className="rounded-2xl bg-[#252525] border border-[#333] p-5 sm:p-6">
             <div className="flex items-center justify-center gap-2 mb-3">
-              <span className="h-[1px] w-8 bg-slate-900/40" />
-              <span className="text-[10px] font-black text-slate-900 uppercase tracking-[0.4em]">Линк Одит</span>
-              <span className="h-[1px] w-8 bg-slate-900/40" />
+              <span className="h-[1px] w-8 bg-[#968B74]/40" />
+              <span className="text-[10px] font-black text-[#C4B091] uppercase tracking-[0.4em]">{t('mobile.linkAuditSection')}</span>
+              <span className="h-[1px] w-8 bg-[#968B74]/40" />
             </div>
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight leading-tight italic serif mb-6 text-center">
-              Анализирай <span className="text-slate-900">статия</span> или новина
+            <h2 className="text-xl sm:text-2xl font-serif font-black text-[#E0E0E0] tracking-tight leading-tight mb-5 text-center">
+              {t('mobile.analyzeArticle')}
             </h2>
 
-            <div className="mobile-editorial-card rounded-xl overflow-hidden mb-4">
+            <div className="rounded-xl border border-[#333] bg-[#1a1a1a] overflow-hidden mb-4">
               <input
                 type="url"
                 value={linkUrl}
                 onChange={(e) => setLinkUrl(e.target.value)}
-                placeholder="https://news-site.bg/ime-na-statiata..."
-                className="w-full px-4 py-4 text-base text-slate-900 font-bold placeholder:text-slate-400 focus:outline-none focus-visible:ring-0 bg-transparent"
+                placeholder={t('mobile.placeholderLink')}
+                className="w-full px-4 py-3.5 min-h-[44px] text-base text-[#E0E0E0] font-medium placeholder:text-[#666] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#968B74]/40 bg-transparent"
                 disabled={linkLoading}
               />
             </div>
@@ -309,9 +306,9 @@ const MobileAudit: React.FC = () => {
               type="button"
               onClick={handleStartLinkAnalysis}
               disabled={!linkUrl.trim() || linkLoading}
-              className="mobile-tap w-full py-4 rounded-xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-200 disabled:opacity-50 disabled:active:scale-100 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/30 focus-visible:ring-offset-2 active:scale-[0.98]"
+              className="mobile-tap w-full py-3.5 min-h-[48px] rounded-xl bg-[#968B74] text-[#1a1a1a] text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-200 disabled:opacity-50 disabled:active:scale-100 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C4B091] focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a] active:scale-[0.98]"
             >
-              {linkLoading ? 'Анализира се...' : `Одит (${FIXED_PRICES.linkArticle} точки)`}
+              {linkLoading ? t('mobile.analyzing') : t('mobile.auditPoints', { count: FIXED_PRICES.linkArticle })}
             </button>
           </div>
         </div>

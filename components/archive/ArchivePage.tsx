@@ -102,7 +102,7 @@ const ArchivePage: React.FC = () => {
     }
 
     return (
-        <div className="min-h-screen relative overflow-hidden pt-40 pb-24">
+        <div className="min-h-screen relative overflow-hidden pt-40 pb-24 max-md:pt-6 max-md:pb-28">
              {/* Background */}
              <div className="premium-bg-wrapper">
                 <div className="premium-wave-1"></div>
@@ -111,7 +111,7 @@ const ArchivePage: React.FC = () => {
                 <div className="premium-texture"></div>
             </div>
 
-            <div className="max-w-6xl mx-auto px-6 relative z-10 animate-fadeUp">
+            <div className="max-w-6xl mx-auto px-6 max-md:px-4 relative z-10 animate-fadeUp">
 
                 <div className="flex flex-col md:flex-row justify-between items-end gap-6 border-b border-[#968B74]/20 pb-8 mb-12">
                     <div className="space-y-2 text-center md:text-left w-full">
@@ -164,13 +164,13 @@ const ArchivePage: React.FC = () => {
                 </div>
 
                 {/* Filters */}
-                <div className="flex flex-col md:flex-row gap-6 justify-between items-center bg-[#252525] p-6 rounded-xl border border-[#333] shadow-lg sticky top-24 z-30">
+                <div className="flex flex-col md:flex-row gap-6 justify-between items-center bg-[#252525] p-6 rounded-xl border border-[#333] shadow-lg sticky top-24 z-30 max-md:top-14 max-md:z-20">
                     <div className="flex gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 hide-scrollbar">
                         {(['all', 'video', 'link', 'social'] as const).map(f => (
                             <button
                                 key={f}
                                 onClick={() => setFilter(f)}
-                                className={`px-5 py-2 text-[9px] font-black uppercase tracking-[0.2em] transition-colors whitespace-nowrap rounded-sm ${filter === f
+                                className={`px-5 py-2 max-md:min-h-[44px] max-md:py-3 text-[9px] font-black uppercase tracking-[0.2em] transition-colors whitespace-nowrap rounded-sm ${filter === f
                                     ? 'bg-[#968B74] text-[#1a1a1a]'
                                     : 'bg-[#1a1a1a] text-[#666] border border-[#333] hover:border-[#968B74] hover:text-[#968B74]'
                                     }`}
@@ -187,7 +187,7 @@ const ArchivePage: React.FC = () => {
                                 placeholder={t('archive.searchPlaceholder')}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="input-luxury w-full pl-9 pr-4 py-2 rounded-sm text-[10px] uppercase tracking-widest placeholder:text-[#444]"
+                                className="input-luxury w-full pl-9 pr-4 py-2 max-md:min-h-[44px] max-md:py-3 rounded-sm text-[10px] uppercase tracking-widest placeholder:text-[#444]"
                             />
                             <svg className="w-3 h-3 text-[#444] absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -196,7 +196,7 @@ const ArchivePage: React.FC = () => {
                         <select
                             value={sortOrder}
                             onChange={(e) => setSortOrder(e.target.value as any)}
-                            className="input-luxury px-4 py-2 rounded-sm text-[10px] uppercase tracking-widest cursor-pointer"
+                            className="input-luxury px-4 py-2 max-md:min-h-[44px] max-md:py-3 rounded-sm text-[10px] uppercase tracking-widest cursor-pointer"
                         >
                             <option value="date_desc">{t('archive.sortNewest')}</option>
                             <option value="date_asc">{t('archive.sortOldest')}</option>

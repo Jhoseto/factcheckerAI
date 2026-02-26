@@ -45,7 +45,7 @@ const Login: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden">
+        <div className="min-h-screen flex items-center justify-center px-4 max-md:py-6 relative overflow-hidden">
             {/* The Silky Background */}
             <div className="premium-bg-wrapper">
                 <div className="premium-wave-1"></div>

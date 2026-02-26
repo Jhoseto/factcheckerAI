@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { getAnalysisById, saveAnalysis, getAnalysisCountByType } from '../services/archiveService';
 import { useAuth } from '../contexts/AuthContext';
 import MobileResultView from './MobileResultView';
@@ -10,6 +11,7 @@ import MobileHeader from './components/MobileHeader';
 const LIMITS = { video: 10, link: 15, social: 15 };
 
 const MobileReportPage: React.FC = () => {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -27,16 +29,16 @@ const MobileReportPage: React.FC = () => {
       return;
     }
     if (!id) {
-      setError('Липсва доклад.');
+      setError(t('report.missingReport'));
       setLoading(false);
       return;
     }
     getAnalysisById(id)
       .then((data) => {
         setReport(data || null);
-        if (!data) setError('Докладът не е намерен.');
+        if (!data) setError(t('report.reportNotFound'));
       })
-      .catch(() => setError('Грешка при зареждане.'))
+      .catch(() => setError(t('report.loadError')))
       .finally(() => setLoading(false));
   }, [id, location.state]);
 
@@ -45,7 +47,7 @@ const MobileReportPage: React.FC = () => {
     const type = location.state?.type || 'video';
     const count = await getAnalysisCountByType(currentUser.uid, type);
     if (count >= LIMITS[type as keyof typeof LIMITS]) {
-      alert('Достигнахте лимита за този тип. Изтрийте стари анализи.');
+      alert(t('report.archiveLimitReached'));
       return;
     }
     try {
@@ -54,16 +56,16 @@ const MobileReportPage: React.FC = () => {
       const newId = await saveAnalysis(currentUser.uid, type, title, previewAnalysis, url);
       navigate(`/report/${newId}`, { replace: true });
     } catch {
-      alert('Грешка при запазване.');
+      alert(t('report.saveError'));
     }
   };
 
   if (loading) {
     return (
-      <MobileSafeArea className="flex items-center justify-center bg-white">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 border-2 border-slate-300 border-t-amber-900 rounded-full animate-spin" />
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Зареждане на доклад</p>
+      <MobileSafeArea className="flex items-center justify-center bg-[#1a1a1a] min-h-full">
+        <div className="flex flex-col items-center gap-4 px-4">
+          <div className="w-10 h-10 border-2 border-[#333] border-t-[#968B74] rounded-full animate-spin" />
+          <p className="text-[10px] font-black text-[#C4B091] uppercase tracking-widest text-center">{t('report.loadingReport')}</p>
         </div>
       </MobileSafeArea>
     );
@@ -71,16 +73,16 @@ const MobileReportPage: React.FC = () => {
 
   if (error || (!report && !previewAnalysis)) {
     return (
-      <MobileSafeArea>
-        <MobileHeader title="Доклад" showBack />
-        <div className="flex flex-col items-center justify-center flex-1 px-6 py-12 mobile-fade-in">
-          <p className="text-slate-600 text-center mb-6 text-sm">{error || 'Невалиден доклад.'}</p>
+      <MobileSafeArea className="bg-[#1a1a1a]">
+        <MobileHeader title={t('report.reportTitle')} showBack />
+        <div className="flex flex-col items-center justify-center flex-1 px-6 py-12 pb-24 mobile-fade-in">
+          <p className="text-[#E0E0E0] text-center mb-6 text-sm">{error || t('report.invalidReport')}</p>
           <button
             type="button"
             onClick={() => navigate('/')}
-            className="mobile-tap px-6 py-3.5 rounded-xl bg-amber-900 text-white text-[10px] font-black uppercase tracking-[0.2em] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-900/30 focus-visible:ring-offset-2 active:scale-[0.98]"
+            className="mobile-tap min-h-[44px] px-6 py-3.5 rounded-xl bg-[#968B74] text-[#1a1a1a] text-[10px] font-black uppercase tracking-[0.2em] touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C4B091]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a] active:scale-[0.98]"
           >
-            Към началото
+            {t('report.backToHome')}
           </button>
         </div>
       </MobileSafeArea>
@@ -94,7 +96,7 @@ const MobileReportPage: React.FC = () => {
 
   if (activeType === 'link') {
     return (
-      <MobileSafeArea className="bg-[#fafafa]">
+      <MobileSafeArea className="bg-[#1a1a1a]">
         <MobileLinkResultView
           analysis={analysisWithId}
           reportLoading={false}
@@ -107,18 +109,18 @@ const MobileReportPage: React.FC = () => {
 
   if (activeType === 'social') {
     return (
-      <MobileSafeArea>
-        <MobileHeader title="Доклад" showBack />
-        <div className="p-6 text-center text-slate-600 text-sm mobile-fade-in">
-          <p className="mb-4">Мобилният изглед за социален анализ може да се добави по-късно. Отворете на desktop за пълен доклад.</p>
-          <button type="button" onClick={() => navigate('/')} className="mobile-tap px-6 py-3 rounded-xl bg-amber-900 text-white text-[10px] font-black uppercase tracking-wider active:scale-[0.98]">Към началото</button>
+      <MobileSafeArea className="bg-[#1a1a1a]">
+        <MobileHeader title={t('report.reportTitle')} showBack />
+        <div className="p-6 pb-24 text-center text-[#ccc] text-sm mobile-fade-in">
+          <p className="mb-6">{t('report.socialMobileLater')}</p>
+          <button type="button" onClick={() => navigate('/')} className="mobile-tap min-h-[44px] px-6 py-3.5 rounded-xl bg-[#968B74] text-[#1a1a1a] text-[10px] font-black uppercase tracking-wider touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C4B091]/40 focus-visible:ring-offset-2 active:scale-[0.98]">{t('report.backToHome')}</button>
         </div>
       </MobileSafeArea>
     );
   }
 
   return (
-    <MobileSafeArea className="bg-[#fafafa]">
+    <MobileSafeArea className="bg-[#1a1a1a]">
       <MobileResultView
         analysis={analysisWithId}
         reportLoading={false}

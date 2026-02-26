@@ -1,12 +1,12 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 
-const navItems = (profileTo: string): { to: string; label: string; icon: React.ReactNode; isHome?: boolean }[] => [
-  // Left side - 2 items: Одит, Архив
+const navItems = (profileTo: string, t: (key: string) => string): { to: string; label: string; icon: React.ReactNode; isHome?: boolean }[] => [
   {
     to: '/audit',
-    label: 'Одит',
+    label: t('mobile.audit'),
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -15,14 +15,13 @@ const navItems = (profileTo: string): { to: string; label: string; icon: React.R
   },
   {
     to: '/archive',
-    label: 'Архив',
+    label: t('nav.archive'),
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
       </svg>
     ),
   },
-  // Center - Home
   {
     to: '/',
     label: '',
@@ -33,10 +32,9 @@ const navItems = (profileTo: string): { to: string; label: string; icon: React.R
     ),
     isHome: true,
   },
-  // Right side - 2 items: Точки, Профил
   {
     to: '/pricing',
-    label: 'Точки',
+    label: t('mobile.pointsNav'),
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -45,7 +43,7 @@ const navItems = (profileTo: string): { to: string; label: string; icon: React.R
   },
   {
     to: profileTo,
-    label: 'Профил',
+    label: t('mobile.profile'),
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -55,10 +53,11 @@ const navItems = (profileTo: string): { to: string; label: string; icon: React.R
 ];
 
 const MobileBottomNav: React.FC = () => {
+  const { t } = useTranslation();
   const location = useLocation();
   const { currentUser } = useAuth();
   const profileTo = currentUser ? '/profile' : '/login';
-  const items = navItems(profileTo);
+  const items = navItems(profileTo, t);
 
   const leftItems = items.filter(item => !item.isHome).slice(0, 2);
   const homeItem = items.find(item => item.isHome);
@@ -66,8 +65,8 @@ const MobileBottomNav: React.FC = () => {
 
   return (
     <nav
-      className="mobile-bottom-nav fixed bottom-0 left-0 right-0 z-50 bg-[#1a1a1a] border-t border-[#c9a227]/25"
-      style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 8px)' }}
+      className="mobile-bottom-nav fixed bottom-0 left-0 right-0 z-50 bg-[#1a1a1a] border-t border-[#333]"
+      style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom, 0px))' }}
     >
       <div className="flex items-end h-16 px-2">
         {/* Left side - 2 items */}
@@ -79,10 +78,10 @@ const MobileBottomNav: React.FC = () => {
                 key={to}
                 to={to}
                 className={`flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors touch-manipulation ${
-                  isActive ? 'text-[#c9a227]' : 'text-[#a3a3a3]'
+                  isActive ? 'text-[#C4B091]' : 'text-[#888]'
                 }`}
               >
-                <span className={isActive ? 'text-[#c9a227]' : ''}>{icon}</span>
+                <span className={isActive ? 'text-[#C4B091]' : ''}>{icon}</span>
                 <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>
               </NavLink>
             );
@@ -95,12 +94,12 @@ const MobileBottomNav: React.FC = () => {
             <NavLink
               to={homeItem.to}
               className={`flex items-end justify-center h-full transition-all touch-manipulation relative ${
-                location.pathname === homeItem.to ? 'text-[#c9a227]' : 'text-[#a3a3a3]'
+                location.pathname === homeItem.to ? 'text-[#C4B091]' : 'text-[#888]'
               }`}
             >
               <div className={`relative -mt-1 ${location.pathname === homeItem.to ? 'scale-110' : 'scale-100'} transition-transform duration-200`}>
-                <div className={`absolute inset-0 rounded-full ${location.pathname === homeItem.to ? 'bg-[#c9a227]/20' : ''} -z-10 transition-colors duration-200`} style={{ transform: 'scale(1.5)' }}></div>
-                <span className={location.pathname === homeItem.to ? 'text-[#c9a227]' : ''}>{homeItem.icon}</span>
+                <div className={`absolute inset-0 rounded-full ${location.pathname === homeItem.to ? 'bg-[#968B74]/20' : ''} -z-10 transition-colors duration-200`} style={{ transform: 'scale(1.5)' }}></div>
+                <span className={location.pathname === homeItem.to ? 'text-[#C4B091]' : ''}>{homeItem.icon}</span>
               </div>
             </NavLink>
           </div>
@@ -115,10 +114,10 @@ const MobileBottomNav: React.FC = () => {
                 key={to}
                 to={to}
                 className={`flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors touch-manipulation ${
-                  isActive ? 'text-[#c9a227]' : 'text-[#a3a3a3]'
+                  isActive ? 'text-[#C4B091]' : 'text-[#888]'
                 }`}
               >
-                <span className={isActive ? 'text-[#c9a227]' : ''}>{icon}</span>
+                <span className={isActive ? 'text-[#C4B091]' : ''}>{icon}</span>
                 <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>
               </NavLink>
             );

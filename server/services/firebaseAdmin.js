@@ -112,19 +112,34 @@ export async function verifyToken(idToken) {
  * @param userId - Firebase user UID
  * @param points - Number of points to add
  */
-export async function addPointsToUser(userId, points) {
+export async function addPointsToUser(userId, points, orderId = null) {
     if (!adminInitialized) {
         console.error('[Firebase Admin] Cannot add points - not initialized');
         return;
     }
 
+    const db = getFirestore();
+    if (orderId) {
+        const processedSnap = await db.collection('processedOrders').doc(String(orderId)).get();
+        if (processedSnap.exists) {
+            console.log(`[Firebase Admin] Order ${orderId} already processed, skipping`);
+            return;
+        }
+    }
+
     try {
-        const db = getFirestore();
         const userRef = db.collection('users').doc(userId);
 
         await db.runTransaction(async (transaction) => {
-            const userDoc = await transaction.get(userRef);
+            if (orderId) {
+                const processedRef = db.collection('processedOrders').doc(String(orderId));
+                if ((await transaction.get(processedRef)).exists) {
+                    console.log(`[Firebase Admin] Order ${orderId} already processed (tx), skipping`);
+                    return;
+                }
+            }
 
+            const userDoc = await transaction.get(userRef);
             if (!userDoc.exists) {
                 throw new Error(`User ${userId} not found in Firestore`);
             }
@@ -137,18 +152,25 @@ export async function addPointsToUser(userId, points) {
                 lastPointsUpdate: admin.firestore.FieldValue.serverTimestamp()
             });
 
-            // Record transaction in history
-            const transactionId = `${userId}_${Date.now()}`;
-            const transactionRef = db.collection('transactions').doc(transactionId);
+            // Record transaction in history (auto-ID to avoid collisions)
+            const transactionRef = db.collection('transactions').doc();
             transaction.set(transactionRef, {
-                userId: userId,
+                userId,
                 type: 'purchase',
                 amount: points,
                 description: `Зареждане на ${points} точки`,
+                paymentIntentId: orderId || null,
                 createdAt: new Date().toISOString()
             });
-        });
 
+            if (orderId) {
+                transaction.set(db.collection('processedOrders').doc(String(orderId)), {
+                    userId,
+                    points,
+                    processedAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+            }
+        });
     } catch (error) {
         console.error(`[Firebase Admin] ❌ Failed to add points:`, error);
         throw error;
