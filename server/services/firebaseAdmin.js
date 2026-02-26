@@ -109,13 +109,22 @@ export async function verifyToken(idToken) {
 
 /**
  * Add points to user account
- * @param userId - Firebase user UID
+ * Writes to Firestore:
+ *   collection: 'transactions', doc: auto-ID
+ *   fields: { userId (string), type: 'purchase', amount (number), description, paymentIntentId, createdAt (ISO string) }
+ * @param userId - Firebase user UID (will be stringified)
  * @param points - Number of points to add
  * @param orderId - Optional Lemon Squeezy order ID for idempotency (skip if already processed)
  */
 export async function addPointsToUser(userId, points, orderId = null) {
     if (!adminInitialized) {
         console.error('[Firebase Admin] Cannot add points - not initialized');
+        return;
+    }
+
+    const uid = String(userId).trim();
+    if (!uid) {
+        console.error('[Firebase Admin] addPointsToUser: empty userId');
         return;
     }
 
@@ -129,8 +138,6 @@ export async function addPointsToUser(userId, points, orderId = null) {
     }
 
     try {
-        const userRef = db.collection('users').doc(userId);
-
         await db.runTransaction(async (transaction) => {
             if (orderId) {
                 const processedRef = db.collection('processedOrders').doc(String(orderId));
@@ -140,23 +147,24 @@ export async function addPointsToUser(userId, points, orderId = null) {
                 }
             }
 
-            const userDoc = await transaction.get(userRef);
+            const userRefByUid = db.collection('users').doc(uid);
+            const userDoc = await transaction.get(userRefByUid);
             if (!userDoc.exists) {
-                throw new Error(`User ${userId} not found in Firestore`);
+                throw new Error(`User ${uid} not found in Firestore`);
             }
 
             const currentPoints = userDoc.data()?.pointsBalance || 0;
             const newPoints = currentPoints + points;
 
-            transaction.update(userRef, {
+            transaction.update(userRefByUid, {
                 pointsBalance: newPoints,
                 lastPointsUpdate: admin.firestore.FieldValue.serverTimestamp()
             });
 
-            // Record transaction in history (auto-ID to avoid collisions)
+            // Record in collection 'transactions' — same collection read by GET /api/transactions with where('userId', '==', uid)
             const transactionRef = db.collection('transactions').doc();
             transaction.set(transactionRef, {
-                userId,
+                userId: uid,
                 type: 'purchase',
                 amount: points,
                 description: `Зареждане на ${points} точки`,
@@ -166,7 +174,7 @@ export async function addPointsToUser(userId, points, orderId = null) {
 
             if (orderId) {
                 transaction.set(db.collection('processedOrders').doc(String(orderId)), {
-                    userId,
+                    userId: uid,
                     points,
                     processedAt: admin.firestore.FieldValue.serverTimestamp()
                 });

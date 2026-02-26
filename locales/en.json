@@ -1,6 +1,6 @@
 {
   "nav": {
-    "logout": "Log out"
+    "logout": "SIGN OUT"
   },
   "common": {
     "retry": "Retry"
@@ -28,7 +28,7 @@
   },
   "mobile": {
     "loadError": "Error loading",
-    "logout": "Log out",
+    "logout": "SIGN OUT",
     "sortVideoFirst": "Video first",
     "sortLinksFirst": "Links first"
   }

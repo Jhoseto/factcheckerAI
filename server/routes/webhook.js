@@ -52,31 +52,30 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
             (eventName === 'order_created' || eventName === 'order_paid') &&
             status === 'paid'
         ) {
-            const attributes = event.data.attributes;
+            const attributes = event.data?.attributes || {};
             const orderId = String(event.data.id);
 
-            // Extract custom data (multiple possible locations)
-            let customData = {};
-            if (attributes.checkout_data?.custom) {
-                customData = attributes.checkout_data.custom;
-            } else if (attributes.first_order_item?.custom_data) {
-                customData = attributes.first_order_item.custom_data;
-            } else if (event.meta?.custom_data) {
-                customData = event.meta.custom_data;
-            }
+            // Lemon Squeezy: custom data is in meta.custom_data (see docs)
+            const customData = event.meta?.custom_data
+                || attributes.checkout_data?.custom
+                || attributes.checkout_data
+                || attributes.first_order_item?.custom_data
+                || {};
 
-            const userId = customData.userId || customData.user_id;
-            const points = parseInt(customData.points) || 0;
+            const rawUserId = customData.userId ?? customData.user_id ?? customData.uid ?? customData.firebase_uid ?? '';
+            const userId = String(rawUserId).trim();
+            const points = parseInt(customData.points, 10) || Number(customData.points) || 0;
 
             if (!userId || points <= 0) {
-                console.error(`[Webhook] ❌ Missing userId or points in custom data:`, customData);
+                console.error(`[Webhook] ❌ Missing userId or points. event_name=%s orderId=%s meta.custom_data=%s`,
+                    eventName, orderId, JSON.stringify(event.meta?.custom_data));
                 return res.json({ received: true, warning: 'Missing userId or points' });
             }
 
-
+            console.log(`[Webhook] Processing order ${orderId} → userId=${userId} points=${points} (from meta.custom_data)`);
             try {
-                // addPointsToUser is idempotent — checks processedOrders
                 await addPointsToUser(userId, points, orderId);
+                console.log(`[Webhook] ✅ Credited ${points} points to user ${userId} (order ${orderId})`);
             } catch (error) {
                 console.error(`[Webhook] ❌ Failed to add points for user ${userId}:`, error.message);
                 // Return 500 so Lemon Squeezy retries — but addPointsToUser is idempotent

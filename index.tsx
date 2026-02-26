@@ -9,6 +9,7 @@ import './index.css';
 import i18n, {
   STORAGE_KEY,
   restoreEnBundleFromCache,
+  mergeEnBundle,
   CACHE_KEY,
   CACHE_VERSION_KEY,
   CACHE_VERSION,
@@ -51,9 +52,10 @@ async function ensureEnBundle(): Promise<boolean> {
     const res = await fetch('/api/translate?target=en');
     if (!res.ok) return false;
     const data = await res.json();
-    i18n.addResourceBundle('en', 'translation', data);
+    const merged = mergeEnBundle(data);
+    i18n.addResourceBundle('en', 'translation', merged);
     if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+      localStorage.setItem(CACHE_KEY, JSON.stringify(merged));
       localStorage.setItem(CACHE_VERSION_KEY, CACHE_VERSION);
     }
     return true;

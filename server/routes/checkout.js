@@ -40,6 +40,7 @@ router.post('/checkout', async (req, res) => {
                         checkout_data: {
                             email: userEmail,
                             custom: {
+                                userId,
                                 user_id: userId,
                                 points: String(points)
                             }

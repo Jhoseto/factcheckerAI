@@ -16,8 +16,8 @@ function getStoredLanguage(): 'en' | 'bg' {
   return 'bg';
 }
 
-/** Deep-merge: static EN as base, cached/API overwrites. Ensures expenses etc. exist in EN. */
-function mergeEnBundle(cached: Record<string, unknown>): Record<string, unknown> {
+/** Cached/API as base, static EN overwrites (nav.logout = "Log out" etc. always win). */
+export function mergeEnBundle(data: Record<string, unknown>): Record<string, unknown> {
   function merge(base: unknown, over: unknown): unknown {
     if (over == null) return base;
     if (base != null && typeof base === 'object' && !Array.isArray(base) && typeof over === 'object' && !Array.isArray(over)) {
@@ -31,7 +31,7 @@ function mergeEnBundle(cached: Record<string, unknown>): Record<string, unknown>
     }
     return over;
   }
-  return merge(en, cached) as Record<string, unknown>;
+  return merge(data, en) as Record<string, unknown>;
 }
 
 /** Възстановява EN bundle от localStorage кеш. Връща true ако успее. */

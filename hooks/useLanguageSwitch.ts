@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import i18n, {
   restoreEnBundleFromCache,
+  mergeEnBundle,
   CACHE_KEY,
   CACHE_VERSION_KEY,
   CACHE_VERSION,
@@ -61,9 +62,10 @@ export function useLanguageSwitch() {
           return;
         }
         const data = JSON.parse(body);
-        i18n.addResourceBundle('en', 'translation', data);
+        const merged = mergeEnBundle(data);
+        i18n.addResourceBundle('en', 'translation', merged);
         if (typeof localStorage !== 'undefined') {
-          localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+          localStorage.setItem(CACHE_KEY, JSON.stringify(merged));
           localStorage.setItem(CACHE_VERSION_KEY, CACHE_VERSION);
         }
         i18n.changeLanguage('en');

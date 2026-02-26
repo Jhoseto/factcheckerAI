@@ -60,7 +60,8 @@ const MobileExpensesPage: React.FC = () => {
       if (activeTab === 'deductions') {
         if (t.type !== 'deduction') return false;
       } else if (activeTab === 'purchases') {
-        if (t.type !== 'purchase' && t.type !== 'bonus') return false;
+        const isPurchase = t.type === 'purchase' || t.type === 'bonus' || (typeof t.amount === 'number' && t.amount > 0);
+        if (!isPurchase) return false;
       }
 
       // 2. Filter by Type (video, link, social)
@@ -151,7 +152,7 @@ const MobileExpensesPage: React.FC = () => {
               <p className="text-2xl font-black text-[#ccc]">
                 {activeTab === 'deductions' 
                   ? transactions.filter(t => t.type === 'deduction').length
-                  : transactions.filter(t => t.type === 'purchase' || t.type === 'bonus').length
+                  : transactions.filter(t => t.type === 'purchase' || t.type === 'bonus' || (typeof t.amount === 'number' && t.amount > 0)).length
                 }
               </p>
             </div>
@@ -169,7 +170,7 @@ const MobileExpensesPage: React.FC = () => {
           <div className="bg-[#252525] p-3 rounded-xl border border-[#333]">
             <p className="text-[9px] font-bold text-[#888] uppercase tracking-widest mb-1">{t('mobile.purchasedTotal')}</p>
             <p className="text-lg font-black text-emerald-400">
-              {transactions.filter(t => t.type === 'purchase' || t.type === 'bonus').reduce((acc, curr) => acc + curr.amount, 0).toLocaleString()}
+              {transactions.filter(t => t.type === 'purchase' || t.type === 'bonus' || (typeof t.amount === 'number' && t.amount > 0)).reduce((acc, curr) => acc + (curr.amount > 0 ? curr.amount : 0), 0).toLocaleString()}
             </p>
           </div>
         </div>

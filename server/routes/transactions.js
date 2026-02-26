@@ -1,4 +1,15 @@
-
+/**
+ * Transactions API — reads from Firestore collection 'transactions'.
+ *
+ * How purchases get into the DB:
+ * 1. Server (webhook → addPointsToUser): collection 'transactions', auto doc ID.
+ *    Fields: { userId (string), type: 'purchase', amount (number), description, paymentIntentId, createdAt (ISO) }
+ * 2. Client (AuthContext welcome bonus): collection 'transactions', doc ID `${uid}_welcome`.
+ *    Fields: { userId (string), type: 'bonus', amount, description, createdAt (ISO) }
+ *
+ * Deductions: written by deductPointsFromUser with type: 'deduction', amount < 0.
+ * Query: where('userId', '==', uid) — same userId string for all.
+ */
 import express from 'express';
 import { verifyToken, getFirestore } from '../services/firebaseAdmin.js';
 
@@ -6,8 +17,8 @@ const router = express.Router();
 
 /**
  * GET /api/transactions
- * Fetch user transactions
- * Requires Authorization header with Firebase ID Token
+ * Fetch user transactions (purchases, bonus, deductions) for the authenticated user.
+ * Requires Authorization header with Firebase ID Token.
  */
 router.get('/', async (req, res) => {
     try {
@@ -26,29 +37,24 @@ router.get('/', async (req, res) => {
             return res.status(403).json({ error: 'Forbidden: Invalid token' });
         }
 
-        // 2. Fetch Transactions from Firestore (Admin SDK)
-        // Uses safe getFirestore from service which ensures initialization
+        const uid = String(userId).trim();
+        // 2. Fetch from Firestore: collection 'transactions', query by field 'userId' (same field written by addPointsToUser and AuthContext welcome bonus)
         const db = getFirestore();
         const transactionsRef = db.collection('transactions');
-
-        // Query: where userId == userId
-        // NOTE: We do NOT use orderBy/limit here to avoid "Missing Index" errors (500).
-        // Sorting and limiting is done in-memory.
         const snapshot = await transactionsRef
-            .where('userId', '==', userId)
+            .where('userId', '==', uid)
             .get();
-
 
         let transactions = [];
         snapshot.forEach(doc => {
             const data = doc.data();
             let createdAt = data.createdAt;
-            let type = data.type;
+            const amountNum = typeof data.amount === 'number' ? data.amount : Number(data.amount);
+            let type = data.type != null ? String(data.type).toLowerCase() : '';
 
-            if (!type && typeof data.amount === 'number') {
-                type = data.amount > 0 ? 'purchase' : 'deduction';
+            if (type !== 'purchase' && type !== 'bonus' && type !== 'deduction') {
+                type = !Number.isNaN(amountNum) && amountNum > 0 ? 'purchase' : 'deduction';
             }
-            if (!type) type = 'deduction';
 
             if (createdAt && typeof createdAt.toDate === 'function') {
                 createdAt = createdAt.toDate().toISOString();
@@ -72,8 +78,10 @@ router.get('/', async (req, res) => {
             return dateB - dateA;
         });
 
-        // In-memory Limit
         transactions = transactions.slice(0, 50);
+
+        const purchaseCount = transactions.filter(t => t.type === 'purchase' || t.type === 'bonus').length;
+        console.log(`[Transactions API] userId=${uid.slice(0, 8)}… total=${transactions.length} purchases/bonus=${purchaseCount}`);
 
         res.json({ transactions });
 

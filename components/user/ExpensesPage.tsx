@@ -52,7 +52,7 @@ const ExpensesPage: React.FC = () => {
     const filteredTransactions = transactions
         .filter(t => {
             if (filter !== 'all') {
-                if (filter === 'purchase') { if (t.type !== 'purchase' && t.type !== 'bonus') return false; }
+                if (filter === 'purchase') { if (t.type !== 'purchase' && t.type !== 'bonus' && !(typeof t.amount === 'number' && t.amount > 0)) return false; }
                 else if (filter === 'deduction') { if (t.type !== 'deduction') return false; }
                 else if (filter === 'video') { if (!t.metadata?.videoId && !t.description?.toLowerCase().includes('видео')) return false; }
                 else if (filter === 'link') { if (t.type !== 'deduction' || (!t.description?.includes('Линк') && !t.description?.includes('статия'))) return false; }
@@ -131,7 +131,7 @@ const ExpensesPage: React.FC = () => {
                     <div className="bg-[#252525] p-6 rounded border border-[#333]">
                         <p className="text-[9px] font-bold text-[#666] uppercase tracking-[0.2em] mb-2">{t('expenses.totalPurchased')}</p>
                         <p className="text-2xl font-serif text-emerald-500">
-                            {(transactions.filter(tx => tx.type === 'purchase' || tx.type === 'bonus').reduce((acc, curr) => acc + curr.amount, 0)).toLocaleString()}
+                            {(transactions.filter(tx => tx.type === 'purchase' || tx.type === 'bonus' || (typeof tx.amount === 'number' && tx.amount > 0)).reduce((acc, curr) => acc + (curr.amount > 0 ? curr.amount : 0), 0)).toLocaleString()}
                         </p>
                     </div>
                     <div className="bg-[#252525] p-6 rounded border border-[#333]">
