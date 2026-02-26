@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { VideoAnalysis } from '../../../types';
 import MetricBlock from '../MetricBlock';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -15,6 +16,7 @@ interface SocialResultViewProps {
 import ShareModal from '../ShareModal';
 
 const SocialResultView: React.FC<SocialResultViewProps> = ({ result, onReset, onSave, slotUsage }) => {
+    const { t } = useTranslation();
     const { currentUser } = useAuth();
     const [isShareModalOpen, setIsShareModalOpen] = React.useState(false);
 
@@ -27,7 +29,7 @@ const SocialResultView: React.FC<SocialResultViewProps> = ({ result, onReset, on
                 console.log('Analysis marked as public:', result.id);
             } catch (error) {
                 console.error('Failed to make analysis public:', error);
-                alert('Грешка при маркиране на анализа като публичен. Моля, опитайте отново.');
+                alert(t('analysis.errorMakePublic'));
                 return; // Don't open share modal if marking as public failed
             }
         }
@@ -48,9 +50,9 @@ const SocialResultView: React.FC<SocialResultViewProps> = ({ result, onReset, on
                             ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
                             : 'bg-amber-900 text-white hover:bg-black'
                             }`}
-                        title={isFull ? 'Достигнали сте лимита за този тип анализи' : 'Запази в архив'}
+                        title={isFull ? t('common.archiveLimitReached') : t('common.saveToArchive')}
                     >
-                        {isFull ? 'НЯМА СЛОТОВЕ' : `ЗАПАЗИ (${slotUsage?.used ?? 0}/${slotUsage?.max ?? 0})`}
+                        {isFull ? t('common.noSlots') : `${t('common.saveToArchiveSlots', { used: slotUsage?.used ?? 0, max: slotUsage?.max ?? 0 })}`}
                     </button>
                 )}
 
@@ -64,49 +66,49 @@ const SocialResultView: React.FC<SocialResultViewProps> = ({ result, onReset, on
                                 : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                             }`}
                     >
-                        СПОДЕЛИ
+                        {t('common.shareReport')}
                     </button>
                     {!result.id && (
                         <div className="absolute top-full right-0 mt-2 px-3 py-2 bg-slate-900 text-white text-[9px] font-bold uppercase tracking-wide rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
-                            Запазете доклада, за да го споделите
+                            {t('common.saveToShare')}
                             <div className="absolute bottom-full right-4 border-4 border-transparent border-b-slate-900"></div>
                         </div>
                     )}
                 </div>
             </div>
             <div className="flex justify-between items-center border-b-2 border-slate-100 pb-6">
-                <h2 className="text-2xl font-black text-slate-900 serif italic">Резултати от анализа</h2>
+                <h2 className="text-2xl font-black text-slate-900 serif italic">{t('report.analysisResults')}</h2>
                 <button
                     onClick={onReset}
                     className="text-[9px] font-black text-amber-900 uppercase tracking-widest hover:text-amber-700 transition-colors"
                 >
-                    ↺ НОВ АНАЛИЗ
+                    ↺ {t('common.newAnalysis')}
                 </button>
             </div>
 
             {/* Summary Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <MetricBlock
-                    label="Доверие"
+                    label={t('analysis.credibilityShort')}
                     value={result.summary.credibilityIndex}
                     color={result.summary.credibilityIndex > 0.6 ? 'emerald' : result.summary.credibilityIndex > 0.4 ? 'orange' : 'red'}
                 />
                 <MetricBlock
-                    label="Манипулация"
+                    label={t('analysis.manipulationShort')}
                     value={result.summary.manipulationIndex}
                     color={result.summary.manipulationIndex < 0.3 ? 'emerald' : result.summary.manipulationIndex < 0.6 ? 'orange' : 'red'}
                 />
                 <div className="editorial-card p-4 border-t-2 border-t-slate-800">
-                    <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-1">Твърдения</p>
+                    <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-1">{t('analysis.claimsLabel')}</p>
                     <span className="text-2xl font-black text-slate-900">{result.claims.length}</span>
                 </div>
                 <div className="editorial-card p-4 border-t-2 border-t-slate-800">
-                    <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-1">Оценка</p>
+                    <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-1">{t('analysis.ratingLabel')}</p>
                     <span className={`text-sm font-black uppercase tracking-tight ${result.summary.finalClassification === 'TRUE' ? 'text-emerald-700' :
                         result.summary.finalClassification === 'FALSE' ? 'text-red-700' : 'text-amber-700'
                         }`}>
-                        {result.summary.finalClassification === 'TRUE' ? 'ВЯРНО' :
-                            result.summary.finalClassification === 'FALSE' ? 'НЕВЯРНО' : 'СМЕСЕНО'}
+                        {result.summary.finalClassification === 'TRUE' ? t('report.verdictTrue') :
+                            result.summary.finalClassification === 'FALSE' ? t('report.verdictFalse') : t('report.verdictMixed')}
                     </span>
                 </div>
             </div>
@@ -114,7 +116,7 @@ const SocialResultView: React.FC<SocialResultViewProps> = ({ result, onReset, on
             {/* Claims */}
             {result.claims.length > 0 && (
                 <div className="space-y-4">
-                    <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight border-b border-slate-200 pb-2">Идентифицирани Твърдения</h3>
+                    <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight border-b border-slate-200 pb-2">{t('analysis.identifiedClaims')}</h3>
                     <div className="space-y-4">
                         {result.claims.map((claim, idx) => (
                             <div key={idx} className="bg-slate-50 p-6 border-l-4" style={{ borderColor: claim.veracity.includes('вярно') && !claim.veracity.includes('не') ? '#059669' : '#dc2626' }}>

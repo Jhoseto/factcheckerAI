@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { getAnalysisById, saveAnalysis, getAnalysisCountByType } from '../../services/archiveService';
 import { synthesizeReport } from '../../services/geminiService';
 import VideoResultView from '../common/result-views/VideoResultView';
@@ -10,6 +11,7 @@ import { useAuth } from '../../contexts/AuthContext';
 const SLOT_LIMITS = { video: 10, link: 15, social: 15 };
 
 const ReportPage: React.FC = () => {
+    const { t } = useTranslation();
     const location = useLocation();
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
@@ -48,20 +50,20 @@ const ReportPage: React.FC = () => {
             return;
         }
         if (!id) {
-            setError('Липсва идентификатор на доклада.');
+            setError(t('report.missingId'));
             setLoading(false);
             return;
         }
         getAnalysisById(id)
             .then((report) => {
                 if (!report) {
-                    setError('Докладът не е намерен.');
+                    setError(t('report.reportNotFound'));
                     return;
                 }
                 // Block access if report is not public AND not owned by current user
                 const isOwner = currentUser && report.userId === currentUser.uid;
                 if (!report.isPublic && !isOwner) {
-                    setError('Докладът не е публичен. Само собственикът може да го отвори.');
+                    setError(t('report.notPublic'));
                     return;
                 }
                 const analysisWithId = { ...report.analysis, id: report.id } as VideoAnalysis;
@@ -70,7 +72,7 @@ const ReportPage: React.FC = () => {
                 setUrl(report.url || '');
                 setIsSaved(true); // loaded from archive → already saved
             })
-            .catch(() => setError('Грешка при зареждане на доклада.'))
+            .catch(() => setError(t('report.loadReportError')))
             .finally(() => setLoading(false));
     }, [id, location.state]);
 
@@ -86,7 +88,7 @@ const ReportPage: React.FC = () => {
         const max = SLOT_LIMITS[type];
         const used = slotUsage?.used ?? await getAnalysisCountByType(currentUser.uid, type);
         if (used >= max) {
-            alert('Достигнахте лимита за този тип анализи. Изтрийте стари от архива.');
+            alert(t('report.archiveLimitReached'));
             return;
         }
         try {
@@ -96,7 +98,7 @@ const ReportPage: React.FC = () => {
             setSlotUsage((prev) => (prev ? { ...prev, used: prev.used + 1 } : { used: 1, max }));
             setIsSaved(true);
         } catch (e: any) {
-            alert(e?.message || 'Грешка при запазване.');
+            alert(e?.message || t('report.saveError'));
         }
     };
 
@@ -118,12 +120,12 @@ const ReportPage: React.FC = () => {
                     <div className="premium-texture" />
                 </div>
                 <div className="max-w-2xl mx-auto px-6 relative z-10 text-center">
-                    <p className="text-[#888] mb-8">{error || 'Невалиден доклад.'}</p>
+                    <p className="text-[#888] mb-8">{error || t('report.invalidReport')}</p>
                     <button
                         onClick={() => navigate('/')}
                         className="px-6 py-3 border border-[#333] text-[#888] text-[9px] font-bold uppercase tracking-[0.2em] hover:border-[#968B74] hover:text-[#968B74] transition-all rounded-sm"
                     >
-                        Към началото
+                        {t('report.backToHome')}
                     </button>
                 </div>
             </div>
@@ -140,12 +142,12 @@ const ReportPage: React.FC = () => {
                     <div className="premium-texture" />
                 </div>
                 <div className="max-w-2xl mx-auto px-6 relative z-10 text-center">
-                    <p className="text-[#888] mb-8">Изгледът за социален анализ не е наличен за този доклад.</p>
+                    <p className="text-[#888] mb-8">{t('report.socialViewUnavailable')}</p>
                     <button
                         onClick={() => navigate('/')}
                         className="px-6 py-3 border border-[#333] text-[#888] text-[9px] font-bold uppercase tracking-[0.2em] hover:border-[#968B74] hover:text-[#968B74] transition-all rounded-sm"
                     >
-                        Към началото
+                        {t('report.backToHome')}
                     </button>
                 </div>
             </div>

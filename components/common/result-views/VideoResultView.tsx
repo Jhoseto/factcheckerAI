@@ -31,21 +31,18 @@ const LOADING_PHASES = [
     "Финализиране на официалния доклад за одит..."
 ];
 
-const translateMetricName = (key: string): string => {
-    const translations: Record<string, string> = {
-        factualAccuracy: 'Фактическа Точност',
-        logicalSoundness: 'Логическа Стройност',
-        emotionalBias: 'Емоционална Пристрастност',
-        propagandaScore: 'Пропаганден Индекс',
-        sourceReliability: 'Надеждност на Източника',
-        subjectivityScore: 'Субективност',
-        objectivityScore: 'Обективност',
-        biasIntensity: 'Интензитет на Bias',
-        narrativeConsistencyScore: 'Наративна Консистентност',
-        semanticDensity: 'Семантична Плътност',
-        contextualStability: 'Контекстуална Стабилност'
-    };
-    return translations[key] || key;
+const METRIC_KEYS: Record<string, string> = {
+    factualAccuracy: 'analysis.factualAccuracy',
+    logicalSoundness: 'analysis.logicalSoundness',
+    emotionalBias: 'analysis.emotionalBias',
+    propagandaScore: 'analysis.propagandaScore',
+    sourceReliability: 'analysis.sourceReliability',
+    subjectivityScore: 'analysis.subjectivityScore',
+    objectivityScore: 'analysis.objectivityScore',
+    biasIntensity: 'analysis.biasIntensity',
+    narrativeConsistencyScore: 'analysis.narrativeConsistencyScore',
+    semanticDensity: 'analysis.semanticDensity',
+    contextualStability: 'analysis.contextualStability'
 };
 
 const renderBoldBronze = (text: string) => {
@@ -59,10 +56,11 @@ const renderBoldBronze = (text: string) => {
 };
 
 const MultimodalSection: React.FC<{ title: string; content?: string | unknown; color: string; icon?: React.ReactNode }> = ({ title, content, icon }) => {
+    const { t } = useTranslation();
     const text = typeof content === 'string' ? content : (content && typeof content === 'object' && content !== null
         ? String((content as { text?: string }).text ?? (content as { summary?: string }).summary ?? (content as Record<string, unknown>).content ?? '')
         : '');
-    if (!text || text === 'Няма данни') return null;
+    if (!text || text === t('analysis.noData')) return null;
 
     const segments = text.split(/(?=\d+\.\s)/).map((s: string) => s.trim()).filter(Boolean);
 
@@ -108,6 +106,7 @@ const MultimodalSection: React.FC<{ title: string; content?: string | unknown; c
 };
 
 const ReportView: React.FC<{ analysis: VideoAnalysis; reportRef?: React.RefObject<HTMLElement>; reportLoading?: boolean }> = ({ analysis, reportRef, reportLoading }) => {
+    const { t } = useTranslation();
     const rawReportText = analysis.synthesizedReport || analysis.summary.finalInvestigativeReport || '';
     const { displayText: reportText, loading: reportTranslating } = useTranslatedReport(analysis.id, rawReportText);
 
@@ -189,23 +188,23 @@ const ReportView: React.FC<{ analysis: VideoAnalysis; reportRef?: React.RefObjec
     return (
         <article ref={reportRef} id="full-report-article" className="max-w-[1100px] mx-auto editorial-card p-8 md:p-12 border border-[#968B74]/20 relative">
             <header className="mb-12 pb-8 border-b-2 border-[#333] text-center">
-                <div className="text-[9px] font-black text-[#968B74] uppercase tracking-[0.6em] mb-4">КЛАСИФИЦИРАНО РАЗСЛЕДВАЩО ДОСИЕ #{analysis.id?.substring(0, 8)}</div>
+                <div className="text-[9px] font-black text-[#968B74] uppercase tracking-[0.6em] mb-4">{t('analysis.classifiedDossier')} #{analysis.id?.substring(0, 8)}</div>
                 <h3 className="text-2xl md:text-4xl font-black text-[#E0E0E0] tracking-tight uppercase mb-4  leading-tight">{analysis.videoTitle}</h3>
                 <div className="flex justify-center gap-10 text-[8px] font-bold text-[#666] uppercase tracking-widest">
-                    <span>ИЗТОЧНИК: {analysis.videoAuthor}</span>
-                    <span>ДАТА: {new Date(analysis.timestamp).toLocaleString('bg-BG')}</span>
-                    <span>ДВИГАТЕЛ: DCGE v4.8</span>
+                    <span>{t('analysis.sourceLabel')} {analysis.videoAuthor}</span>
+                    <span>{t('analysis.dateLabel')} {new Date(analysis.timestamp).toLocaleString()}</span>
+                    <span>{t('analysis.engineLabel')} DCGE v4.8</span>
                 </div>
                 {analysis.synthesizedReport && (
-                    <div className="mt-4 text-[8px] font-black text-[#C4B091] uppercase tracking-widest">✦ СИНТЕЗИРАН АВТОРСКИ ДОКЛАД ✦</div>
+                    <div className="mt-4 text-[8px] font-black text-[#C4B091] uppercase tracking-widest">✦ {t('analysis.synthesizedReport')} ✦</div>
                 )}
             </header>
 
             {reportLoading ? (
                 <div className="text-center py-20 animate-pulse">
                     <div className="inline-block w-8 h-8 border-2 border-[#968B74] border-t-transparent rounded-full animate-spin mb-6"></div>
-                    <h4 className="text-lg font-black text-[#C4B091] uppercase tracking-widest mb-2">Генериране на доклад</h4>
-                    <p className="text-xs text-[#666] uppercase tracking-wider">Главният редактор подготвя финалния авторски анализ...</p>
+                    <h4 className="text-lg font-black text-[#C4B091] uppercase tracking-widest mb-2">{t('analysis.reportGeneratingTitle')}</h4>
+                    <p className="text-xs text-[#666] uppercase tracking-wider">{t('analysis.reportGeneratingSub')}</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
@@ -215,14 +214,14 @@ const ReportView: React.FC<{ analysis: VideoAnalysis; reportRef?: React.RefObjec
 
                     <aside className="md:col-span-4 space-y-8">
                         <div className="p-6 bg-[#1a1a1a] border border-[#333] rounded-sm">
-                            <h4 className="text-[8px] font-black text-[#968B74] uppercase tracking-widest mb-6 border-b border-[#333] pb-2 text-center">АНАЛИТИЧНИ МЕТРИКИ</h4>
+                            <h4 className="text-[8px] font-black text-[#968B74] uppercase tracking-widest mb-6 border-b border-[#333] pb-2 text-center">{t('analysis.analyticalMetrics')}</h4>
                             <div className="space-y-6">
                                 {Object.entries(analysis.summary.detailedStats || {}).map(([key, val], idx) => {
                                     const num = typeof val === 'number' && !Number.isNaN(val) ? val : 0;
                                     return (
                                         <div key={idx}>
                                             <div className="flex justify-between text-[7px] font-black uppercase mb-1">
-                                                <span className="text-[#666]">{translateMetricName(key)}</span>
+                                                <span className="text-[#666]">{t(METRIC_KEYS[key] || key)}</span>
                                                 <span className="text-[#C4B091]">{Math.round(num * 100)}%</span>
                                             </div>
                                             <div className="w-full h-1 bg-[#333] rounded-full overflow-hidden">
@@ -238,32 +237,32 @@ const ReportView: React.FC<{ analysis: VideoAnalysis; reportRef?: React.RefObjec
                             <div className="w-10 h-10 border-2 border-[#968B74] rounded-full flex items-center justify-center mx-auto mb-3">
                                 <span className="text-[#C4B091] font-black text-xl">✓</span>
                             </div>
-                            <p className="text-[8px] font-black text-[#E0E0E0] uppercase leading-relaxed mb-1 tracking-widest">АВТЕНТИФИЦИРАНО</p>
-                            <p className="text-[7px] font-bold text-[#666] uppercase tracking-tight">Верифицирано срещу глобални данни.</p>
+                            <p className="text-[8px] font-black text-[#E0E0E0] uppercase leading-relaxed mb-1 tracking-widest">{t('analysis.authenticated')}</p>
+                            <p className="text-[7px] font-bold text-[#666] uppercase tracking-tight">{t('analysis.verifiedAgainst')}</p>
                         </div>
 
                         <div className="p-6 bg-[#252525] border border-[#333] rounded-sm">
-                            <h4 className="text-[9px] font-black text-[#968B74] uppercase mb-4 tracking-widest">СТРАТЕГИЧЕСКО НАМЕРЕНИЕ</h4>
+                            <h4 className="text-[9px] font-black text-[#968B74] uppercase mb-4 tracking-widest">{t('analysis.strategicIntent')}</h4>
                             <p className="text-[15px] text-[#ccc] leading-[1.6]">
                                 {typeof analysis.summary.strategicIntent === 'string' ? analysis.summary.strategicIntent : (analysis.summary.strategicIntent != null && typeof analysis.summary.strategicIntent === 'object' && 'details' in analysis.summary.strategicIntent ? String((analysis.summary.strategicIntent as { details?: unknown }).details) : String(analysis.summary.strategicIntent ?? ''))}
                             </p>
                         </div>
 
                         <div className="p-6 bg-[#1a1a1a] border border-[#333] text-[8px] text-[#555] font-mono leading-tight uppercase rounded-sm">
-                            ИД НА ОДИТ (AUDIT_ID): {analysis.id}<br />
-                            ВЪЗЕЛ (NODE): SEREZLIEV_G_UNIT<br />
-                            СТАТУС (STATUS): FINAL_VERIFICATION<br />
-                            ХЕШ (HASH): {Math.random().toString(16).slice(2, 18).toUpperCase()}
+                            {t('analysis.auditId')} {analysis.id}<br />
+                            {t('analysis.nodeLabel')} SEREZLIEV_G_UNIT<br />
+                            {t('analysis.statusLabel')} FINAL_VERIFICATION<br />
+                            {t('analysis.hashLabel')} {Math.random().toString(16).slice(2, 18).toUpperCase()}
                         </div>
                     </aside>
                 </div>
             )}
 
             <footer className="mt-20 pt-8 border-t border-[#333] text-center">
-                <div className="text-[9px] font-black text-[#555] uppercase tracking-[0.5em] mb-4">© ФАКТЧЕКЪР AI | ПЪЛЕН МЕДИЕН АНАЛИЗАТОР</div>
+                <div className="text-[9px] font-black text-[#555] uppercase tracking-[0.5em] mb-4">{t('analysis.footerCopyright')}</div>
                 <p className="text-[7px] text-[#444] uppercase leading-relaxed max-w-2xl mx-auto">
-                    Този документ е генериран чрез алгоритмите на Deep Contextual Reasoning Engine v4.8.
-                    Всички изводи са базирани на статистическа вероятност и крос-рефериране с независими източници.
+                    {t('analysis.footerDisclaimer')}
+                    {' '}{t('analysis.footerDisclaimer2')}
                 </p>
             </footer>
         </article>
@@ -289,7 +288,7 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
                 console.log('Analysis marked as public:', analysis.id);
             } catch (error) {
                 console.error('Failed to make analysis public:', error);
-                alert('Грешка при маркиране на анализа като публичен. Моля, опитайте отново.');
+                alert(t('analysis.errorMakePublic'));
                 return; // Don't open share modal if marking as public failed
             }
         }
@@ -375,7 +374,7 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
                         )}
                     </div>
                     {onReset && (
-                        <button onClick={onReset} className="btn-luxury px-5 py-3.5 text-[10px] font-black uppercase tracking-widest w-full rounded-sm flex items-center justify-center gap-2 hover:border-[#8b4a4a] hover:text-[#c66]" title="Затвори и Нов Анализ">
+                        <button onClick={onReset} className="btn-luxury px-5 py-3.5 text-[10px] font-black uppercase tracking-widest w-full rounded-sm flex items-center justify-center gap-2 hover:border-[#8b4a4a] hover:text-[#c66]" title={t('analysis.closeAndNew')}>
                             <span>✕</span> {t('common.close')}
                         </button>
                     )}
@@ -461,23 +460,23 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
                             <div className="editorial-card p-6 md:p-8 border-l-4 border-l-[#968B74] space-y-4">
                                 <div className="flex justify-between items-start relative">
                                     <div className="space-y-1">
-                                        <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest">ОБЕКТ:</p>
+                                        <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest">{t('analysis.objectLabel')}</p>
                                         <h2 className="text-xl md:text-3xl font-black text-[#E0E0E0] uppercase tracking-tight  leading-tight pr-24">{analysis.videoTitle}</h2>
                                     </div>
                                     <div className={`px-2 py-0.5 border ${analysis.analysisMode === 'deep' ? 'bg-[#968B74] border-[#968B74] text-[#1a1a1a]' : 'border-[#333] text-[#666]'} text-[7px] font-black uppercase tracking-[0.2em] rounded-sm absolute top-0 right-0`}>
-                                        {analysis.analysisMode === 'deep' ? 'Дълбок анализ' : 'Стандартен анализ'}
+                                        {analysis.analysisMode === 'deep' ? t('analysis.deepAnalysis') : t('analysis.standardAnalysis')}
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-[#333]">
-                                    <div><p className="text-[9px] font-black text-[#666] uppercase mb-0.5">Източник</p><p className="text-sm font-black text-[#C4B091] uppercase truncate">{analysis.videoAuthor}</p></div>
-                                    <div><p className="text-[9px] font-black text-[#666] uppercase mb-0.5">Времетраене</p><p className="text-sm font-black text-[#E0E0E0] uppercase">{analysis.summary.totalDuration}</p></div>
-                                    <div><p className="text-[9px] font-black text-[#666] uppercase mb-0.5">Дата</p><p className="text-sm font-black text-[#E0E0E0] uppercase">{new Date(analysis.timestamp).toLocaleDateString()}</p></div>
+                                    <div><p className="text-[9px] font-black text-[#666] uppercase mb-0.5">{t('analysis.source')}</p><p className="text-sm font-black text-[#C4B091] uppercase truncate">{analysis.videoAuthor}</p></div>
+                                    <div><p className="text-[9px] font-black text-[#666] uppercase mb-0.5">{t('analysis.duration')}</p><p className="text-sm font-black text-[#E0E0E0] uppercase">{analysis.summary.totalDuration}</p></div>
+                                    <div><p className="text-[9px] font-black text-[#666] uppercase mb-0.5">{t('analysis.date')}</p><p className="text-sm font-black text-[#E0E0E0] uppercase">{new Date(analysis.timestamp).toLocaleDateString()}</p></div>
                                     <div><p className="text-[9px] font-black text-[#666] uppercase mb-0.5">Audit ID</p><p className="text-sm font-black text-[#968B74] uppercase">#{analysis.id}</p></div>
                                 </div>
                             </div>
                             <div className="space-y-3">
                                 <h3 className="text-[9px] font-black text-[#968B74] uppercase tracking-widest border-b border-[#968B74]/50 pb-1 inline-flex items-center gap-2">
-                                    <SectionIcon id="summary" className="w-4 h-4" /> Изпълнително Резюме
+                                    <SectionIcon id="summary" className="w-4 h-4" /> {t('analysis.executiveSummary')}
                                 </h3>
                                 <p className="text-[#ddd] text-base md:text-lg leading-[1.65]  border-l-2 border-[#968B74] pl-6 py-2 bg-[#252525]/50">„{analysis.summary.overallSummary}“</p>
                             </div>
@@ -489,21 +488,21 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
                         <div className="space-y-6 animate-fadeIn">
                             <div className="flex items-center gap-3 pb-4 border-b border-[#333]">
                                 <SectionIcon id="claims" />
-                                <h3 className="text-xl md:text-2xl font-black text-[#C4B091] uppercase tracking-tight">Твърдения за верификация</h3>
+                                <h3 className="text-xl md:text-2xl font-black text-[#C4B091] uppercase tracking-tight">{t('analysis.claimsForVerification')}</h3>
                             </div>
                             {(analysis.claims || []).length === 0 && (
-                                <p className="text-[#666] text-sm">Няма извлечени твърдения за верификация. Опитайте Deep анализ за пълен списък.</p>
+                                <p className="text-[#666] text-sm">{t('analysis.noClaimsTryDeep')}</p>
                             )}
                             {(analysis.claims || []).map((claim, idx) => (
                                 <div key={idx} className="editorial-card p-6 md:p-8 space-y-6 border-l-2 border-l-[#968B74]/50">
                                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-[#333] pb-4">
                                         <span className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest border ${claim.veracity.toLowerCase().includes('невярно') ? 'border-[#8b4a4a] text-[#c66] bg-[#8b4a4a]/20' : 'border-[#4a7c59] text-[#7cb87c] bg-[#4a7c59]/20'}`}>{claim.veracity}</span>
-                                        <div className="flex gap-4 text-[8px] font-black uppercase tracking-widest text-[#666]"><span>Категория: {claim.category}</span><span>Прецизност: {Math.round(claim.confidence * 100)}%</span></div>
+                                        <div className="flex gap-4 text-[8px] font-black uppercase tracking-widest text-[#666]"><span>{t('analysis.category')}: {claim.category}</span><span>{t('analysis.precision')}: {Math.round(claim.confidence * 100)}%</span></div>
                                     </div>
                                     <blockquote className="text-base md:text-xl font-black text-[#E8E8E8] leading-snug  tracking-tight">„{claim.quote}“</blockquote>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-sm">
-                                        <div className="space-y-2"><h5 className="text-[9px] font-black text-[#968B74] uppercase tracking-widest border-b border-[#968B74]/50 pb-0.5 inline-block">Логически Одит</h5><p className="text-[#ccc] leading-[1.6] font-medium">{claim.explanation}</p></div>
-                                        <div className="space-y-2"><h5 className="text-[9px] font-black text-[#968B74] uppercase tracking-widest border-b border-[#968B74]/50 pb-0.5 inline-block">Контекст</h5><p className="text-[#ccc] leading-[1.6]">{claim.missingContext}</p></div>
+                                        <div className="space-y-2"><h5 className="text-[9px] font-black text-[#968B74] uppercase tracking-widest border-b border-[#968B74]/50 pb-0.5 inline-block">{t('analysis.logicalAudit')}</h5><p className="text-[#ccc] leading-[1.6] font-medium">{claim.explanation}</p></div>
+                                        <div className="space-y-2"><h5 className="text-[9px] font-black text-[#968B74] uppercase tracking-widest border-b border-[#968B74]/50 pb-0.5 inline-block">{t('analysis.context')}</h5><p className="text-[#ccc] leading-[1.6]">{claim.missingContext}</p></div>
                                     </div>
                                 </div>
                             ))}
@@ -515,13 +514,13 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
                             <div className="pl-6 md:pl-8 border-b border-[#968B74]/30 pb-6 mb-8">
                                 <div className="flex items-center gap-3 mb-3">
                                     <SectionIcon id="manipulation" />
-                                    <h3 className="text-xl md:text-2xl font-black uppercase text-[#C4B091] tracking-tight">Деконструкция на Манипулациите</h3>
+                                    <h3 className="text-xl md:text-2xl font-black uppercase text-[#C4B091] tracking-tight">{t('analysis.manipulationDeconstruction')}</h3>
                                 </div>
-                                <p className="text-sm text-[#C4B091]/90 leading-relaxed">Всички идентифицирани манипулативни техники с конкретни примери от видеото и анализ на въздействието им върху аудиторията.</p>
+                                <p className="text-sm text-[#C4B091]/90 leading-relaxed">{t('analysis.manipulationIntro')}</p>
                             </div>
                             <div className="grid grid-cols-1 gap-6">
                                 {(analysis.manipulations || []).length === 0 && (
-                                    <p className="text-[#666] text-sm">Няма идентифицирани манипулативни техники.</p>
+                                    <p className="text-[#666] text-sm">{t('analysis.noManipulations')}</p>
                                 )}
                                 {(analysis.manipulations || []).map((m, idx) => {
                                     const severity = Math.round((m.severity > 1 ? m.severity / 100 : m.severity) * 100);
@@ -543,7 +542,7 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
                                                     <span className="text-[8px] font-black text-[#968B74] uppercase tracking-widest">{m.timestamp}</span>
                                                 </div>
                                                 <div className="text-right ml-4">
-                                                    <p className="text-[7px] font-black text-[#666] uppercase mb-0.5">Интензитет</p>
+                                                    <p className="text-[7px] font-black text-[#666] uppercase mb-0.5">{t('analysis.intensity')}</p>
                                                     <span className={`text-lg md:text-xl font-black ${getSeverityTextColor()}`}>{severity}%</span>
                                                 </div>
                                             </div>
@@ -552,12 +551,12 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
                                             </div>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
                                                 <div>
-                                                    <p className="font-black uppercase text-[#C4B091] text-[9px] mb-1 tracking-widest">Въздействие върху аудиторията:</p>
+                                                    <p className="font-black uppercase text-[#C4B091] text-[9px] mb-1 tracking-widest">{t('analysis.audienceImpact')}</p>
                                                     <p className="text-[#ccc] font-medium leading-[1.6]">{m.effect}</p>
                                                 </div>
                                                 <div>
-                                                    <p className="font-black uppercase text-[#7cb87c] text-[9px] mb-1 tracking-widest">Как да се защитим:</p>
-                                                    <p className="text-[#ccc] leading-[1.6]">{m.counterArgument || 'Проверка на първоизточници и критично мислене.'}</p>
+                                                    <p className="font-black uppercase text-[#7cb87c] text-[9px] mb-1 tracking-widest">{t('analysis.howToProtect')}</p>
+                                                    <p className="text-[#ccc] leading-[1.6]">{m.counterArgument || t('analysis.counterArgumentDefault')}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -569,37 +568,37 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
 
                     {activeTab === 'visual' && (
                         <div className="space-y-6 animate-fadeIn">
-                            <MultimodalSection title="Визуален анализ" content={analysis.visualAnalysis} color="indigo" icon={<SectionIcon id="visual" />} />
+                            <MultimodalSection title={t('analysis.visualAnalysisTitle')} content={analysis.visualAnalysis} color="indigo" icon={<SectionIcon id="visual" />} />
                         </div>
                     )}
                     {activeTab === 'bodyLanguage' && (
                         <div className="space-y-6 animate-fadeIn">
-                            <MultimodalSection title="Език на тялото и невербална комуникация" content={analysis.bodyLanguageAnalysis} color="indigo" icon={<SectionIcon id="bodyLanguage" />} />
+                            <MultimodalSection title={t('analysis.bodyLanguageTitle')} content={analysis.bodyLanguageAnalysis} color="indigo" icon={<SectionIcon id="bodyLanguage" />} />
                         </div>
                     )}
                     {activeTab === 'vocal' && (
                         <div className="space-y-6 animate-fadeIn">
-                            <MultimodalSection title="Вокален и паралингвистичен анализ" content={analysis.vocalAnalysis} color="indigo" icon={<SectionIcon id="vocal" />} />
+                            <MultimodalSection title={t('analysis.vocalAnalysisTitle')} content={analysis.vocalAnalysis} color="indigo" icon={<SectionIcon id="vocal" />} />
                         </div>
                     )}
                     {activeTab === 'deception' && (
                         <div className="space-y-6 animate-fadeIn">
-                            <MultimodalSection title="Честност и измама" content={analysis.deceptionAnalysis} color="indigo" icon={<SectionIcon id="deception" />} />
+                            <MultimodalSection title={t('analysis.deceptionAnalysisTitle')} content={analysis.deceptionAnalysis} color="indigo" icon={<SectionIcon id="deception" />} />
                         </div>
                     )}
                     {activeTab === 'humor' && (
                         <div className="space-y-6 animate-fadeIn">
-                            <MultimodalSection title="Хумор и сатира" content={analysis.humorAnalysis} color="indigo" icon={<SectionIcon id="humor" />} />
+                            <MultimodalSection title={t('analysis.humorAnalysisTitle')} content={analysis.humorAnalysis} color="indigo" icon={<SectionIcon id="humor" />} />
                         </div>
                     )}
                     {activeTab === 'psychological' && (
                         <div className="space-y-6 animate-fadeIn">
-                            <MultimodalSection title="Психологически профил" content={analysis.psychologicalProfile} color="indigo" icon={<SectionIcon id="psychological" />} />
+                            <MultimodalSection title={t('analysis.psychologicalTitle')} content={analysis.psychologicalProfile} color="indigo" icon={<SectionIcon id="psychological" />} />
                         </div>
                     )}
                     {activeTab === 'cultural' && (
                         <div className="space-y-6 animate-fadeIn">
-                            <MultimodalSection title="Културен и символен анализ" content={analysis.culturalSymbolicAnalysis} color="indigo" icon={<SectionIcon id="cultural" />} />
+                            <MultimodalSection title={t('analysis.culturalAnalysisTitle')} content={analysis.culturalSymbolicAnalysis} color="indigo" icon={<SectionIcon id="cultural" />} />
                         </div>
                     )}
 
@@ -607,10 +606,10 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
                         <div className="space-y-6 animate-fadeIn">
                             <div className="p-6 bg-[#252525] border border-[#333] flex justify-between items-center rounded-sm">
                                 <h4 className="text-sm font-black uppercase tracking-widest text-[#C4B091] flex items-center gap-2">
-                                    <SectionIcon id="report" className="w-4 h-4" /> Пълен Експертен Одит (Досие)
+                                    <SectionIcon id="report" className="w-4 h-4" /> {t('analysis.fullExpertReport')}
                                 </h4>
                                 <button onClick={handleSaveFullReport} disabled={isExporting} className="btn-luxury-solid px-6 py-2 text-[9px] tracking-[0.2em] flex items-center gap-2 rounded-sm">
-                                    {isExporting ? 'ГЕНЕРИРАНЕ...' : 'СВАЛИ PNG'}
+                                    {isExporting ? t('analysis.generating') : t('analysis.downloadPng')}
                                 </button>
                             </div>
                             <ReportView analysis={analysis} reportRef={fullReportRef} reportLoading={reportLoading} />

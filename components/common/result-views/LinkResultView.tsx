@@ -38,7 +38,7 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                 console.log('Analysis marked as public:', analysis.id);
             } catch (error) {
                 console.error('Failed to make analysis public:', error);
-                alert('Грешка при маркиране на анализа като публичен. Моля, опитайте отново.');
+                alert(t('analysis.errorMakePublic'));
                 return; // Don't open share modal if marking as public failed
             }
         }
@@ -50,15 +50,15 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
     const linkSidebarContent = (
         <>
             <div className="grid grid-cols-2 lg:grid-cols-1 gap-5">
-                <MetricBlock label="Фактическа Точност" value={analysis.summary.detailedStats.factualAccuracy} color="emerald" />
-                <MetricBlock label="Логическа Стройност" value={analysis.summary.detailedStats.logicalSoundness} color="blue" />
-                <MetricBlock label="Емоционална Окраска" value={analysis.summary.detailedStats.emotionalBias} color="orange" />
-                <MetricBlock label="Пропаганден Индекс" value={analysis.summary.detailedStats.propagandaScore} color="red" />
+                <MetricBlock label={t('analysis.factualAccuracy')} value={analysis.summary.detailedStats.factualAccuracy} color="emerald" />
+                <MetricBlock label={t('analysis.logicalSoundness')} value={analysis.summary.detailedStats.logicalSoundness} color="blue" />
+                <MetricBlock label={t('analysis.emotionalBias')} value={analysis.summary.detailedStats.emotionalBias} color="orange" />
+                <MetricBlock label={t('analysis.propagandaScore')} value={analysis.summary.detailedStats.propagandaScore} color="red" />
             </div>
             <div className="editorial-card p-5 border-l-2 border-l-[#968B74] mt-4 mb-4">
                 <p className="text-[8px] font-black text-[#666] uppercase tracking-widest mb-2">{t('analysis.classification')}</p>
                 <span className={`font-black text-sm md:text-base block leading-tight uppercase tracking-tighter ${analysis.summary.finalClassification === 'ACCURATE' ? 'text-[#7cb87c]' : analysis.summary.finalClassification === 'MISLEADING' ? 'text-[#d4a574]' : analysis.summary.finalClassification === 'FALSE' ? 'text-[#c66]' : 'text-[#C4B091]'}`}>
-                    {analysis.summary.finalClassification === 'ACCURATE' ? 'ДОСТОВЕРНО' : analysis.summary.finalClassification === 'MOSTLY_ACCURATE' ? 'ПРЕДИМНО ТОЧНО' : analysis.summary.finalClassification === 'MIXED' ? 'СМЕСЕНИ ДАННИ' : analysis.summary.finalClassification === 'MISLEADING' ? 'ПОДВЕЖДАЩО' : 'НЕВЯРНО'}
+                    {analysis.summary.finalClassification === 'ACCURATE' ? t('report.classificationAccurate') : analysis.summary.finalClassification === 'MOSTLY_ACCURATE' ? t('report.classificationMostlyAccurate') : analysis.summary.finalClassification === 'MIXED' ? t('report.classificationMixed') : analysis.summary.finalClassification === 'MISLEADING' ? t('report.classificationMisleading') : t('report.classificationFalse')}
                 </span>
             </div>
             <div className="p-5 bg-[#252525] border border-[#333] rounded-sm">
@@ -87,8 +87,8 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                     )}
                 </div>
                 {onReset && (
-                    <button onClick={onReset} className="btn-luxury px-5 py-3.5 text-[10px] font-black uppercase tracking-widest w-full rounded-sm flex items-center justify-center gap-2 hover:border-[#8b4a4a] hover:text-[#c66]" title="Затвори и Нов Анализ">
-                        <span>✕</span> ЗАТВОРИ
+                    <button onClick={onReset} className="btn-luxury px-5 py-3.5 text-[10px] font-black uppercase tracking-widest w-full rounded-sm flex items-center justify-center gap-2 hover:border-[#8b4a4a] hover:text-[#c66]" title={t('analysis.closeAndNew')}>
+                        <span>✕</span> {t('analysis.close')}
                     </button>
                 )}
             </div>
@@ -98,20 +98,20 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
     const hasComments = !!analysis.commentsAnalysis?.found;
 
     const TABS = [
-        { id: 'summary', label: 'Резюме' },
-        { id: 'claims', label: 'Верификация' },
-        { id: 'manipulation', label: 'Манипулация' },
-        { id: 'profile', label: 'Профил' },
-        { id: 'rhetoric', label: 'Реторика' },
-        { id: 'comments', label: 'Коментари' },
-        { id: 'report', label: 'Финален Доклад' },
+        { id: 'summary', labelKey: 'analysis.tabSummary' },
+        { id: 'claims', labelKey: 'analysis.tabClaimsVerification' },
+        { id: 'manipulation', labelKey: 'analysis.tabManipulation' },
+        { id: 'profile', labelKey: 'analysis.tabProfile' },
+        { id: 'rhetoric', labelKey: 'analysis.tabRhetoric' },
+        { id: 'comments', labelKey: 'analysis.tabComments' },
+        { id: 'report', labelKey: 'analysis.tabFinalReport' },
     ] as const;
 
     const linkTabsContent = (
         <>
-            {TABS.map(({ id, label }) => (
+            {TABS.map(({ id, labelKey }) => (
                 <button key={id} onClick={() => setActiveTab(id)} className={`text-[10px] font-black uppercase tracking-[0.15em] whitespace-nowrap pb-1 relative transition-all flex items-center gap-2 ${activeTab === id ? 'text-[#C4B091]' : 'text-[#666] hover:text-[#C4B091]'}`}>
-                    {label}
+                    {t(labelKey)}
                     {id === 'comments' && hasComments && <span className="w-1.5 h-1.5 rounded-full bg-[#C4B091] inline-block" />}
                     {activeTab === id && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#968B74]"></div>}
                 </button>
@@ -167,7 +167,7 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                                         <ReliabilityGauge score={analysis.summary.detailedStats.factualAccuracy} />
                                     </div>
                                     <div className="space-y-2 flex-1 text-center md:text-left">
-                                        <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest">Дълбок Анализ на Текст</p>
+                                        <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest">{t('analysis.deepTextAnalysis')}</p>
                                         <h2 className="text-xl md:text-3xl font-black text-[#E0E0E0] uppercase tracking-tight leading-tight">{analysis.videoTitle}</h2>
                                         <div className="pt-2">
                                             <span className={`px-3 py-1 text-[10px] font-black text-[#1a1a1a] uppercase tracking-widest inline-block rounded-sm
@@ -175,10 +175,10 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                                                     analysis.summary.finalClassification === 'MOSTLY_ACCURATE' ? 'bg-[#5a9a5a]' :
                                                         analysis.summary.finalClassification === 'MIXED' ? 'bg-[#968B74]' :
                                                             analysis.summary.finalClassification === 'MISLEADING' ? 'bg-[#a67c52]' : 'bg-[#8b4a4a]'}`}>
-                                                {analysis.summary.finalClassification === 'ACCURATE' ? 'Достоверно' :
-                                                    analysis.summary.finalClassification === 'MOSTLY_ACCURATE' ? 'Предимно точно' :
-                                                        analysis.summary.finalClassification === 'MIXED' ? 'Смесени данни' :
-                                                            analysis.summary.finalClassification === 'MISLEADING' ? 'Подвеждащо' : 'Невярно'}
+                                                {analysis.summary.finalClassification === 'ACCURATE' ? t('report.classificationAccurate') :
+                                                    analysis.summary.finalClassification === 'MOSTLY_ACCURATE' ? t('report.classificationMostlyAccurate') :
+                                                        analysis.summary.finalClassification === 'MIXED' ? t('report.classificationMixed') :
+                                                            analysis.summary.finalClassification === 'MISLEADING' ? t('report.classificationMisleading') : t('report.classificationFalse')}
                                             </span>
                                         </div>
                                     </div>
@@ -186,14 +186,14 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                             </div>
 
                             <div className="space-y-3">
-                                <h3 className="text-[9px] font-black text-[#968B74] uppercase tracking-widest border-b border-[#968B74]/50 pb-1 inline-block">Изпълнително Резюме</h3>
+                                <h3 className="text-[9px] font-black text-[#968B74] uppercase tracking-widest border-b border-[#968B74]/50 pb-1 inline-block">{t('analysis.executiveSummaryShort')}</h3>
                                 <p className="text-[#ddd] text-base md:text-lg leading-[1.65] border-l-2 border-[#968B74] pl-6 py-2 bg-[#252525]/50">
                                     „{analysis.summary.overallSummary}“
                                 </p>
                             </div>
 
                             <div className="editorial-card p-8 space-y-4 border-l-4 border-l-[#968B74]">
-                                <h3 className="text-[9px] font-black text-[#968B74] uppercase tracking-widest border-b border-[#968B74]/50 pb-1 inline-block">Стратегически Препоръки</h3>
+                                <h3 className="text-[9px] font-black text-[#968B74] uppercase tracking-widest border-b border-[#968B74]/50 pb-1 inline-block">{t('analysis.strategicRecommendations')}</h3>
                                 <p className="text-[#ccc] text-[15px] leading-[1.65] font-medium whitespace-pre-wrap">
                                     {Array.isArray(analysis.summary.recommendations)
                                         ? (analysis.summary.recommendations as any[]).map((r: any, i: number) => (
@@ -209,7 +209,7 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                         <div className="space-y-6 animate-fadeIn">
                             <div className="p-4 bg-[#252525] border border-[#333] rounded-sm text-center">
                                 <p className="text-[8px] font-black text-[#666] uppercase tracking-widest">
-                                    Открити са {analysis.claims.length} твърдения за проверка
+                                    {t('analysis.claimsFound', { count: analysis.claims.length })}
                                 </p>
                             </div>
 
@@ -217,11 +217,11 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                                 <div key={idx} className="editorial-card p-6 md:p-8 space-y-6 border-l-2 border-l-[#968B74]/50">
                                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-[#333] pb-4">
                                         <span className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest border ${claim.veracity.toLowerCase().includes('невярно') ? 'border-[#8b4a4a] text-[#c66] bg-[#8b4a4a]/20' : 'border-[#4a7c59] text-[#7cb87c] bg-[#4a7c59]/20'}`}>{claim.veracity}</span>
-                                        <div className="text-[8px] font-black uppercase tracking-widest text-[#666]">Твърдение #{idx + 1}</div>
+                                        <div className="text-[8px] font-black uppercase tracking-widest text-[#666]">{t('analysis.claimNumber', { num: idx + 1 })}</div>
                                     </div>
                                     <blockquote className="text-base md:text-xl font-black text-[#E8E8E8] leading-snug  tracking-tight">„{claim.quote}“</blockquote>
                                     <div className="p-4 bg-[#252525] border-l-4 border-[#333]">
-                                        <h5 className="text-[9px] font-black text-[#968B74] uppercase tracking-widest mb-1">Анализ на фактите</h5>
+                                        <h5 className="text-[9px] font-black text-[#968B74] uppercase tracking-widest mb-1">{t('analysis.factAnalysis')}</h5>
                                         <p className="text-[#ccc] leading-[1.6] font-medium text-[15px]">{claim.explanation}</p>
                                     </div>
                                 </div>
@@ -232,8 +232,8 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                     {activeTab === 'manipulation' && (
                         <div className="space-y-8 animate-fadeIn">
                             <div className="pl-6 md:pl-8 border-b border-[#968B74]/30 pb-6 mb-8">
-                                <h3 className="text-xl md:text-2xl font-black uppercase mb-3 text-[#C4B091] tracking-tight">Деконструкция на Манипулациите</h3>
-                                <p className="text-sm text-[#C4B091]/90 leading-relaxed">Идентифицирани манипулативни техники с анализ на въздействието върху аудиторията.</p>
+                                <h3 className="text-xl md:text-2xl font-black uppercase mb-3 text-[#C4B091] tracking-tight">{t('analysis.manipulationDeconstruction')}</h3>
+                                <p className="text-sm text-[#C4B091]/90 leading-relaxed">{t('analysis.manipulationIntro')}</p>
                             </div>
 
                             {/* Radar chart */}
@@ -244,12 +244,12 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                                 }));
                                 return (
                                     <div className="editorial-card p-6 border border-[#968B74]/20">
-                                        <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest mb-4">Радар на манипулациите</p>
+                                        <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest mb-4">{t('analysis.manipulationRadar')}</p>
                                         <ResponsiveContainer width="100%" height={260}>
                                             <RadarChart data={radarData} margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
                                                 <PolarGrid stroke="#333" />
                                                 <PolarAngleAxis dataKey="subject" tick={{ fill: '#888', fontSize: 9, fontWeight: 700 }} />
-                                                <Tooltip contentStyle={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: 2, fontSize: 10 }} formatter={(v: number) => [`${v}%`, 'Интензитет']} />
+                                                <Tooltip contentStyle={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: 2, fontSize: 10 }} formatter={(v: number) => [`${v}%`, t('analysis.intensity')]} />
                                                 <Radar dataKey="value" stroke="#C4B091" fill="#C4B091" fillOpacity={0.15} strokeWidth={1.5} />
                                             </RadarChart>
                                         </ResponsiveContainer>
@@ -264,23 +264,23 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                                         <div>
                                             <h4 className="text-lg font-black text-[#E0E0E0] uppercase tracking-tight">{tech.technique}</h4>
                                             {tech.counterArgument && (
-                                                <p className="text-[8px] text-[#555] mt-0.5" title={`Контра-аргумент: ${tech.counterArgument}`}>ℹ Hover за контра-аргумент</p>
+                                                <p className="text-[8px] text-[#555] mt-0.5" title={`${t('analysis.counterArgumentDefault')}: ${tech.counterArgument}`}>{t('analysis.hoverCounterArgument')}</p>
                                             )}
                                         </div>
                                         <div className="flex-shrink-0 bg-[#252525] px-3 py-1 rounded-full border border-[#333]">
-                                            <span className="text-[9px] font-black text-[#968B74] uppercase tracking-widest">Тежест: {Math.round((tech.severity > 1 ? tech.severity / 100 : tech.severity) * 100)}%</span>
+                                            <span className="text-[9px] font-black text-[#968B74] uppercase tracking-widest">{t('analysis.weightLabel')} {Math.round((tech.severity > 1 ? tech.severity / 100 : tech.severity) * 100)}%</span>
                                         </div>
                                     </div>
                                     <p className="text-[15px] text-[#ccc] leading-[1.6] font-medium">{tech.logic}</p>
                                     {tech.effect && (
                                         <div className="mt-4 p-4 bg-[#252525] border-l-2 border-[#968B74]/30">
-                                            <p className="text-[9px] font-black text-[#C4B091] uppercase tracking-widest mb-1">Въздействие върху аудиторията:</p>
+                                            <p className="text-[9px] font-black text-[#C4B091] uppercase tracking-widest mb-1">{t('analysis.audienceImpact')}:</p>
                                             <p className="text-sm font-bold text-[#ddd]">{tech.effect}</p>
                                         </div>
                                     )}
                                     {tech.counterArgument && (
                                         <div className="p-3 bg-[#1e2a1e] border-l-2 border-[#4a7c59]">
-                                            <p className="text-[9px] font-black text-[#7cb87c] uppercase tracking-widest mb-1">Рационален отговор:</p>
+                                            <p className="text-[9px] font-black text-[#7cb87c] uppercase tracking-widest mb-1">{t('analysis.rationalResponse')}</p>
                                             <p className="text-xs text-[#aaa]">{tech.counterArgument}</p>
                                         </div>
                                     )}
@@ -292,32 +292,32 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                     {activeTab === 'profile' && (
                         <div className="space-y-6 animate-fadeIn">
                             <div className="pl-6 md:pl-8 border-b border-[#968B74]/30 pb-6 mb-8">
-                                <h3 className="text-xl md:text-2xl font-black uppercase mb-3 text-[#C4B091] tracking-tight">Профил на Автора и Медията</h3>
-                                <p className="text-sm text-[#C4B091]/90 leading-relaxed">Контекст за доверието в источника.</p>
+                                <h3 className="text-xl md:text-2xl font-black uppercase mb-3 text-[#C4B091] tracking-tight">{t('analysis.authorProfileTitle')}</h3>
+                                <p className="text-sm text-[#C4B091]/90 leading-relaxed">{t('analysis.authorProfileIntro')}</p>
                             </div>
 
                             {/* Author */}
                             {analysis.authorProfile && (
                                 <div className="editorial-card p-6 md:p-8 space-y-4 border-l-4 border-l-[#968B74]">
-                                    <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest">Автор</p>
+                                    <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest">{t('analysis.authorLabel')}</p>
                                     {analysis.authorProfile.name && <h4 className="text-lg font-black text-[#E0E0E0]">{analysis.authorProfile.name}</h4>}
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                                         {analysis.authorProfile.knownBias && (
-                                            <div><p className="text-[8px] font-black text-[#666] uppercase tracking-widest mb-1">Известна пристрастност</p><p className="text-[#ccc]">{analysis.authorProfile.knownBias}</p></div>
+                                            <div><p className="text-[8px] font-black text-[#666] uppercase tracking-widest mb-1">{t('analysis.knownBias')}</p><p className="text-[#ccc]">{analysis.authorProfile.knownBias}</p></div>
                                         )}
                                         {analysis.authorProfile.credibilityNote && (
-                                            <div><p className="text-[8px] font-black text-[#666] uppercase tracking-widest mb-1">Надеждност</p><p className="text-[#ccc]">{analysis.authorProfile.credibilityNote}</p></div>
+                                            <div><p className="text-[8px] font-black text-[#666] uppercase tracking-widest mb-1">{t('analysis.authorCredibility')}</p><p className="text-[#ccc]">{analysis.authorProfile.credibilityNote}</p></div>
                                         )}
                                     </div>
                                     {analysis.authorProfile.affiliations && analysis.authorProfile.affiliations.length > 0 && (
                                         <div>
-                                            <p className="text-[8px] font-black text-[#666] uppercase tracking-widest mb-2">Афилиации</p>
+                                            <p className="text-[8px] font-black text-[#666] uppercase tracking-widest mb-2">{t('analysis.authorAffiliations')}</p>
                                             <div className="flex flex-wrap gap-2">{analysis.authorProfile.affiliations.map((a, i) => <span key={i} className="px-2 py-0.5 text-[9px] font-bold text-[#C4B091] border border-[#968B74]/30 bg-[#252525]">{a}</span>)}</div>
                                         </div>
                                     )}
                                     {analysis.authorProfile.typicalTopics && analysis.authorProfile.typicalTopics.length > 0 && (
                                         <div>
-                                            <p className="text-[8px] font-black text-[#666] uppercase tracking-widest mb-2">Типични теми</p>
+                                            <p className="text-[8px] font-black text-[#666] uppercase tracking-widest mb-2">{t('analysis.typicalTopics')}</p>
                                             <div className="flex flex-wrap gap-2">{analysis.authorProfile.typicalTopics.map((t, i) => <span key={i} className="px-2 py-0.5 text-[9px] font-bold text-[#888] border border-[#333] bg-[#1a1a1a]">{t}</span>)}</div>
                                         </div>
                                     )}
@@ -327,36 +327,36 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                             {/* Media */}
                             {analysis.mediaProfile && (
                                 <div className="editorial-card p-6 md:p-8 space-y-4 border-l-4 border-l-[#968B74]">
-                                    <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest">Медиен Профил</p>
+                                    <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest">{t('analysis.mediaProfileLabel')}</p>
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                         {analysis.mediaProfile.politicalLean && (
                                             <div className="editorial-card p-4 text-center">
-                                                <p className="text-[7px] font-black text-[#666] uppercase tracking-widest mb-1">Ориентация</p>
+                                                <p className="text-[7px] font-black text-[#666] uppercase tracking-widest mb-1">{t('analysis.orientation')}</p>
                                                 <p className="text-sm font-black text-[#C4B091] uppercase">{analysis.mediaProfile.politicalLean}</p>
                                             </div>
                                         )}
                                         {analysis.mediaProfile.reliabilityRating !== undefined && (
                                             <div className="editorial-card p-4 text-center">
-                                                <p className="text-[7px] font-black text-[#666] uppercase tracking-widest mb-1">Надеждност</p>
+                                                <p className="text-[7px] font-black text-[#666] uppercase tracking-widest mb-1">{t('analysis.authorCredibility')}</p>
                                                 <p className={`text-2xl font-black ${analysis.mediaProfile.reliabilityRating >= 0.7 ? 'text-[#7cb87c]' : analysis.mediaProfile.reliabilityRating >= 0.4 ? 'text-[#d4a574]' : 'text-[#c66]'}`}>{Math.round(analysis.mediaProfile.reliabilityRating * 100)}%</p>
                                             </div>
                                         )}
                                         {analysis.mediaProfile.ownership && (
                                             <div className="editorial-card p-4">
-                                                <p className="text-[7px] font-black text-[#666] uppercase tracking-widest mb-1">Собственост</p>
+                                                <p className="text-[7px] font-black text-[#666] uppercase tracking-widest mb-1">{t('analysis.ownership')}</p>
                                                 <p className="text-xs font-bold text-[#ccc]">{analysis.mediaProfile.ownership}</p>
                                             </div>
                                         )}
                                         {analysis.mediaProfile.fundingSource && (
                                             <div className="editorial-card p-4">
-                                                <p className="text-[7px] font-black text-[#666] uppercase tracking-widest mb-1">Финансиране</p>
+                                                <p className="text-[7px] font-black text-[#666] uppercase tracking-widest mb-1">{t('analysis.fundingSource')}</p>
                                                 <p className="text-xs font-bold text-[#ccc]">{analysis.mediaProfile.fundingSource}</p>
                                             </div>
                                         )}
                                     </div>
                                     {analysis.mediaProfile.knownFor && (
                                         <div className="p-4 bg-[#252525] border-l-2 border-[#968B74]/30">
-                                            <p className="text-[8px] font-black text-[#666] uppercase tracking-widest mb-1">Известна с</p>
+                                            <p className="text-[8px] font-black text-[#666] uppercase tracking-widest mb-1">{t('analysis.knownFor')}</p>
                                             <p className="text-sm text-[#ccc]">{analysis.mediaProfile.knownFor}</p>
                                         </div>
                                     )}
@@ -367,13 +367,13 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {analysis.timingAnalysis && (
                                     <div className="editorial-card p-6 space-y-2 border-l-4 border-l-[#a67c52]">
-                                        <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest">Защо точно сега?</p>
+                                        <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest">{t('analysis.whyNow')}</p>
                                         <p className="text-sm text-[#ccc] leading-[1.6]">{analysis.timingAnalysis}</p>
                                     </div>
                                 )}
                                 {analysis.freshnessCheck && (
                                     <div className="editorial-card p-6 space-y-2 border-l-4 border-l-[#4a7c59]">
-                                        <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest">Свежест на информацията</p>
+                                        <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest">{t('analysis.freshnessCheck')}</p>
                                         <p className="text-sm text-[#ccc] leading-[1.6]">{analysis.freshnessCheck}</p>
                                     </div>
                                 )}
@@ -381,7 +381,7 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
 
                             {(!analysis.authorProfile && !analysis.mediaProfile && !analysis.timingAnalysis) && (
                                 <div className="editorial-card p-10 text-center border border-dashed border-[#333]">
-                                    <p className="text-[#555] text-sm">Профилна информация не е налична за тази статия.</p>
+                                    <p className="text-[#555] text-sm">{t('analysis.profileNotAvailable')}</p>
                                 </div>
                             )}
                         </div>
@@ -390,26 +390,26 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                     {activeTab === 'rhetoric' && (
                         <div className="space-y-6 animate-fadeIn">
                             <div className="pl-6 md:pl-8 border-b border-[#968B74]/30 pb-6 mb-8">
-                                <h3 className="text-xl md:text-2xl font-black uppercase mb-3 text-[#C4B091] tracking-tight">Реторичен Анализ</h3>
-                                <p className="text-sm text-[#C4B091]/90 leading-relaxed">Езикови техники, емоционални тригери и структура на разказа.</p>
+                                <h3 className="text-xl md:text-2xl font-black uppercase mb-3 text-[#C4B091] tracking-tight">{t('analysis.rhetoricAnalysisTitle')}</h3>
+                                <p className="text-sm text-[#C4B091]/90 leading-relaxed">{t('analysis.rhetoricIntro')}</p>
                             </div>
 
                             {/* Headline analysis */}
                             {analysis.headlineAnalysis && (
                                 <div className={`editorial-card p-6 md:p-8 space-y-4 border-l-4 ${analysis.headlineAnalysis.isClickbait ? 'border-l-[#8b4a4a]' : 'border-l-[#4a7c59]'}`}>
                                     <div className="flex justify-between items-center">
-                                        <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest">Анализ на заглавието</p>
+                                        <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest">{t('analysis.headlineAnalysisLabel')}</p>
                                         <div className="flex gap-3 items-center">
                                             <span className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest border ${analysis.headlineAnalysis.isClickbait ? 'border-[#8b4a4a] text-[#c66] bg-[#8b4a4a]/20' : 'border-[#4a7c59] text-[#7cb87c] bg-[#4a7c59]/20'}`}>
-                                                {analysis.headlineAnalysis.isClickbait ? 'Кликбейт' : 'Честно заглавие'}
+                                                {analysis.headlineAnalysis.isClickbait ? t('analysis.clickbait') : t('analysis.honestHeadline')}
                                             </span>
-                                            <span className="text-[8px] font-black text-[#666] uppercase">Съответствие: {Math.round(analysis.headlineAnalysis.matchScore * 100)}%</span>
+                                            <span className="text-[8px] font-black text-[#666] uppercase">{t('analysis.matchScore')}: {Math.round(analysis.headlineAnalysis.matchScore * 100)}%</span>
                                         </div>
                                     </div>
                                     <p className="text-sm text-[#ccc] leading-[1.6]">{analysis.headlineAnalysis.explanation}</p>
                                     {analysis.headlineAnalysis.sensationalWords && analysis.headlineAnalysis.sensationalWords.length > 0 && (
                                         <div>
-                                            <p className="text-[8px] font-black text-[#666] uppercase tracking-widest mb-2">Сензационни думи</p>
+                                            <p className="text-[8px] font-black text-[#666] uppercase tracking-widest mb-2">{t('analysis.sensationalWords')}</p>
                                             <div className="flex flex-wrap gap-2">{analysis.headlineAnalysis.sensationalWords.map((w, i) => <span key={i} className="px-2 py-0.5 text-[9px] font-bold text-[#c66] border border-[#8b4a4a]/40 bg-[#8b4a4a]/10">„{w}"</span>)}</div>
                                         </div>
                                     )}
@@ -420,14 +420,14 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {analysis.sensationalismIndex !== undefined && (
                                     <div className="editorial-card p-6 space-y-3">
-                                        <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest">Сензационализъм индекс</p>
+                                        <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest">{t('analysis.sensationalismIndex')}</p>
                                         <p className={`text-3xl font-black ${analysis.sensationalismIndex > 0.65 ? 'text-[#c66]' : analysis.sensationalismIndex > 0.35 ? 'text-[#d4a574]' : 'text-[#7cb87c]'}`}>{Math.round(analysis.sensationalismIndex * 100)}%</p>
                                         <div className="h-1.5 bg-[#333] rounded-full"><div className={`h-1.5 rounded-full ${analysis.sensationalismIndex > 0.65 ? 'bg-[#8b4a4a]' : analysis.sensationalismIndex > 0.35 ? 'bg-[#a67c52]' : 'bg-[#4a7c59]'}`} style={{ width: `${analysis.sensationalismIndex * 100}%` }} /></div>
                                     </div>
                                 )}
                                 {analysis.circularCitation && (
                                     <div className="editorial-card p-6 space-y-2 border-l-4 border-l-[#a67c52]">
-                                        <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest">Кръгово цитиране</p>
+                                        <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest">{t('analysis.circularCitation')}</p>
                                         <p className="text-sm text-[#ccc] leading-[1.6]">{analysis.circularCitation}</p>
                                     </div>
                                 )}
@@ -436,7 +436,7 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                             {/* Emotional triggers */}
                             {analysis.emotionalTriggers && analysis.emotionalTriggers.length > 0 && (
                                 <div className="editorial-card p-6 md:p-8 space-y-4">
-                                    <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest border-b border-[#968B74]/30 pb-1 inline-block">Емоционални тригери</p>
+                                    <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest border-b border-[#968B74]/30 pb-1 inline-block">{t('analysis.emotionalTriggers')}</p>
                                     <div className="space-y-3 pt-1">
                                         {analysis.emotionalTriggers.map((t, i) => {
                                             const emotionColor = t.emotion.includes('страх') ? 'text-[#c66] border-[#8b4a4a]/40 bg-[#8b4a4a]/10' : t.emotion.includes('гняв') ? 'text-[#d4a574] border-[#a67c52]/40 bg-[#a67c52]/10' : t.emotion.includes('гордост') ? 'text-[#7cb87c] border-[#4a7c59]/40 bg-[#4a7c59]/10' : 'text-[#C4B091] border-[#968B74]/40 bg-[#968B74]/10';
@@ -457,7 +457,7 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                             {/* Missing voices */}
                             {analysis.missingVoices && analysis.missingVoices.length > 0 && (
                                 <div className="editorial-card p-6 space-y-3 border-l-4 border-l-[#a67c52]">
-                                    <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest">Липсващи гласове</p>
+                                    <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest">{t('analysis.missingVoices')}</p>
                                     <div className="space-y-2">{analysis.missingVoices.map((v, i) => (
                                         <div key={i} className="flex gap-3 items-start"><span className="text-[#a67c52] font-black text-xs mt-0.5 shrink-0">✕</span><p className="text-sm text-[#ccc]">{v}</p></div>
                                     ))}</div>
@@ -467,7 +467,7 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                             {/* Alternative sources */}
                             {analysis.alternativeSources && analysis.alternativeSources.length > 0 && (
                                 <div className="editorial-card p-6 space-y-4">
-                                    <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest border-b border-[#968B74]/30 pb-1 inline-block">Прочети вместо това</p>
+                                    <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest border-b border-[#968B74]/30 pb-1 inline-block">{t('analysis.readInstead')}</p>
                                     <div className="space-y-3 pt-1">
                                         {analysis.alternativeSources.map((s, i) => (
                                             <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" className="flex gap-3 items-start p-4 bg-[#1a1a1a] border border-[#222] hover:border-[#968B74]/40 transition-colors group">
@@ -484,7 +484,7 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
 
                             {(!analysis.headlineAnalysis && !analysis.emotionalTriggers?.length && !analysis.missingVoices?.length) && (
                                 <div className="editorial-card p-10 text-center border border-dashed border-[#333]">
-                                    <p className="text-[#555] text-sm">Реторичен анализ не е наличен за тази статия.</p>
+                                    <p className="text-[#555] text-sm">{t('analysis.rhetoricNotAvailable')}</p>
                                 </div>
                             )}
                         </div>
@@ -494,26 +494,26 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                         <div className="space-y-6 animate-fadeIn">
                             {!hasComments ? (
                                 <div className="editorial-card p-10 text-center space-y-4 border border-dashed border-[#333]">
-                                    <p className="text-[9px] font-black text-[#555] uppercase tracking-widest">Коментари</p>
-                                    <p className="text-[#555] text-sm">Не са открити публични коментари за тази статия.</p>
+                                    <p className="text-[9px] font-black text-[#555] uppercase tracking-widest">{t('analysis.commentsTabLabel')}</p>
+                                    <p className="text-[#555] text-sm">{t('analysis.noCommentsFound')}</p>
                                 </div>
                             ) : (() => {
                                 const ca = analysis.commentsAnalysis!;
                                 const sentimentColor = ca.sentiment === 'positive' ? 'text-[#7cb87c]' : ca.sentiment === 'negative' ? 'text-[#c66]' : ca.sentiment === 'mixed' ? 'text-[#d4a574]' : 'text-[#C4B091]';
                                 const sentimentBg = ca.sentiment === 'positive' ? 'bg-[#4a7c59]/20 border-[#4a7c59]' : ca.sentiment === 'negative' ? 'bg-[#8b4a4a]/20 border-[#8b4a4a]' : 'bg-[#968B74]/20 border-[#968B74]';
-                                const sentimentLabel = ca.sentiment === 'positive' ? 'Позитивен' : ca.sentiment === 'negative' ? 'Негативен' : ca.sentiment === 'mixed' ? 'Смесен' : 'Неутрален';
+                                const sentimentLabel = ca.sentiment === 'positive' ? t('analysis.sentimentPositive') : ca.sentiment === 'negative' ? t('analysis.sentimentNegative') : ca.sentiment === 'mixed' ? t('analysis.sentimentMixed') : t('analysis.sentimentNeutral');
                                 return (
                                     <div className="space-y-6">
                                         {/* Header */}
                                         <div className="editorial-card p-6 md:p-8 border-l-4 border-l-[#968B74] space-y-4">
                                             <div className="flex flex-wrap justify-between items-start gap-4">
                                                 <div>
-                                                    <p className="text-[8px] font-black text-[#666] uppercase tracking-widest mb-1">Анализ на коментари</p>
+                                                    <p className="text-[8px] font-black text-[#666] uppercase tracking-widest mb-1">{t('analysis.commentsAnalysisLabel')}</p>
                                                     <p className="text-xs font-black text-[#968B74] uppercase">{ca.source}</p>
                                                 </div>
                                                 <div className="flex gap-3 flex-wrap">
-                                                    <span className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest border ${sentimentBg} ${sentimentColor}`}>{sentimentLabel} тон</span>
-                                                    {ca.totalAnalyzed ? <span className="px-3 py-1 text-[9px] font-black uppercase tracking-widest border border-[#333] text-[#666]">{ca.totalAnalyzed} коментара</span> : null}
+                                                    <span className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest border ${sentimentBg} ${sentimentColor}`}>{sentimentLabel} {t('analysis.sentimentTone')}</span>
+                                                    {ca.totalAnalyzed ? <span className="px-3 py-1 text-[9px] font-black uppercase tracking-widest border border-[#333] text-[#666]">{t('analysis.commentsCount', { count: ca.totalAnalyzed })}</span> : null}
                                                 </div>
                                             </div>
                                             {ca.overallSummary && <p className="text-[#ccc] text-sm leading-[1.65] border-l-2 border-[#968B74] pl-4">{ca.overallSummary}</p>}
@@ -523,14 +523,14 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                                         <div className="grid grid-cols-2 gap-4">
                                             {ca.polarizationIndex !== undefined && (
                                                 <div className="editorial-card p-5 space-y-2">
-                                                    <p className="text-[8px] font-black text-[#666] uppercase tracking-widest">Поляризация</p>
+                                                    <p className="text-[8px] font-black text-[#666] uppercase tracking-widest">{t('analysis.polarization')}</p>
                                                     <p className={`text-2xl font-black ${ca.polarizationIndex > 0.65 ? 'text-[#c66]' : ca.polarizationIndex > 0.4 ? 'text-[#d4a574]' : 'text-[#7cb87c]'}`}>{Math.round(ca.polarizationIndex * 100)}%</p>
                                                     <div className="h-1 bg-[#333] rounded-full"><div className="h-1 bg-[#968B74] rounded-full" style={{ width: `${ca.polarizationIndex * 100}%` }} /></div>
                                                 </div>
                                             )}
                                             {ca.botActivitySuspicion !== undefined && (
                                                 <div className="editorial-card p-5 space-y-2">
-                                                    <p className="text-[8px] font-black text-[#666] uppercase tracking-widest">Подозрение за ботове</p>
+                                                    <p className="text-[8px] font-black text-[#666] uppercase tracking-widest">{t('analysis.botSuspicion')}</p>
                                                     <p className={`text-2xl font-black ${ca.botActivitySuspicion > 0.5 ? 'text-[#c66]' : ca.botActivitySuspicion > 0.25 ? 'text-[#d4a574]' : 'text-[#7cb87c]'}`}>{Math.round(ca.botActivitySuspicion * 100)}%</p>
                                                     <div className="h-1 bg-[#333] rounded-full"><div className="h-1 bg-[#968B74] rounded-full" style={{ width: `${ca.botActivitySuspicion * 100}%` }} /></div>
                                                 </div>
@@ -540,7 +540,7 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                                         {/* Dominant themes */}
                                         {ca.dominantThemes && ca.dominantThemes.length > 0 && (
                                             <div className="editorial-card p-6 space-y-3">
-                                                <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest border-b border-[#968B74]/30 pb-1 inline-block">Доминиращи теми</p>
+                                                <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest border-b border-[#968B74]/30 pb-1 inline-block">{t('analysis.dominantThemes')}</p>
                                                 <div className="flex flex-wrap gap-2 pt-1">
                                                     {ca.dominantThemes.map((t, i) => <span key={i} className="px-3 py-1 text-[10px] font-bold text-[#C4B091] border border-[#968B74]/30 bg-[#252525] rounded-sm">{t}</span>)}
                                                 </div>
@@ -550,7 +550,7 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                                         {/* Key opinions */}
                                         {ca.keyOpinions && ca.keyOpinions.length > 0 && (
                                             <div className="editorial-card p-6 space-y-4">
-                                                <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest border-b border-[#968B74]/30 pb-1 inline-block">Ключови мнения</p>
+                                                <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest border-b border-[#968B74]/30 pb-1 inline-block">{t('analysis.keyOpinions')}</p>
                                                 <div className="space-y-3 pt-1">
                                                     {ca.keyOpinions.map((op, i) => (
                                                         <div key={i} className="flex gap-3 items-start">
@@ -565,7 +565,7 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                                         {/* Manipulation in comments */}
                                         {ca.manipulationInComments && (
                                             <div className="editorial-card p-6 space-y-3 border-l-4 border-l-[#8b4a4a]">
-                                                <p className="text-[8px] font-black text-[#C4B091] uppercase tracking-widest">Манипулация в коментарите</p>
+                                                <p className="text-[8px] font-black text-[#C4B091] uppercase tracking-widest">{t('analysis.manipulationInComments')}</p>
                                                 <p className="text-[#ccc] text-sm leading-[1.65]">{ca.manipulationInComments}</p>
                                             </div>
                                         )}
@@ -579,8 +579,8 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                         <div className="space-y-6 animate-fadeIn">
                             <div className="editorial-card p-8 md:p-12 border border-[#968B74]/20">
                                 <div className="text-center mb-10 pb-6 border-b-2 border-[#333]">
-                                    <p className="text-[9px] font-black text-[#968B74] uppercase tracking-[0.3em] mb-2">ОФИЦИАЛЕН ДОКЛАД</p>
-                                    <h2 className="text-3xl md:text-4xl font-black text-[#C4B091]">Заключителен Анализ</h2>
+                                    <p className="text-[9px] font-black text-[#968B74] uppercase tracking-[0.3em] mb-2">{t('analysis.officialReport')}</p>
+                                    <h2 className="text-3xl md:text-4xl font-black text-[#C4B091]">{t('analysis.concludingAnalysis')}</h2>
                                 </div>
                                 {linkReportTranslating && <p className="text-[#968B74] text-sm mb-4">{t('loading.translating')}</p>}
                                 <div className="max-w-none space-y-1 font-sans text-[15px] md:text-base leading-[1.7] text-[#ddd]">

@@ -1,5 +1,5 @@
-
-import React, { useMemo, memo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot } from 'recharts';
 import { TimelinePoint, Claim } from '../types';
 
@@ -11,6 +11,7 @@ interface Props {
 }
 
 const ReliabilityChart: React.FC<Props> = ({ data, claims, totalDuration }) => {
+  const { t } = useTranslation();
   const [hoveredPoint, setHoveredPoint] = useState<any>(null);
 
   const processedData = useMemo(() => {
@@ -29,7 +30,7 @@ const ReliabilityChart: React.FC<Props> = ({ data, claims, totalDuration }) => {
         matchingClaim = claims[idx];
       }
 
-      const fullQuote = matchingClaim ? matchingClaim.quote : (p.event || 'Събитие от времевата линия');
+      const fullQuote = matchingClaim ? matchingClaim.quote : (p.event || t('analysis.timelineEvent'));
 
       return {
         index: idx,
@@ -63,7 +64,7 @@ const ReliabilityChart: React.FC<Props> = ({ data, claims, totalDuration }) => {
     return (
       <div className="editorial-card p-6 md:p-12 border-l-4 border-l-[#968B74]">
         <div className="text-center py-12">
-          <p className="text-[#666] text-sm font-medium">Няма налични данни за графиката</p>
+          <p className="text-[#666] text-sm font-medium">{t('analysis.noChartData')}</p>
         </div>
       </div>
     );
@@ -75,18 +76,18 @@ const ReliabilityChart: React.FC<Props> = ({ data, claims, totalDuration }) => {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 md:mb-16 gap-6">
           <div className="text-center md:text-left w-full md:w-auto">
             <h3 className="text-[10px] md:text-[12px] font-extrabold text-[#968B74] uppercase tracking-[0.3em] md:tracking-[0.5em] mb-2 md:mb-3">
-              Аналитичен осцилоскоп
+              {t('analysis.chartOscilloscope')}
             </h3>
-            <p className="text-2xl md:text-4xl font-black uppercase tracking-tighter serif italic leading-none text-[#E0E0E0]">Динамика на надеждността</p>
+            <p className="text-2xl md:text-4xl font-black uppercase tracking-tighter serif italic leading-none text-[#E0E0E0]">{t('analysis.reliabilityDynamics')}</p>
           </div>
           <div className="text-right hidden md:block">
             <div className="flex gap-8">
               <div className="text-center">
-                <p className="text-[9px] font-black text-[#666] uppercase tracking-widest mb-1">Max Stability</p>
+                <p className="text-[9px] font-black text-[#666] uppercase tracking-widest mb-1">{t('analysis.maxStability')}</p>
                 <p className="text-xl font-black text-[#C4B091]">{Math.max(...processedData.map(d => d.reliability), 0)}%</p>
               </div>
               <div className="text-center">
-                <p className="text-[9px] font-black text-[#666] uppercase tracking-widest mb-1">Рискове</p>
+                <p className="text-[9px] font-black text-[#666] uppercase tracking-widest mb-1">{t('analysis.risks')}</p>
                 <p className="text-xl font-black text-[#c66]">{processedData.filter(d => d.reliability < 50).length}</p>
               </div>
             </div>
@@ -138,17 +139,17 @@ const ReliabilityChart: React.FC<Props> = ({ data, claims, totalDuration }) => {
         <div className="mt-6 md:mt-8 flex justify-between text-[9px] md:text-[11px] font-black text-[#666] uppercase tracking-[0.2em] md:tracking-[0.4em] border-t border-[#333] pt-4 md:pt-6">
           <div className="flex items-center gap-1 md:gap-2">
             <span className="h-1.5 w-1.5 md:h-2 md:w-2 bg-[#968B74]"></span>
-            <span>Старт</span>
+            <span>{t('analysis.start')}</span>
           </div>
           <div className="flex items-center gap-1 md:gap-2">
-            <span className="hidden md:inline">Продължителност:</span> <span>{totalDuration}</span>
+            <span className="hidden md:inline">{t('analysis.durationLabel')}</span> <span>{totalDuration}</span>
             <span className="h-1.5 w-1.5 md:h-2 md:w-2 bg-[#968B74]"></span>
           </div>
         </div>
       </div>
 
       <div className="editorial-card p-6 md:p-10 border-l-4 border-l-[#968B74] overflow-hidden relative">
-        <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-[0.3em] md:tracking-[0.5em] text-[#968B74] mb-6 border-b border-[#333] pb-4">Хронологичен регистър</h4>
+        <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-[0.3em] md:tracking-[0.5em] text-[#968B74] mb-6 border-b border-[#333] pb-4">{t('analysis.chronologicalRegister')}</h4>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 max-h-[300px] md:max-h-[400px] overflow-y-auto pr-2 scroll-custom">
           {processedData.map((point, idx) => (
@@ -164,7 +165,7 @@ const ReliabilityChart: React.FC<Props> = ({ data, claims, totalDuration }) => {
                 {point.event && point.event.length > 100 ? point.event.substring(0, 100) + '...' : point.event}
               </p>
               {point.event && point.event.length > 100 && (
-                <p className="text-[9px] text-[#666] mt-1 italic tracking-tight font-bold uppercase">(Пълен цитат в таб "Твърдения")</p>
+                <p className="text-[9px] text-[#666] mt-1 italic tracking-tight font-bold uppercase">({t('analysis.fullQuoteInClaimsTab')})</p>
               )}
             </div>
           ))}
