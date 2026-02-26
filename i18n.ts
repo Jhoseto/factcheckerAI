@@ -3,9 +3,9 @@ import { initReactI18next } from 'react-i18next';
 import bg from './locales/bg.json';
 
 export const STORAGE_KEY = 'i18nextLng';
-const CACHE_KEY = 'i18n_cache_en';
-const CACHE_VERSION_KEY = 'i18n_cache_en_version';
-const CACHE_VERSION = '1';
+export const CACHE_KEY = 'i18n_cache_en';
+export const CACHE_VERSION_KEY = 'i18n_cache_en_version';
+export const CACHE_VERSION = '1';
 
 /** Нормализира записания език само до 'en' или 'bg' */
 function getStoredLanguage(): 'en' | 'bg' {

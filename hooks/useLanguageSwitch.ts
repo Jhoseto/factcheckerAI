@@ -1,9 +1,10 @@
 import { useState, useCallback, useEffect } from 'react';
-import i18n, { restoreEnBundleFromCache } from '../i18n';
-
-const CACHE_KEY = 'i18n_cache_en';
-const CACHE_VERSION_KEY = 'i18n_cache_en_version';
-const CACHE_VERSION = '1';
+import i18n, {
+  restoreEnBundleFromCache,
+  CACHE_KEY,
+  CACHE_VERSION_KEY,
+  CACHE_VERSION,
+} from '../i18n';
 
 /** User-friendly message when translation API is not configured (503) */
 export const TRANSLATE_NOT_CONFIGURED_MSG =
