@@ -77,10 +77,8 @@ server/
 │   └── rateLimiter.js         # Rate limiting
 ├── services/
 │   └── firebaseAdmin.js       # Firebase Admin SDK операции
-├── config/
-│   └── pricing.js             # Server-side pricing config
-└── utils/
-    └── safeJson.js            # JSON parsing utilities
+└── config/
+    └── pricing.js             # Server-side pricing config
 ```
 
 ---
@@ -108,7 +106,7 @@ server/
 - Използва **Gemini 2.5 Flash** модел
 - **Streaming API** за дълги видеа (избягва timeout грешки)
 - **Server-Sent Events (SSE)** за progress updates
-- **JSON sanitization** за обработка на невалидни отговори от AI
+- **Structured JSON**: Gemini връща валиден JSON чрез `responseMimeType` + `responseSchema`; парс само в `server/routes/gemini.js`
 - **Retry логика** за непълни отговори (max 1 retry)
 
 #### Код локации:
@@ -287,12 +285,12 @@ server/
 - **YouTube URL**: Поддръжка на различни формати
 - **URL Normalization**: Стандартизиране на URL-ите
 - **Balance Checks**: Pre-flight проверки преди анализ
-- **JSON Sanitization**: Автоматично поправяне на невалиден JSON от AI
+- **JSON от Gemini**: Принудително `responseMimeType: application/json` и `responseSchema` за видео/линк; единствено парсване/валидация в `server/routes/gemini.js` (минимален parse: strip markdown, JSON.parse, при неуспех един fallback с escape на control chars).
 
 #### Код локации:
 - `services/errorHandler.ts` - Централизиран error handling
 - `services/validation.ts` - URL валидация
-- `server/utils/safeJson.js` - JSON parsing utilities
+- `server/routes/gemini.js` - Gemini endpoints и parse/validate на JSON отговори
 
 ---
 

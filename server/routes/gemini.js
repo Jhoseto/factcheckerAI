@@ -62,72 +62,22 @@ function escapeControlCharsInJson(text) {
     return out;
 }
 
-/** Escape unescaped " inside JSON string values (so parser doesn't treat them as end of string). */
-function escapeUnescapedQuotesInJson(text) {
-    let out = '';
-    let inString = false;
-    let escape = false;
-    for (let i = 0; i < text.length; i++) {
-        const ch = text[i];
-        if (escape) {
-            out += ch;
-            escape = false;
-            continue;
-        }
-        if (ch === '\\' && inString) {
-            escape = true;
-            out += ch;
-            continue;
-        }
-        if (ch === '"') {
-            if (inString) {
-                let j = i + 1;
-                while (j < text.length && /[\s\n\r\t]/.test(text[j])) j++;
-                if (j >= text.length) { inString = false; out += ch; continue; }
-                if (text[j] === ',' || text[j] === '}' || text[j] === ']') { inString = false; out += ch; continue; }
-                if (text[j] === '"') {
-                    let k = j + 1;
-                    let esc = false;
-                    while (k < text.length) {
-                        if (esc) { esc = false; k++; continue; }
-                        if (text[k] === '\\') { esc = true; k++; continue; }
-                        if (text[k] === '"') break;
-                        k++;
-                    }
-                    k++;
-                    while (k < text.length && /[\s\n\r\t]/.test(text[k])) k++;
-                    if (k < text.length && text[k] === ':') { inString = false; out += ch; continue; }
-                }
-                out += '\\"';
-                continue;
-            }
-            inString = true;
-            out += ch;
-            continue;
-        }
-        out += ch;
-    }
-    return out;
-}
+/** Parse JSON from Gemini response: strip markdown, then parse (with one fallback for control chars). */
+function parseJsonRobust(rawText) {
+    if (!rawText || typeof rawText !== 'string') return { ok: false, error: 'empty' };
+    let t = rawText.trim();
+    const jsonBlock = t.match(/```json\s*([\s\S]*?)\s*```/);
+    if (jsonBlock) t = jsonBlock[1].trim();
+    else t = t.replace(/```json\s*/g, '').replace(/\s*```/g, '').trim();
+    if (!t.length) return { ok: false, error: 'empty' };
 
-/** Repair JSON truncated mid-string (e.g. deep analysis). Returns string with closed quotes and brackets. */
-function repairTruncatedJson(text) {
-    let inString = false, escape = false;
-    const stack = [];
-    for (let i = 0; i < text.length; i++) {
-        const ch = text[i];
-        if (escape) { escape = false; continue; }
-        if (ch === '\\' && inString) { escape = true; continue; }
-        if (ch === '"') { inString = !inString; continue; }
-        if (!inString) {
-            if (ch === '{' || ch === '[') stack.push(ch);
-            else if (ch === '}' && stack[stack.length - 1] === '{') stack.pop();
-            else if (ch === ']' && stack[stack.length - 1] === '[') stack.pop();
-        }
-    }
-    let suffix = inString ? (stack.length && stack[stack.length - 1] === '{' ? '": ""' : '"') : '';
-    while (stack.length) suffix += stack.pop() === '{' ? '}' : ']';
-    return text + suffix;
+    try {
+        return { ok: true, parsed: JSON.parse(t) };
+    } catch (_) {}
+    try {
+        return { ok: true, parsed: JSON.parse(escapeControlCharsInJson(t)) };
+    } catch (_) {}
+    return { ok: false, error: 'parse failed' };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -150,75 +100,95 @@ function getAI() {
     return new GoogleGenAI({ apiKey });
 }
 
+// JSON Schema for structured output — relaxed so Gemini always returns valid JSON (video & link)
+const VIDEO_RESPONSE_SCHEMA = {
+    type: 'object',
+    properties: {
+        summary: { type: 'string' },
+        overallAssessment: { type: 'string' },
+        detailedMetrics: { type: 'object' },
+        factualClaims: { type: 'array', items: { type: 'object' } },
+        claims: { type: 'array', items: { type: 'object' } },
+        quotes: { type: 'array', items: { type: 'object' } },
+        manipulationTechniques: { type: 'array', items: { type: 'object' } },
+        finalInvestigativeReport: { type: 'string' },
+        transcription: { type: 'array', items: { type: 'object' } },
+        geopoliticalContext: { type: 'array', items: { type: 'object' } },
+        historicalParallel: { type: 'array', items: { type: 'object' } },
+        psychoLinguisticAnalysis: { type: 'array', items: { type: 'object' } },
+        strategicIntent: { type: 'array', items: { type: 'object' } },
+        narrativeArchitecture: { type: 'array', items: { type: 'object' } },
+        technicalForensics: { type: 'array', items: { type: 'object' } },
+        socialImpactPrediction: { type: 'array', items: { type: 'object' } },
+        visualAnalysis: { type: 'array', items: { type: 'object' } },
+        bodyLanguageAnalysis: { type: 'array', items: { type: 'object' } },
+        vocalAnalysis: { type: 'array', items: { type: 'object' } },
+        deceptionAnalysis: { type: 'array', items: { type: 'object' } },
+        humorAnalysis: { type: 'array', items: { type: 'object' } },
+        psychologicalProfile: { type: 'array', items: { type: 'object' } },
+        culturalSymbolicAnalysis: { type: 'array', items: { type: 'object' } },
+        recommendations: { type: 'array', items: { type: 'object' } },
+        biasIndicators: { type: 'object' }
+    }
+};
+
+const LINK_RESPONSE_SCHEMA = {
+    type: 'object',
+    properties: {
+        title: { type: 'string' },
+        siteName: { type: 'string' },
+        summary: { type: 'string' },
+        overallAssessment: { type: 'string' },
+        detailedMetrics: { type: 'object' },
+        authorProfile: { type: 'object' },
+        mediaProfile: { type: 'object' },
+        headlineAnalysis: { type: 'object' },
+        factualClaims: { type: 'array', items: { type: 'object' } },
+        manipulationTechniques: { type: 'array', items: { type: 'object' } },
+        alternativeSources: { type: 'array', items: { type: 'object' } },
+        commentsAnalysis: { type: 'object' }
+    }
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper: validate and clean JSON response
 // Enhanced for Deep mode with Google Search tools
 // ─────────────────────────────────────────────────────────────────────────────
 function validateJsonResponse(responseText, serviceType = 'link') {
-    if (!responseText || responseText.length < 10) {
+    if (!responseText || responseText.length < 5) {
         return { valid: false, code: 'AI_EMPTY_RESPONSE' };
     }
 
-    let trimmed = responseText.trim();
-    const jsonBlockMatch = trimmed.match(/```json\s*([\s\S]*?)\s*```/);
-    if (jsonBlockMatch) trimmed = jsonBlockMatch[1].trim();
-    else trimmed = trimmed.replace(/```json\s*/g, '').replace(/\s*```/g, '').trim();
+    const parseResult = parseJsonRobust(responseText);
+    if (!parseResult.ok) {
+        return { valid: false, code: 'AI_JSON_PARSE_ERROR', error: parseResult.error };
+    }
+    const parsed = parseResult.parsed;
 
-    let parsed;
-    try {
-        parsed = JSON.parse(trimmed);
-    } catch (_) {
-        try {
-            parsed = JSON.parse(escapeControlCharsInJson(trimmed));
-        } catch (_) {
-            try {
-                const quoteFixed = escapeUnescapedQuotesInJson(trimmed);
-                parsed = JSON.parse(quoteFixed);
-            } catch (_) {
-                try {
-                parsed = JSON.parse(escapeControlCharsInJson(escapeUnescapedQuotesInJson(trimmed)));
-                } catch (_) {
-                    try {
-                        const repaired = repairTruncatedJson(trimmed);
-                        parsed = JSON.parse(escapeControlCharsInJson(escapeUnescapedQuotesInJson(repaired)));
-                    } catch (parseErr) {
-                        console.error('[validateJsonResponse] JSON parse failed:', parseErr.message);
-                        return { valid: false, code: 'AI_JSON_PARSE_ERROR', error: parseErr.message };
-                    }
-                }
-            }
-        }
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        return { valid: false, code: 'AI_INCOMPLETE_RESPONSE', parsed };
     }
 
-    try {
-        if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-            // Video analysis - flexible validation (title optional; client has videoMetadata)
-            if (serviceType === 'video') {
-                const hasSummary = parsed.summary && typeof parsed.summary === 'string' && parsed.summary.length > 10;
-                const hasContent = (Array.isArray(parsed.factualClaims) && parsed.factualClaims.length > 0) ||
-                    (Array.isArray(parsed.claims) && parsed.claims.length > 0) ||
-                    (Array.isArray(parsed.quotes) && parsed.quotes.length > 0) ||
-                    (Array.isArray(parsed.manipulationTechniques) && parsed.manipulationTechniques.length > 0) ||
-                    (parsed.overallAssessment && parsed.detailedMetrics);
-                const hasMinFields = hasSummary && (hasContent || parsed.overallAssessment);
-                if (!hasMinFields) {
-                    return { valid: false, code: 'AI_INCOMPLETE_RESPONSE', parsed };
-                }
-                return { valid: true, parsed, cleanedText: JSON.stringify(parsed) };
-            }
-
-            // Link/Article analysis - minimal validation
-            const hasSomething = parsed.summary || parsed.title || parsed.overallAssessment || parsed.factualClaims;
-            if (!hasSomething) {
-                return { valid: false, code: 'AI_INCOMPLETE_RESPONSE', parsed };
-            }
+    if (serviceType === 'video') {
+        const hasSummary = typeof parsed.summary === 'string' && parsed.summary.length > 0;
+        const hasContent = (Array.isArray(parsed.factualClaims) && parsed.factualClaims.length > 0) ||
+            (Array.isArray(parsed.claims) && parsed.claims.length > 0) ||
+            (Array.isArray(parsed.quotes) && parsed.quotes.length > 0) ||
+            (Array.isArray(parsed.manipulationTechniques) && parsed.manipulationTechniques.length > 0) ||
+            parsed.overallAssessment ||
+            (parsed.detailedMetrics && typeof parsed.detailedMetrics === 'object');
+        if (hasSummary && (hasContent || parsed.overallAssessment || parsed.finalInvestigativeReport)) {
+            return { valid: true, parsed, cleanedText: JSON.stringify(parsed) };
         }
-
-        return { valid: true, parsed, cleanedText: JSON.stringify(parsed) };
-    } catch (e) {
-        console.error('[validateJsonResponse] Validation error:', e.message);
-        return { valid: false, code: 'AI_JSON_PARSE_ERROR', error: e.message };
+        if (hasSummary || hasContent) {
+            return { valid: true, parsed, cleanedText: JSON.stringify(parsed) };
+        }
+        return { valid: false, code: 'AI_INCOMPLETE_RESPONSE', parsed };
     }
+
+    const hasSomething = parsed.summary || parsed.title || parsed.overallAssessment || parsed.factualClaims;
+    if (!hasSomething) return { valid: false, code: 'AI_INCOMPLETE_RESPONSE', parsed };
+    return { valid: true, parsed, cleanedText: JSON.stringify(parsed) };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -289,7 +259,7 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                         systemInstruction: (systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON. Complete ALL fields in the response.') + '\n\n' + getLanguageInstruction(lang),
                         temperature: 0.7,
                         maxOutputTokens: isDeepMode ? 65536 : 20000,
-                        responseMimeType: tools ? undefined : 'application/json',
+                        ...(tools ? {} : { responseMimeType: 'application/json', responseSchema: VIDEO_RESPONSE_SCHEMA }),
                         mediaResolution: 'MEDIA_RESOLUTION_LOW',
                         tools
                     }
@@ -309,7 +279,7 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                         systemInstruction: sysInstr,
                         temperature: 0.7,
                         maxOutputTokens: 65536, // Gemini 2.5 Flash supports up to 64K output tokens
-                        responseMimeType: tools ? undefined : 'application/json',
+                        ...(tools ? {} : { responseMimeType: 'application/json', responseSchema: serviceType === 'linkArticle' ? LINK_RESPONSE_SCHEMA : VIDEO_RESPONSE_SCHEMA }),
                         tools
                     }
                 });
@@ -492,11 +462,11 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             // we must send that back with a function response and call again until we get text.
             sendSSE('progress', { status: 'Изготвяне на (DCGE) задълбочен анализ (може да отнеме до няколко минути)...' });
 
+            // Tool use + responseMimeType JSON is unsupported by Gemini — omit both for deep
             const config = {
                 systemInstruction: enhancedSystemInstruction,
-                temperature: 1,
+                temperature: 0.7,
                 maxOutputTokens: 63536,
-                responseMimeType: undefined,
                 mediaResolution: 'MEDIA_RESOLUTION_LOW',
                 tools
             };
@@ -510,53 +480,67 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
                     contents: currentContents,
                     config
                 });
+                streamUsage = response.usageMetadata || streamUsage;
 
+                fullText = '';
                 if (typeof response.text === 'string') fullText = response.text;
                 else if (typeof response.text === 'function') { try { fullText = response.text(); } catch (_) { } }
                 else if (response.text != null && typeof response.text.then === 'function') { try { fullText = await response.text; } catch (_) { } }
-                const content = response.candidates?.[0]?.content;
-                if (!fullText && content) {
-                    const parts = content.parts;
-                    if (Array.isArray(parts)) {
-                        fullText = parts.map(p => {
-                            if (typeof p === 'string') return p;
-                            if (p?.text != null) return String(p.text);
-                            if (p?.content != null && typeof p.content === 'string') return p.content;
-                            return '';
-                        }).join('');
-                    }
-                    if (!fullText && content.text != null) fullText = String(content.text);
-                    if (!fullText && Array.isArray(content)) fullText = content.map(p => p?.text ?? '').join('');
-                    if (!fullText && typeof content === 'object') {
-                        const arr = content.parts ?? content.rawParts ?? (typeof content.role === 'string' && content.parts === undefined ? undefined : Object.values(content).find(v => Array.isArray(v)));
-                        if (Array.isArray(arr)) fullText = arr.map(p => (p && typeof p === 'object' && p.text != null) ? String(p.text) : '').join('');
-                    }
+                if (!fullText && response.candidates?.[0]?.content?.parts) {
+                    fullText = response.candidates[0].content.parts
+                        .map(p => (p && typeof p === 'object' && p.text != null) ? String(p.text) : '')
+                        .join('');
                 }
                 fullText = fullText || '';
-                streamUsage = response.usageMetadata || streamUsage;
 
                 if (fullText.length) break;
 
-                const parts = content?.parts;
-                const hasFunctionCall = Array.isArray(parts) && parts.some(p => p?.functionCall || p?.function_call);
-                if (!hasFunctionCall || !parts?.length) {
-                    const c0 = response.candidates?.[0];
-                    const finishReason = c0?.finishReason ?? c0?.finish_reason ?? response.finishReason;
-                    console.error('[Gemini Stream] Deep mode: empty response, no function call. finishReason:', finishReason, 'content keys:', content ? Object.keys(content) : 'none', 'parts:', parts?.length ?? 'n/a');
+                const parts = response.candidates?.[0]?.content?.parts;
+                const hasFn = Array.isArray(parts) && parts.some(p => p?.functionCall || p?.function_call);
+                if (!hasFn || !parts?.length) {
+                    if (round === 0) {
+                        sendSSE('progress', { status: 'Повторен опит при празен отговор...' });
+                        await new Promise(r => setTimeout(r, 1500));
+                        continue;
+                    }
+                    if (fullText.length === 0) console.error('[Gemini Stream] Deep: празен отговор след повторен опит.');
                     break;
                 }
 
                 sendSSE('progress', { status: `Търсене в Google (кръг ${round + 1})...` });
-                const fnCalls = parts.filter(p => p.functionCall || p.function_call);
-                const fnResponseParts = fnCalls.map(p => {
-                    const fc = p.functionCall || p.function_call;
-                    return { functionResponse: { name: fc.name, response: fc.args || {} } };
-                });
+                const fnResponseParts = parts
+                    .filter(p => p?.functionCall || p?.function_call)
+                    .map(p => {
+                        const fc = p.functionCall || p.function_call;
+                        return { functionResponse: { name: fc.name, response: fc.args || {} } };
+                    });
                 currentContents = [
                     ...currentContents,
                     { role: 'model', parts },
                     { role: 'user', parts: fnResponseParts }
                 ];
+            }
+
+            // If we only got function calls and no text, ask once more for JSON only (no tools — allows responseMimeType)
+            if (!fullText.length && response?.candidates?.[0]?.content?.parts?.length) {
+                sendSSE('progress', { status: 'Заявка за финален JSON отговор...' });
+                const jsonOnlyPrompt = { role: 'user', parts: [{ text: 'Return the full analysis as a single valid JSON object. No other text. Start with { and end with }.' }] };
+                const finalConfig = { ...config, tools: undefined, responseMimeType: 'application/json', responseSchema: VIDEO_RESPONSE_SCHEMA };
+                const finalResponse = await ai.models.generateContent({
+                    model: model || 'gemini-2.5-flash',
+                    contents: [...currentContents, jsonOnlyPrompt],
+                    config: finalConfig
+                });
+                streamUsage = finalResponse.usageMetadata || streamUsage;
+                if (typeof finalResponse.text === 'string') fullText = finalResponse.text;
+                else if (typeof finalResponse.text === 'function') { try { fullText = finalResponse.text(); } catch (_) { } }
+                else if (finalResponse.text != null && typeof finalResponse.text.then === 'function') { try { fullText = await finalResponse.text; } catch (_) { } }
+                if (!fullText && finalResponse.candidates?.[0]?.content?.parts) {
+                    fullText = finalResponse.candidates[0].content.parts
+                        .map(p => (p && typeof p === 'object' && p.text != null) ? String(p.text) : '')
+                        .join('');
+                }
+                fullText = fullText || '';
             }
 
             // Simulate streaming the result back to the UI so it doesn't look frozen
@@ -576,6 +560,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
                     temperature: 0.7,
                     maxOutputTokens: 63536,
                     responseMimeType: 'application/json',
+                    responseSchema: VIDEO_RESPONSE_SCHEMA,
                     mediaResolution: 'MEDIA_RESOLUTION_LOW'
                 }
             });
@@ -621,12 +606,13 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             const emptyMsg = validation.code === 'AI_EMPTY_RESPONSE'
                 ? 'Моделът не върна съдържание. Опитайте отново след минута или изберете по-кратко видео.'
                 : 'AI върна невалиден формат. Никакви точки не бяха таксувани.';
-            sendSSE('error', {
-                error: emptyMsg,
-                code: validation.code,
-                details: validation.error || 'Unknown validation error'
-            });
-            return res.end();
+            try {
+                sendSSE('error', { error: emptyMsg, code: validation.code, details: validation.error || 'Unknown validation error' });
+            } catch (sendErr) {
+                console.error('[Gemini Stream] Send error event failed:', sendErr?.message);
+            }
+            try { res.end(); } catch (_) {}
+            return;
         }
 
         // ── Calculate cost ────────────────────────────────────────────────────
