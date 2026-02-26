@@ -281,7 +281,16 @@
     "deepLabel": "Дълбок анализ",
     "standardTooltip": "Структуриран одит на твърдения, източници и манипулации. Идеален за бърза проверка на ключови факти.",
     "deepTooltip": "Пълен мултимодален одит: визуален, вокален и език на тялото, психологически профил и разширен доклад. За максимална дълбочина.",
-    "pointsCost": "{{count}} точки"
+    "pointsCost": "{{count}} точки",
+    "scannerUnderstanding": "РАЗБИРАНЕ",
+    "scannerConnection": "СВЪРЗАНОСТ",
+    "scannerDepth": "ДЪЛБОЧИНА",
+    "scannerLogic": "ЛОГИКА",
+    "scannerPosition": "ПОЗИЦИЯ",
+    "scannerManipulation": "МАНИПУЛАЦИЯ",
+    "scannerLandmarks": "ОРИЕНТИРИ",
+    "scannerVerification": "ВЕРИФИКАЦИЯ",
+    "scannerMeaning": "СМИСЪЛ"
   },
   "linkAudit": {
     "insufficientPoints": "Недостатъчно точки. Необходими са {{count}}.",

@@ -5,6 +5,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface ScannerAnimationProps {
     size?: number;
@@ -29,25 +30,27 @@ const ScannerAnimation: React.FC<ScannerAnimationProps> = ({ size = 320, width, 
         );
     }
 
+    const { t } = useTranslation();
     const [activeWordIndex, setActiveWordIndex] = useState(0);
-    const words = [
-        'РАЗБИРАНЕ',
-        'СВЪРЗАНОСТ',
-        'ДЪЛБОЧИНА',
-        'ЛОГИКА',
-        'ПОЗИЦИЯ',
-        'МАНИПУЛАЦИЯ',
-        'ОРИЕНТИРИ',
-        'ВЕРИФИКАЦИЯ',
-        'СМИСЪЛ'
+    const wordKeys = [
+        'app.scannerUnderstanding',
+        'app.scannerConnection',
+        'app.scannerDepth',
+        'app.scannerLogic',
+        'app.scannerPosition',
+        'app.scannerManipulation',
+        'app.scannerLandmarks',
+        'app.scannerVerification',
+        'app.scannerMeaning'
     ];
+    const words = wordKeys.map((k) => t(k));
 
     useEffect(() => {
         const interval = setInterval(() => {
             setActiveWordIndex((prev) => (prev + 1) % words.length);
         }, 4000);
         return () => clearInterval(interval);
-    }, []);
+    }, [words.length]);
 
     const nodes = [
         { top: '20%', left: '25%', delay: '0s' },
@@ -129,7 +132,7 @@ const ScannerAnimation: React.FC<ScannerAnimationProps> = ({ size = 320, width, 
                 <div className="h-10 flex items-center justify-center overflow-hidden">
                     {words.map((word, i) => (
                         <div
-                            key={word}
+                            key={wordKeys[i]}
                             className={`absolute font-serif font-medium tracking-[0.25em] text-[#C4B091]/90 transition-all duration-[2000ms] ease-[cubic-bezier(0.4,0,0.2,1)]
                                 ${i === activeWordIndex
                                     ? 'opacity-100 blur-0 scale-100 translate-y-0'
