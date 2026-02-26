@@ -111,6 +111,7 @@ export async function verifyToken(idToken) {
  * Add points to user account
  * @param userId - Firebase user UID
  * @param points - Number of points to add
+ * @param orderId - Optional Lemon Squeezy order ID for idempotency (skip if already processed)
  */
 export async function addPointsToUser(userId, points, orderId = null) {
     if (!adminInitialized) {

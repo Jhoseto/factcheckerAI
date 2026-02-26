@@ -15,27 +15,34 @@ const MobileExpensesPage: React.FC = () => {
   const locale = dateLocale(i18n.language);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'deductions' | 'purchases'>('deductions');
   const [filter, setFilter] = useState<'all' | 'video' | 'link' | 'social'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOrder, setSortOrder] = useState<'date_desc' | 'date_asc' | 'points_desc' | 'video' | 'link'>('date_desc');
 
-  useEffect(() => {
+  const loadTransactions = React.useCallback(async () => {
     if (!currentUser) return;
-
-    const loadTransactions = async () => {
-      try {
-        const txs = await getUserTransactions(currentUser.uid);
-        setTransactions(txs);
-      } catch (error) {
-        console.error("Error loading transactions:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadTransactions();
+    setError(null);
+    setLoading(true);
+    try {
+      const txs = await getUserTransactions(currentUser.uid);
+      setTransactions(txs);
+    } catch (e) {
+      console.error('Error loading transactions:', e);
+      setError((e as Error)?.message || t('mobile.loadError'));
+    } finally {
+      setLoading(false);
+    }
   }, [currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) {
+      setLoading(false);
+      return;
+    }
+    loadTransactions();
+  }, [currentUser, loadTransactions]);
 
   const formatDuration = (seconds?: number) => {
     if (!seconds) return '';
@@ -43,6 +50,9 @@ const MobileExpensesPage: React.FC = () => {
     const remainingSeconds = seconds % 60;
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
+
+  const getThumbnailUrl = (tx: Transaction) =>
+    tx.metadata?.thumbnailUrl || (tx.metadata?.videoId ? `https://img.youtube.com/vi/${tx.metadata.videoId}/hqdefault.jpg` : null);
 
   const filteredTransactions = transactions
     .filter(t => {
@@ -98,12 +108,26 @@ const MobileExpensesPage: React.FC = () => {
       return 0;
     });
 
-  if (loading) {
+  if (loading && transactions.length === 0) {
     return (
       <MobileSafeArea className="bg-[#1a1a1a]">
         <MobileHeader title={t('mobile.pointsHistory')} />
         <div className="flex h-full items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#333] border-t-[#968B74]"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#333] border-t-[#968B74]" />
+        </div>
+      </MobileSafeArea>
+    );
+  }
+
+  if (error && transactions.length === 0) {
+    return (
+      <MobileSafeArea className="bg-[#1a1a1a]">
+        <MobileHeader title={t('mobile.pointsHistory')} />
+        <div className="flex flex-1 flex-col items-center justify-center p-6">
+          <p className="text-[#E0E0E0] text-center mb-4">{error}</p>
+          <button type="button" onClick={loadTransactions} className="px-6 py-2 bg-[#968B74] text-[#111] font-medium rounded-lg">
+            {t('common.retry')}
+          </button>
         </div>
       </MobileSafeArea>
     );
@@ -145,7 +169,7 @@ const MobileExpensesPage: React.FC = () => {
           <div className="bg-[#252525] p-3 rounded-xl border border-[#333]">
             <p className="text-[9px] font-bold text-[#888] uppercase tracking-widest mb-1">{t('mobile.purchasedTotal')}</p>
             <p className="text-lg font-black text-emerald-400">
-              {transactions.filter(t => t.type === 'purchase').reduce((acc, curr) => acc + curr.amount, 0).toLocaleString()}
+              {transactions.filter(t => t.type === 'purchase' || t.type === 'bonus').reduce((acc, curr) => acc + curr.amount, 0).toLocaleString()}
             </p>
           </div>
         </div>
@@ -169,6 +193,7 @@ const MobileExpensesPage: React.FC = () => {
             onClick={() => {
               setActiveTab('purchases');
               setFilter('all');
+              if (sortOrder === 'video' || sortOrder === 'link') setSortOrder('date_desc');
             }}
             className={`flex-1 min-h-[44px] py-2.5 text-[10px] font-black uppercase tracking-widest transition-colors rounded-lg touch-manipulation ${
               activeTab === 'purchases'
@@ -232,7 +257,7 @@ const MobileExpensesPage: React.FC = () => {
           </svg>
         </div>
 
-        {/* Sort */}
+        {/* Sort: date/points for all; video/link priority only for deductions */}
         <div className="mb-4">
           <select
             value={sortOrder}
@@ -242,8 +267,12 @@ const MobileExpensesPage: React.FC = () => {
             <option value="date_desc">{t('mobile.sortNewest')}</option>
             <option value="date_asc">{t('mobile.sortOldest')}</option>
             <option value="points_desc">{t('mobile.sortByPoints')}</option>
-            <option value="video">{t('mobile.filterVideo')}</option>
-            <option value="link">{t('mobile.filterLinks')}</option>
+            {activeTab === 'deductions' && (
+              <>
+                <option value="video">{t('mobile.sortVideoFirst')}</option>
+                <option value="link">{t('mobile.sortLinksFirst')}</option>
+              </>
+            )}
           </select>
         </div>
 
@@ -266,12 +295,13 @@ const MobileExpensesPage: React.FC = () => {
               >
                 {/* Thumbnail / Icon */}
                 <div className="flex-shrink-0">
-                  {tx.metadata?.thumbnailUrl ? (
+                  {getThumbnailUrl(tx) ? (
                     <div className="w-16 h-12 relative overflow-hidden rounded-lg bg-[#1a1a1a]">
                       <img
-                        src={tx.metadata.thumbnailUrl}
+                        src={getThumbnailUrl(tx)!}
                         alt="Video Thumbnail"
                         className="w-full h-full object-cover"
+                        loading="lazy"
                       />
                       {tx.metadata.videoDuration && (
                         <div className="absolute bottom-0.5 right-0.5 bg-black/80 text-[8px] text-white px-1 rounded font-bold">

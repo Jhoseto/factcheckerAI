@@ -1,11 +1,12 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import bg from './locales/bg.json';
+import en from './locales/en.json';
 
 export const STORAGE_KEY = 'i18nextLng';
 export const CACHE_KEY = 'i18n_cache_en';
 export const CACHE_VERSION_KEY = 'i18n_cache_en_version';
-export const CACHE_VERSION = '1';
+export const CACHE_VERSION = '2';
 
 /** Нормализира записания език само до 'en' или 'bg' */
 function getStoredLanguage(): 'en' | 'bg' {
@@ -15,6 +16,24 @@ function getStoredLanguage(): 'en' | 'bg' {
   return 'bg';
 }
 
+/** Deep-merge: static EN as base, cached/API overwrites. Ensures expenses etc. exist in EN. */
+function mergeEnBundle(cached: Record<string, unknown>): Record<string, unknown> {
+  function merge(base: unknown, over: unknown): unknown {
+    if (over == null) return base;
+    if (base != null && typeof base === 'object' && !Array.isArray(base) && typeof over === 'object' && !Array.isArray(over)) {
+      const b = base as Record<string, unknown>;
+      const o = over as Record<string, unknown>;
+      const out: Record<string, unknown> = { ...b };
+      for (const k of Object.keys(o)) {
+        out[k] = merge(b[k], o[k]);
+      }
+      return out;
+    }
+    return over;
+  }
+  return merge(en, cached) as Record<string, unknown>;
+}
+
 /** Възстановява EN bundle от localStorage кеш. Връща true ако успее. */
 export function restoreEnBundleFromCache(): boolean {
   if (typeof localStorage === 'undefined') return false;
@@ -22,8 +41,8 @@ export function restoreEnBundleFromCache(): boolean {
     const cached = localStorage.getItem(CACHE_KEY);
     const version = localStorage.getItem(CACHE_VERSION_KEY);
     if (!cached || version !== CACHE_VERSION) return false;
-    const data = JSON.parse(cached);
-    i18n.addResourceBundle('en', 'translation', data);
+    const data = JSON.parse(cached) as Record<string, unknown>;
+    i18n.addResourceBundle('en', 'translation', mergeEnBundle(data));
     return true;
   } catch {
     return false;
@@ -33,7 +52,7 @@ export function restoreEnBundleFromCache(): boolean {
 const initialLng = getStoredLanguage();
 
 i18n.use(initReactI18next).init({
-  resources: { bg: { translation: bg } },
+  resources: { bg: { translation: bg }, en: { translation: en } },
   lng: initialLng,
   fallbackLng: 'bg',
   supportedLngs: ['bg', 'en'],

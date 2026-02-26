@@ -1,0 +1,35 @@
+{
+  "nav": {
+    "logout": "Log out"
+  },
+  "common": {
+    "retry": "Retry"
+  },
+  "expenses": {
+    "title": "HISTORY OF",
+    "titleHighlight": "TRANSACTIONS",
+    "subtitle": "Verified register",
+    "availablePoints": "Available Points",
+    "totalSpent": "Total Spent",
+    "totalPurchased": "Total Purchased",
+    "operations": "Operations",
+    "all": "All",
+    "purchases": "Purchases",
+    "videoAudit": "Video Audit",
+    "linkAudit": "Link Audit",
+    "searchPlaceholder": "SEARCH...",
+    "sortNewest": "Newest",
+    "sortOldest": "Oldest",
+    "sortByPoints": "Amount",
+    "noRecords": "No records found",
+    "points": "Points",
+    "loadError": "Error loading",
+    "noPurchases": "No purchases or bonus records."
+  },
+  "mobile": {
+    "loadError": "Error loading",
+    "logout": "Log out",
+    "sortVideoFirst": "Video first",
+    "sortLinksFirst": "Links first"
+  }
+}

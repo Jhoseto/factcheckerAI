@@ -41,6 +41,7 @@
   "common": {
     "points": "точки",
     "pts": "PTS",
+    "retry": "Опитай отново",
     "saveToArchive": "Запази в архив",
     "insufficientPoints": "Недостатъчно точки!",
     "needPoints": "Нужни са {{count}} точки.",
@@ -204,7 +205,10 @@
     "sortByPoints": "Най-скъпи",
     "sortVideo": "Видео",
     "sortLinks": "Линкове",
+    "sortVideoFirst": "Видео първи",
+    "sortLinksFirst": "Линкове първи",
     "noTransactions": "Няма намерени транзакции",
+    "loadError": "Грешка при зареждане",
     "strategicRecommendations": "Стратегически Препоръки",
     "pointsLabel": "точки",
     "scrollLeft": "Скролвай наляво",
@@ -261,5 +265,27 @@
     "backHome": "Назад към началото",
     "terms": "Правила и условия за ползване",
     "privacy": "Политика за поверителност"
+  },
+  "expenses": {
+    "title": "ИСТОРИЯ НА",
+    "titleHighlight": "ТРАНЗАКЦИИТЕ",
+    "subtitle": "Проверен регистър",
+    "availablePoints": "Налични Точки",
+    "totalSpent": "Общо Изразходени",
+    "totalPurchased": "Общо Закупени",
+    "operations": "Операции",
+    "all": "Всички",
+    "purchases": "Покупки",
+    "videoAudit": "Видео Одит",
+    "linkAudit": "Линк Одит",
+    "searchPlaceholder": "ТЪРСЕНЕ...",
+    "sortNewest": "Най-нови",
+    "sortOldest": "Най-стари",
+    "sortByPoints": "Стойност",
+    "noRecords": "Няма намерени записи",
+    "points": "Точки",
+    "loadError": "Грешка при зареждане",
+    "retry": "Опитай отново",
+    "noPurchases": "Няма покупки или бонус записи."
   }
 }

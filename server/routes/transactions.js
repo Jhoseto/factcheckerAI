@@ -43,12 +43,16 @@ router.get('/', async (req, res) => {
         snapshot.forEach(doc => {
             const data = doc.data();
             let createdAt = data.createdAt;
+            let type = data.type;
 
-            // Handle Firestore Timestamp
+            if (!type && typeof data.amount === 'number') {
+                type = data.amount > 0 ? 'purchase' : 'deduction';
+            }
+            if (!type) type = 'deduction';
+
             if (createdAt && typeof createdAt.toDate === 'function') {
                 createdAt = createdAt.toDate().toISOString();
             }
-            // Handle timestamp field if createdAt is missing
             if (!createdAt && data.timestamp && typeof data.timestamp.toDate === 'function') {
                 createdAt = data.timestamp.toDate().toISOString();
             }
@@ -56,7 +60,8 @@ router.get('/', async (req, res) => {
             transactions.push({
                 id: doc.id,
                 ...data,
-                createdAt: createdAt || new Date().toISOString() // Fallback
+                type,
+                createdAt: createdAt || new Date().toISOString()
             });
         });
 

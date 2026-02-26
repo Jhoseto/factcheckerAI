@@ -93,6 +93,15 @@ const ArchivePage: React.FC = () => {
         }
     };
 
+    const getVideoThumbnailUrl = (analysis: SavedAnalysis): string | null => {
+        if (analysis.type !== 'video') return null;
+        const a = analysis.analysis as any;
+        const url = analysis.url || a?.url || '';
+        const vid = a?.videoMetadata?.videoId || a?.metadata?.videoId || (url && url.match(/(?:youtu\.be\/|[?&]v=|\/embed\/|\/shorts\/)([^?&/]+)/)?.[1]);
+        if (vid) return `https://img.youtube.com/vi/${vid}/hqdefault.jpg`;
+        return a?.videoMetadata?.thumbnailUrl || a?.metadata?.thumbnailUrl || null;
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-[#222]">
@@ -221,11 +230,17 @@ const ArchivePage: React.FC = () => {
                                 className="group editorial-card p-6 hover:border-[#968B74]/50 transition-all cursor-pointer bg-[#252525]"
                             >
                                 <div className="flex flex-col md:flex-row gap-8 items-start">
-                                    {/* Type Icon */}
-                                    <div className={`w-14 h-14 flex-shrink-0 flex items-center justify-center rounded-full border ${getTypeColor(analysis.type)} bg-[#1a1a1a]`}>
-                                        <span className="text-xl">
-                                            {analysis.type === 'video' ? '🎬' : analysis.type === 'link' ? '🔗' : '📱'}
-                                        </span>
+                                    {/* Thumbnail (video) or Type Icon */}
+                                    <div className="flex-shrink-0">
+                                        {analysis.type === 'video' && getVideoThumbnailUrl(analysis) ? (
+                                            <div className="w-24 h-[54px] rounded-lg overflow-hidden bg-[#1a1a1a] border border-[#333]">
+                                                <img src={getVideoThumbnailUrl(analysis)!} alt="" className="w-full h-full object-cover" loading="lazy" />
+                                            </div>
+                                        ) : (
+                                            <div className={`w-14 h-14 flex items-center justify-center rounded-full border ${getTypeColor(analysis.type)} bg-[#1a1a1a]`}>
+                                                <span className="text-xl">{analysis.type === 'link' ? '🔗' : '📱'}</span>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Content */}
