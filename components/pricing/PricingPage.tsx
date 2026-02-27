@@ -80,15 +80,19 @@ const PricingPage: React.FC = () => {
                             className={`editorial-card p-6 space-y-6 relative group transition-all duration-500 hover:-translate-y-2 flex flex-col ${tier.popular ? 'border-[#968B74]/40 bg-[#252525]' : 'bg-[#1E1E1E]'}`}
                         >
                             {tier.popular && (
-                                <>
-                                    <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-[#5E5646] via-[#C4B091] to-[#5E5646]"></div>
-                                    <div className="absolute top-3 left-1/2 -translate-x-1/2">
-                                        <span className="inline-block bg-[#968B74]/20 text-[#C4B091] text-[9px] font-bold px-3 py-1 rounded-full uppercase tracking-wider border border-[#968B74]/40">{t('pricing.bestValue')}</span>
+                                <div className="absolute top-0 left-0 right-0 flex justify-center -translate-y-1/2">
+                                    <div className="flex items-center gap-3 px-1">
+                                        <span className="h-px w-8 bg-gradient-to-r from-transparent to-[#968B74]/60" />
+                                        <span className="inline-flex items-center gap-1.5 bg-gradient-to-r from-[#968B74] to-[#B8A078] text-white text-[9px] font-bold px-4 py-1.5 rounded-full uppercase tracking-[0.2em] shadow-[0_2px_12px_rgba(150,139,116,0.35)] ring-1 ring-[#C4B091]/30">
+                                            <span className="w-1 h-1 bg-white/90 rounded-full" />
+                                            {t('pricing.bestValue')}
+                                        </span>
+                                        <span className="h-px w-8 bg-gradient-to-l from-transparent to-[#968B74]/60" />
                                     </div>
-                                </>
+                                </div>
                             )}
                             
-                            <div className="text-center space-y-3 pt-4">
+                            <div className={`text-center space-y-3 ${tier.popular ? 'pt-8' : 'pt-4'}`}>
                                 <h3 className="text-[10px] font-bold text-[#666] uppercase tracking-[0.3em]">{TIER_NAMES[tier.id] ?? tier.name}</h3>
                                 <div className="flex items-baseline justify-center gap-0.5">
                                     <span className="text-4xl md:text-5xl font-serif text-[#f0f0f0] tracking-tighter">€{tier.priceEur}</span>

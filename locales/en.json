@@ -240,5 +240,26 @@
     "sortVideoFirst": "Video first",
     "sortLinksFirst": "Links first",
     "translatePage": "Translate page (Google)"
+  },
+  "pricing": {
+    "investInTruth": "INVEST IN",
+    "investInTruthHighlight": "TRUTH",
+    "subtitle": "Secure access to deep information analysis capabilities",
+    "tierStarter": "Starter",
+    "tierStandard": "Standard",
+    "tierProfessional": "Professional",
+    "tierEnterprise": "Business",
+    "bestValue": "Best value",
+    "bonusPoints": "+{{count}} bonus points",
+    "totalPoints": "total points",
+    "choosePlan": "CHOOSE PLAN",
+    "processing": "Processing...",
+    "paymentError": "Payment error. Please try again.",
+    "checkoutError": "Checkout error",
+    "secureSsl": "Secure SSL",
+    "encryptedPayments": "Encrypted payments",
+    "instantActivation": "Instant activation",
+    "feature1": "Access to all platform features",
+    "feature2": "Video and link analysis, archive, export"
   }
 }
