@@ -1,82 +1,30 @@
 import { useState, useCallback, useEffect } from 'react';
-import i18n, {
-  restoreEnBundleFromCache,
-  mergeEnBundle,
-  CACHE_KEY,
-  CACHE_VERSION_KEY,
-  CACHE_VERSION,
-} from '../i18n';
-
-/** User-friendly message when translation API is not configured (503) */
-export const TRANSLATE_NOT_CONFIGURED_MSG =
-  'Преводът не е наличен: на сървъра липсва GOOGLE_TRANSLATE_API_KEY. Добавете го в .env за превод на ENG.';
-
-/** Нормализиран език само 'en' или 'bg' за съвпадение с бутона и кеша */
-function currentLng(): 'en' | 'bg' {
-  const l = i18n.language;
-  return l === 'en' || (l && l.startsWith('en')) ? 'en' : 'bg';
-}
+import i18n from '../i18n';
+import { getGoogleTranslateLang, applyGoogleTranslate } from '../utils/googleTranslate';
 
 export function useLanguageSwitch() {
+  const [language, setLanguageState] = useState<'en' | 'bg'>(getGoogleTranslateLang());
   const [isTranslating, setIsTranslating] = useState(false);
-  const [translateError, setTranslateError] = useState<string | null>(null);
-  const [language, setLanguageState] = useState<'en' | 'bg'>(currentLng());
 
   useEffect(() => {
-    const update = () => setLanguageState(currentLng());
-    i18n.on('languageChanged', update);
-    return () => i18n.off('languageChanged', update);
+    const sync = () => {
+      const lng = getGoogleTranslateLang();
+      setLanguageState(lng);
+      if (i18n.language !== lng) i18n.changeLanguage(lng);
+    };
+    sync();
+    const id = setInterval(sync, 500);
+    return () => clearInterval(id);
   }, []);
 
-  const setLanguage = useCallback(async (lng: string) => {
-    setTranslateError(null);
+  const setLanguage = useCallback((lng: 'bg' | 'en') => {
     if (lng === language) return;
-    if (lng === 'bg') {
-      i18n.changeLanguage('bg');
-      return;
-    }
-    if (lng === 'en') {
-      if (i18n.hasResourceBundle('en', 'translation')) {
-        i18n.changeLanguage('en');
-        return;
-      }
-      if (restoreEnBundleFromCache()) {
-        i18n.changeLanguage('en');
-        return;
-      }
-      setIsTranslating(true);
-      try {
-        const res = await fetch('/api/translate?target=en');
-        const body = await res.text();
-        if (!res.ok) {
-          let msg = TRANSLATE_NOT_CONFIGURED_MSG;
-          if (res.status === 503) {
-            try {
-              const j = JSON.parse(body);
-              if (j?.error) msg = j.error;
-            } catch {
-              /* use default */
-            }
-          }
-          setTranslateError(msg);
-          return;
-        }
-        const data = JSON.parse(body);
-        const merged = mergeEnBundle(data);
-        i18n.addResourceBundle('en', 'translation', merged);
-        if (typeof localStorage !== 'undefined') {
-          localStorage.setItem(CACHE_KEY, JSON.stringify(merged));
-          localStorage.setItem(CACHE_VERSION_KEY, CACHE_VERSION);
-        }
-        i18n.changeLanguage('en');
-      } catch (e) {
-        console.error('[i18n] Failed to load en:', e);
-        setTranslateError(TRANSLATE_NOT_CONFIGURED_MSG);
-      } finally {
-        setIsTranslating(false);
-      }
-    }
+    setIsTranslating(true);
+    setLanguageState(lng);
+    i18n.changeLanguage(lng);
+    applyGoogleTranslate(lng);
+    setTimeout(() => setIsTranslating(false), 600);
   }, [language]);
 
-  return { language, setLanguage, isTranslating, translateError };
+  return { language, setLanguage, isTranslating, translateError: null };
 }

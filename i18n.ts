@@ -74,7 +74,11 @@ i18n.on('languageChanged', (lng: string) => {
   }
 });
 
-/** Текущ език за API заявки (Gemini, превод): винаги 'en' или 'bg' */
+/**
+ * Текущ език за API заявки (Gemini, превод): винаги 'en' или 'bg'.
+ * Контролира се САМО от нашия BG/ENG превключвател в Navbar/Profile.
+ * Google Translate widget превежда само визуалния интерфейс – НЕ влияе на getApiLang().
+ */
 export function getApiLang(): 'en' | 'bg' {
   const l = i18n.language;
   return l === 'en' || (l && String(l).startsWith('en')) ? 'en' : 'bg';

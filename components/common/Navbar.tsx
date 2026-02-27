@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguageSwitch } from '../../hooks/useLanguageSwitch';
+import GoogleTranslateWidget from './GoogleTranslateWidget';
 
 const Navbar: React.FC = () => {
     const { currentUser, userProfile, logout } = useAuth();
@@ -22,6 +23,7 @@ const Navbar: React.FC = () => {
                 top: rect.bottom + 8,
                 right: window.innerWidth - rect.right,
             });
+            requestAnimationFrame(() => window.dispatchEvent(new CustomEvent('retranslate')));
         }
         setShowUserMenu(willOpen);
     };
@@ -95,6 +97,8 @@ const Navbar: React.FC = () => {
                                 {translateError}
                             </span>
                         )}
+                        <span className="hidden md:inline text-[9px] text-[#555] mx-1">|</span>
+                        <GoogleTranslateWidget />
                     </div>
                     {userProfile ? (
                         <>

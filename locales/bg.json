@@ -294,15 +294,16 @@
   },
   "linkAudit": {
     "insufficientPoints": "Недостатъчно точки. Необходими са {{count}}.",
-    "textAnalysis": "Текстови Анализ",
+    "textAnalysis": "Линк Анализ",
     "articleAudit": "Одит на Статия",
-    "urlPlaceholder": "https://news-site.bg/article/...",
+    "urlPlaceholder": "https://news-site.com/article/...",
     "analyzing": "Анализ...",
     "invalidUrl": "Моля, въведете валиден URL адрес.",
     "errorAnalysis": "Възникна грешка при анализа на линка."
   },
   "mobile": {
     "profile": "Профил",
+    "translatePage": "Преведи страницата (Google)",
     "points": "точки",
     "loadPoints": "Зареди точки",
     "pointsHistory": "История на точките",
