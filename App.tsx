@@ -1,28 +1,22 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import html2canvas from 'html2canvas';
-import { analyzeYouTubeStandard, synthesizeReport } from './services/geminiService';
-import { VideoAnalysis, APIUsage, AnalysisMode, YouTubeVideoMetadata, CostEstimate } from './types';
-import ReliabilityChart from './components/ReliabilityChart';
+import { analyzeYouTubeStandard } from './services/geminiService';
+import { AnalysisMode, YouTubeVideoMetadata, CostEstimate } from './types';
 import { getYouTubeMetadata } from './services/youtubeMetadataService';
 import { getAllCostEstimates } from './services/costEstimationService';
 import { validateYouTubeUrl } from './services/validation';
 import { useAuth } from './contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import PointsWidget from './components/user/PointsWidget';
 import LinkAuditPage from './components/linkAudit/LinkAuditPage';
 import ScannerAnimation from './components/common/ScannerAnimation';
 import AbstractBackground from './components/common/AbstractBackground';
-import VideoResultView from './components/common/result-views/VideoResultView';
 import AnalysisLoadingOverlay from './components/common/AnalysisLoadingOverlay';
-import { saveAnalysis } from './services/archiveService';
 
 const App: React.FC = () => {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [streamingProgress, setStreamingProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [analysis, setAnalysis] = useState<VideoAnalysis | null>(null);
   const [youtubeUrl, setYoutubeUrl] = useState('');
 
   const { currentUser, userProfile, updateLocalBalance, refreshProfile } = useAuth();
@@ -77,7 +71,6 @@ const App: React.FC = () => {
 
     setLoading(true);
     setError(null);
-    setAnalysis(null);
 
     try {
       const response = await analyzeYouTubeStandard(url, videoMetadata || undefined, 'gemini-2.5-flash', analysisMode || 'standard', setStreamingProgress);
