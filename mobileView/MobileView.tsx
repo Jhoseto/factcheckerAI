@@ -14,8 +14,6 @@ import Login from '../components/auth/Login';
 import Register from '../components/auth/Register';
 import TermsPage from '../components/legal/TermsPage';
 import PrivacyPage from '../components/legal/PrivacyPage';
-import GoogleTranslateWidget from '../components/common/GoogleTranslateWidget';
-
 /**
  * Mobile app shell: bottom tab bar + routes. Use when viewport ≤768px or ?mobile=1.
  */
@@ -24,9 +22,6 @@ const MobileView: React.FC = () => {
 
   return (
     <div className="mobile-root h-screen flex flex-col overflow-hidden">
-      <div className="sr-only" aria-hidden>
-        <GoogleTranslateWidget />
-      </div>
       <main
         className="flex-1 min-h-0 overflow-y-auto overscroll-contain"
         style={{ paddingBottom: 'max(5rem, env(safe-area-inset-bottom, 0px) + 5rem)' }}
