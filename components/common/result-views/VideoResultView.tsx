@@ -105,7 +105,7 @@ const MultimodalSection: React.FC<{ title: string; content?: string | unknown; c
 };
 
 const ReportView: React.FC<{ analysis: VideoAnalysis; reportRef?: React.RefObject<HTMLElement>; reportLoading?: boolean }> = ({ analysis, reportRef, reportLoading }) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const reportText = analysis.synthesizedReport || analysis.summary.finalInvestigativeReport || '';
 
     // Parse markdown-like report into structured sections
