@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { VideoAnalysis } from '../types';
 import MobileHeader from './components/MobileHeader';
+import { useLanguageSwitch } from '../hooks/useLanguageSwitch';
 import ReliabilityGauge from '../components/linkAudit/ReliabilityGauge';
 
 type TabId = 'summary' | 'claims' | 'manipulation' | 'report';
@@ -14,7 +15,8 @@ interface MobileLinkResultViewProps {
 }
 
 const MobileLinkResultView: React.FC<MobileLinkResultViewProps> = ({ analysis, reportLoading, onSaveToArchive, onBack }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { language, setLanguage } = useLanguageSwitch();
   const rawReport = analysis.summary?.finalInvestigativeReport || analysis.summary?.overallSummary || '';
   const [activeTab, setActiveTab] = useState<TabId>('summary');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -22,12 +24,13 @@ const MobileLinkResultView: React.FC<MobileLinkResultViewProps> = ({ analysis, r
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
 
-  const allTabs: { id: TabId; label: string }[] = [
+  const allTabs = useMemo((): { id: TabId; label: string }[] => [
     { id: 'summary', label: t('analysis.tabSummary') },
     { id: 'claims', label: t('analysis.tabClaimsVerification') },
     { id: 'manipulation', label: t('analysis.tabManipulation') },
     { id: 'report', label: t('report.tabReport') },
-  ];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [i18n.language]);
 
   const checkScrollability = () => {
     if (!tabsScrollRef.current) return;
@@ -72,15 +75,15 @@ const MobileLinkResultView: React.FC<MobileLinkResultViewProps> = ({ analysis, r
         showBack 
         onBack={onBack}
         right={
-          !analysis.id && onSaveToArchive ? (
-            <button
-              type="button"
-              onClick={onSaveToArchive}
-              className="mobile-tap px-3 py-2 min-h-[36px] rounded-lg bg-[#968B74] text-[#1a1a1a] text-[9px] font-black uppercase tracking-wider touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C4B091]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a] active:scale-[0.98] transition-transform duration-200"
-            >
-              {t('mobile.save')}
-            </button>
-          ) : undefined
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setLanguage('bg')} className={`px-2 py-1 min-h-[32px] rounded text-[9px] font-black uppercase tracking-wider border touch-manipulation active:scale-95 transition-all ${language === 'bg' ? 'border-[#968B74] text-[#C4B091] bg-[#968B74]/20' : 'border-[#333] text-[#666]'}`}>BG</button>
+            <button type="button" onClick={() => setLanguage('en')} className={`px-2 py-1 min-h-[32px] rounded text-[9px] font-black uppercase tracking-wider border touch-manipulation active:scale-95 transition-all ${language === 'en' ? 'border-[#968B74] text-[#C4B091] bg-[#968B74]/20' : 'border-[#333] text-[#666]'}`}>EN</button>
+            {!analysis.id && onSaveToArchive && (
+              <button type="button" onClick={onSaveToArchive} className="mobile-tap px-3 py-2 min-h-[36px] rounded-lg bg-[#968B74] text-[#1a1a1a] text-[9px] font-black uppercase tracking-wider touch-manipulation focus:outline-none active:scale-[0.98] transition-transform duration-200">
+                {t('mobile.save')}
+              </button>
+            )}
+          </div>
         }
       />
 

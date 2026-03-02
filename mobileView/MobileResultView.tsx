@@ -1,9 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { VideoAnalysis } from '../types';
 import MobileHeader from './components/MobileHeader';
 import ReliabilityChart from '../components/ReliabilityChart';
 import { TabIcon } from '../components/common/result-views/DeepTabIcons';
+import { useLanguageSwitch } from '../hooks/useLanguageSwitch';
 
 type TabId = 'summary' | 'claims' | 'manipulation' | 'report' | 'visual' | 'bodyLanguage' | 'vocal' | 'deception' | 'humor' | 'psychological' | 'cultural';
 
@@ -25,7 +26,8 @@ const SectionBlock: React.FC<{ title: string; content?: string; noDataLabel: str
 };
 
 const MobileResultView: React.FC<MobileResultViewProps> = ({ analysis, reportLoading, onSaveToArchive, onBack }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { language, setLanguage } = useLanguageSwitch();
   const rawReport = analysis.synthesizedReport || analysis.summary?.finalInvestigativeReport || analysis.summary?.overallSummary || '';
   const [activeTab, setActiveTab] = useState<TabId>('summary');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -33,23 +35,26 @@ const MobileResultView: React.FC<MobileResultViewProps> = ({ analysis, reportLoa
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
 
-  const baseTabs: { id: TabId; label: string }[] = [
-    { id: 'summary', label: t('analysis.tabSummary') },
-    { id: 'claims', label: t('analysis.tabClaims') },
-    { id: 'manipulation', label: t('analysis.tabManipulation') },
-  ];
-  const deepTabs: { id: TabId; label: string }[] = analysis.analysisMode === 'deep'
-    ? [
-        { id: 'visual', label: t('analysis.tabVisual') },
-        { id: 'bodyLanguage', label: t('analysis.tabBodyLanguage') },
-        { id: 'vocal', label: t('analysis.tabVocal') },
-        { id: 'deception', label: t('analysis.tabDeception') },
-        { id: 'humor', label: t('analysis.tabHumor') },
-        { id: 'psychological', label: t('analysis.tabPsychological') },
-        { id: 'cultural', label: t('analysis.tabCultural') },
-      ]
-    : [];
-  const allTabs = [...baseTabs, ...deepTabs, { id: 'report' as TabId, label: t('report.tabReport') }];
+  const allTabs = useMemo(() => {
+    const base: { id: TabId; label: string }[] = [
+      { id: 'summary', label: t('analysis.tabSummary') },
+      { id: 'claims', label: t('analysis.tabClaims') },
+      { id: 'manipulation', label: t('analysis.tabManipulation') },
+    ];
+    const deep: { id: TabId; label: string }[] = analysis.analysisMode === 'deep'
+      ? [
+          { id: 'visual', label: t('analysis.tabVisual') },
+          { id: 'bodyLanguage', label: t('analysis.tabBodyLanguage') },
+          { id: 'vocal', label: t('analysis.tabVocal') },
+          { id: 'deception', label: t('analysis.tabDeception') },
+          { id: 'humor', label: t('analysis.tabHumor') },
+          { id: 'psychological', label: t('analysis.tabPsychological') },
+          { id: 'cultural', label: t('analysis.tabCultural') },
+        ]
+      : [];
+    return [...base, ...deep, { id: 'report' as TabId, label: t('report.tabReport') }];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [i18n.language, analysis.analysisMode]);
 
   const checkScrollability = () => {
     if (!tabsScrollRef.current) return;
@@ -87,15 +92,15 @@ const MobileResultView: React.FC<MobileResultViewProps> = ({ analysis, reportLoa
         showBack 
         onBack={onBack}
         right={
-          !analysis.id && onSaveToArchive ? (
-            <button
-              type="button"
-              onClick={onSaveToArchive}
-              className="mobile-tap px-3 py-2 min-h-[36px] rounded-lg bg-[#968B74] text-[#1a1a1a] text-[9px] font-black uppercase tracking-wider touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C4B091]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a] active:scale-[0.98] transition-transform duration-200"
-            >
-              {t('mobile.save')}
-            </button>
-          ) : undefined
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setLanguage('bg')} className={`px-2 py-1 min-h-[32px] rounded text-[9px] font-black uppercase tracking-wider border touch-manipulation active:scale-95 transition-all ${language === 'bg' ? 'border-[#968B74] text-[#C4B091] bg-[#968B74]/20' : 'border-[#333] text-[#666]'}`}>BG</button>
+            <button type="button" onClick={() => setLanguage('en')} className={`px-2 py-1 min-h-[32px] rounded text-[9px] font-black uppercase tracking-wider border touch-manipulation active:scale-95 transition-all ${language === 'en' ? 'border-[#968B74] text-[#C4B091] bg-[#968B74]/20' : 'border-[#333] text-[#666]'}`}>EN</button>
+            {!analysis.id && onSaveToArchive && (
+              <button type="button" onClick={onSaveToArchive} className="mobile-tap px-3 py-2 min-h-[36px] rounded-lg bg-[#968B74] text-[#1a1a1a] text-[9px] font-black uppercase tracking-wider touch-manipulation focus:outline-none active:scale-[0.98] transition-transform duration-200">
+                {t('mobile.save')}
+              </button>
+            )}
+          </div>
         }
       />
 

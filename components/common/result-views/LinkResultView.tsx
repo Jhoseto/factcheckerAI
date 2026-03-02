@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { VideoAnalysis } from '../../../types';
 import MetricBlock from '../MetricBlock';
@@ -21,8 +21,9 @@ import ShareModal from '../ShareModal';
 import { useTranslation } from 'react-i18next';
 
 const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, onSave, onReset, slotUsage, isSaved = false }) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const { currentUser } = useAuth();
+    const analysisLang: 'bg' | 'en' = (analysis as any).lang || ((analysis.summary?.overallSummary || analysis.summary?.finalInvestigativeReport || '').match(/[а-яА-ЯёЁ]/) ? 'bg' : 'en');
     const [activeTab, setActiveTab] = useState<'summary' | 'claims' | 'manipulation' | 'profile' | 'rhetoric' | 'comments' | 'report'>('summary');
     const linkReportDisplayText = analysis.summary.finalInvestigativeReport || '';
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -47,6 +48,11 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
 
     const linkSidebarContent = (
         <>
+            {i18n.language !== analysisLang && (
+                <div className="mb-4 px-3 py-2 border border-[#968B74]/30 bg-[#968B74]/10 rounded-sm text-[8px] text-[#C4B091] uppercase tracking-wider leading-relaxed">
+                    {t('report.contentLangNote', { lang: analysisLang === 'bg' ? 'BG' : 'EN' })}
+                </div>
+            )}
             <div className="grid grid-cols-2 lg:grid-cols-1 gap-5">
                 <MetricBlock label={t('analysis.factualAccuracy')} value={analysis.summary.detailedStats.factualAccuracy} color="emerald" />
                 <MetricBlock label={t('analysis.logicalSoundness')} value={analysis.summary.detailedStats.logicalSoundness} color="blue" />
@@ -95,21 +101,22 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
 
     const hasComments = !!analysis.commentsAnalysis?.found;
 
-    const TABS = [
-        { id: 'summary', labelKey: 'analysis.tabSummary' },
-        { id: 'claims', labelKey: 'analysis.tabClaimsVerification' },
-        { id: 'manipulation', labelKey: 'analysis.tabManipulation' },
-        { id: 'profile', labelKey: 'analysis.tabProfile' },
-        { id: 'rhetoric', labelKey: 'analysis.tabRhetoric' },
-        { id: 'comments', labelKey: 'analysis.tabComments' },
-        { id: 'report', labelKey: 'analysis.tabFinalReport' },
-    ] as const;
+    const allTabs = useMemo(() => [
+        { id: 'summary' as const, label: t('analysis.tabSummary') },
+        { id: 'claims' as const, label: t('analysis.tabClaimsVerification') },
+        { id: 'manipulation' as const, label: t('analysis.tabManipulation') },
+        { id: 'profile' as const, label: t('analysis.tabProfile') },
+        { id: 'rhetoric' as const, label: t('analysis.tabRhetoric') },
+        { id: 'comments' as const, label: t('analysis.tabComments') },
+        { id: 'report' as const, label: t('analysis.tabFinalReport') },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    ], [i18n.language]);
 
     const linkTabsContent = (
         <>
-            {TABS.map(({ id, labelKey }) => (
+            {allTabs.map(({ id, label }) => (
                 <button key={id} onClick={() => setActiveTab(id)} className={`text-[10px] font-black uppercase tracking-[0.15em] whitespace-nowrap pb-1 relative transition-all flex items-center gap-2 ${activeTab === id ? 'text-[#C4B091]' : 'text-[#666] hover:text-[#C4B091]'}`}>
-                    {t(labelKey)}
+                    {label}
                     {id === 'comments' && hasComments && <span className="w-1.5 h-1.5 rounded-full bg-[#C4B091] inline-block" />}
                     {activeTab === id && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#968B74]"></div>}
                 </button>

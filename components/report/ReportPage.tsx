@@ -8,7 +8,7 @@ import LinkResultView from '../common/result-views/LinkResultView';
 import { VideoAnalysis } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 
-const SLOT_LIMITS = { video: 10, link: 15, social: 15 };
+const SLOT_LIMITS = { video: 10, link: 15 };
 
 const ReportPage: React.FC = () => {
     const { t } = useTranslation();
@@ -18,7 +18,7 @@ const ReportPage: React.FC = () => {
     const { currentUser } = useAuth();
 
     const [analysis, setAnalysis] = useState<VideoAnalysis | null>(null);
-    const [type, setType] = useState<'video' | 'link' | 'social'>('video');
+    const [type, setType] = useState<'video' | 'link'>('video');
     const [url, setUrl] = useState('');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -27,7 +27,7 @@ const ReportPage: React.FC = () => {
     const [reportLoading, setReportLoading] = useState(false);
 
     useEffect(() => {
-        const state = location.state as { analysis?: VideoAnalysis; type?: 'video' | 'link' | 'social'; url?: string } | undefined;
+        const state = location.state as { analysis?: VideoAnalysis; type?: 'video' | 'link'; url?: string } | undefined;
         if (state?.analysis && state?.type) {
             setAnalysis(state.analysis);
             setType(state.type);
@@ -77,14 +77,14 @@ const ReportPage: React.FC = () => {
     }, [id, location.state]);
 
     useEffect(() => {
-        if (!currentUser || !type || type === 'social') return;
+        if (!currentUser || !type) return;
         getAnalysisCountByType(currentUser.uid, type).then((used) => {
             setSlotUsage({ used, max: SLOT_LIMITS[type] });
         });
     }, [currentUser, type]);
 
     const handleSaveToArchive = async () => {
-        if (!analysis || !currentUser || !type || type === 'social') return;
+        if (!analysis || !currentUser || !type) return;
         const max = SLOT_LIMITS[type];
         const used = slotUsage?.used ?? await getAnalysisCountByType(currentUser.uid, type);
         if (used >= max) {
@@ -132,28 +132,6 @@ const ReportPage: React.FC = () => {
         );
     }
 
-    if (type === 'social') {
-        return (
-            <div className="min-h-screen relative overflow-hidden pt-40 pb-24">
-                <div className="premium-bg-wrapper">
-                    <div className="premium-wave-1" />
-                    <div className="premium-wave-2" />
-                    <div className="premium-wave-3" />
-                    <div className="premium-texture" />
-                </div>
-                <div className="max-w-2xl mx-auto px-6 relative z-10 text-center">
-                    <p className="text-[#888] mb-8">{t('report.socialViewUnavailable')}</p>
-                    <button
-                        onClick={() => navigate('/')}
-                        className="px-6 py-3 border border-[#333] text-[#888] text-[9px] font-bold uppercase tracking-[0.2em] hover:border-[#968B74] hover:text-[#968B74] transition-all rounded-sm"
-                    >
-                        {t('report.backToHome')}
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
     if (type === 'link') {
         return (
             <>
@@ -170,7 +148,7 @@ const ReportPage: React.FC = () => {
                             className="mb-6 flex items-center gap-3 text-[9px] font-bold text-[#666] uppercase tracking-[0.2em] hover:text-[#968B74] transition-colors group"
                         >
                             <span className="w-4 h-[1px] bg-[#666] group-hover:bg-[#968B74] transition-colors" />
-                            Обратно към началото
+                            {t('report.backToHome')}
                         </button>
                         <LinkResultView
                             analysis={analysis}
@@ -198,12 +176,12 @@ const ReportPage: React.FC = () => {
             <div className="w-full max-w-[1600px] mx-auto px-10 relative z-10 animate-fadeUp pt-4">
                 <button
                     onClick={() => navigate('/')}
-                    className="mb-6 flex items-center gap-3 text-[9px] font-bold text-[#666] uppercase tracking-[0.2em] hover:text-[#968B74] transition-colors group"
-                >
-                    <span className="w-4 h-[1px] bg-[#666] group-hover:bg-[#968B74] transition-colors" />
-                    Обратно към началото
-                </button>
-                <VideoResultView
+                        className="mb-6 flex items-center gap-3 text-[9px] font-bold text-[#666] uppercase tracking-[0.2em] hover:text-[#968B74] transition-colors group"
+                    >
+                        <span className="w-4 h-[1px] bg-[#666] group-hover:bg-[#968B74] transition-colors" />
+                        {t('report.backToHome')}
+                    </button>
+                    <VideoResultView
                     analysis={analysis}
                     reportLoading={reportLoading}
                     onSaveToArchive={!isSaved ? handleSaveToArchive : undefined}

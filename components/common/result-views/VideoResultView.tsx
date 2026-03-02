@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import html2canvas from 'html2canvas';
 import { VideoAnalysis } from '../../../types';
@@ -270,8 +270,10 @@ const ReportView: React.FC<{ analysis: VideoAnalysis; reportRef?: React.RefObjec
 import ShareModal from '../ShareModal';
 
 const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoading, onSaveToArchive, onReset, slotUsage, isSaved = false }) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const { currentUser } = useAuth();
+    // Detect the language the analysis content was generated in
+    const analysisLang: 'bg' | 'en' = (analysis as any).lang || ((analysis.summary?.overallSummary || '').match(/[а-яА-ЯёЁ]/) ? 'bg' : 'en');
     const [activeTab, setActiveTab] = useState<'summary' | 'claims' | 'manipulation' | 'report' | 'visual' | 'bodyLanguage' | 'vocal' | 'deception' | 'humor' | 'psychological' | 'cultural'>('summary');
     const [isExporting, setIsExporting] = useState(false);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -334,6 +336,11 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
 
     const sidebarContent = (
         <>
+                {i18n.language !== analysisLang && (
+                    <div className="mb-4 px-3 py-2 border border-[#968B74]/30 bg-[#968B74]/10 rounded-sm text-[8px] text-[#C4B091] uppercase tracking-wider leading-relaxed">
+                        {t('report.contentLangNote', { lang: analysisLang === 'bg' ? 'BG' : 'EN' })}
+                    </div>
+                )}
                 <div className="grid grid-cols-2 lg:grid-cols-1 gap-5">
                     <MetricBlock label={t('analysis.credibilityIndex')} value={analysis.summary.credibilityIndex} color="emerald" />
                     <MetricBlock label={t('analysis.manipulationIndex')} value={analysis.summary.manipulationIndex} color="orange" />
@@ -380,39 +387,46 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
         </>
     );
 
-    const tabsBarContent = (() => {
-        const baseTabsBefore = [
+    const allTabs = useMemo(() => {
+        const base = [
             { id: 'summary', label: t('analysis.tabSummary') },
             { id: 'claims', label: t('analysis.tabClaims') },
-            { id: 'manipulation', label: t('analysis.tabManipulation') }
+            { id: 'manipulation', label: t('analysis.tabManipulation') },
         ];
-        const deepTabs = analysis.analysisMode === 'deep' ? [
-            { id: 'visual', label: t('analysis.tabVisual') }, { id: 'bodyLanguage', label: t('analysis.tabBodyLanguage') }, { id: 'vocal', label: t('analysis.tabVocal') },
-            { id: 'deception', label: t('analysis.tabDeception') }, { id: 'humor', label: t('analysis.tabHumor') }, { id: 'psychological', label: t('analysis.tabPsychological') }, { id: 'cultural', label: t('analysis.tabCultural') }
+        const deep = analysis.analysisMode === 'deep' ? [
+            { id: 'visual', label: t('analysis.tabVisual') },
+            { id: 'bodyLanguage', label: t('analysis.tabBodyLanguage') },
+            { id: 'vocal', label: t('analysis.tabVocal') },
+            { id: 'deception', label: t('analysis.tabDeception') },
+            { id: 'humor', label: t('analysis.tabHumor') },
+            { id: 'psychological', label: t('analysis.tabPsychological') },
+            { id: 'cultural', label: t('analysis.tabCultural') },
         ] : [];
-        const finalTabs = [...baseTabsBefore, ...deepTabs, { id: 'report', label: t('analysis.tabFinalReport') }];
-        return (
-            <>
-                {finalTabs.map(tab => {
-                    const isReportTab = tab.id === 'report';
-                    const isDisabled = isReportTab && reportLoading;
-                    return (
-                        <button
-                            key={tab.id}
-                            onClick={() => !isDisabled && setActiveTab(tab.id as any)}
-                            disabled={isDisabled}
-                            className={`text-[10px] font-black uppercase tracking-[0.15em] whitespace-nowrap pb-1 relative transition-all flex items-center gap-2 ${isDisabled ? 'text-[#444] cursor-not-allowed' : activeTab === tab.id ? 'text-[#C4B091]' : 'text-[#666] hover:text-[#C4B091]'}`}
-                        >
-                            <TabIcon id={tab.id as import('./DeepTabIcons').TabId} className="w-4 h-4" />
-                            {tab.label}
-                            {isReportTab && reportLoading && <span className="inline-block w-3 h-3 border-2 border-[#968B74] border-t-transparent rounded-full animate-spin"></span>}
-                            {activeTab === tab.id && !isDisabled && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#968B74]"></div>}
-                        </button>
-                    );
-                })}
-            </>
-        );
-    })();
+        return [...base, ...deep, { id: 'report', label: t('analysis.tabFinalReport') }];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [i18n.language, analysis.analysisMode]);
+
+    const tabsBarContent = (
+        <>
+            {allTabs.map(tab => {
+                const isReportTab = tab.id === 'report';
+                const isDisabled = isReportTab && reportLoading;
+                return (
+                    <button
+                        key={tab.id}
+                        onClick={() => !isDisabled && setActiveTab(tab.id as any)}
+                        disabled={isDisabled}
+                        className={`text-[10px] font-black uppercase tracking-[0.15em] whitespace-nowrap pb-1 relative transition-all flex items-center gap-2 ${isDisabled ? 'text-[#444] cursor-not-allowed' : activeTab === tab.id ? 'text-[#C4B091]' : 'text-[#666] hover:text-[#C4B091]'}`}
+                    >
+                        <TabIcon id={tab.id as import('./DeepTabIcons').TabId} className="w-4 h-4" />
+                        {tab.label}
+                        {isReportTab && reportLoading && <span className="inline-block w-3 h-3 border-2 border-[#968B74] border-t-transparent rounded-full animate-spin"></span>}
+                        {activeTab === tab.id && !isDisabled && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#968B74]"></div>}
+                    </button>
+                );
+            })}
+        </>
+    );
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-fadeIn relative w-full">

@@ -8,7 +8,7 @@ import MobileLinkResultView from './MobileLinkResultView';
 import MobileSafeArea from './components/MobileSafeArea';
 import MobileHeader from './components/MobileHeader';
 
-const LIMITS = { video: 10, link: 15, social: 15 };
+const LIMITS = { video: 10, link: 15 };
 
 const MobileReportPage: React.FC = () => {
   const { t } = useTranslation();
@@ -103,18 +103,6 @@ const MobileReportPage: React.FC = () => {
           onSaveToArchive={isPreview ? handleSaveToArchive : undefined}
           onBack={() => navigate('/')}
         />
-      </MobileSafeArea>
-    );
-  }
-
-  if (activeType === 'social') {
-    return (
-      <MobileSafeArea className="bg-[#1a1a1a]">
-        <MobileHeader title={t('report.reportTitle')} showBack />
-        <div className="p-6 pb-24 text-center text-[#ccc] text-sm mobile-fade-in">
-          <p className="mb-6">{t('report.socialMobileLater')}</p>
-          <button type="button" onClick={() => navigate('/')} className="mobile-tap min-h-[44px] px-6 py-3.5 rounded-xl bg-[#968B74] text-[#1a1a1a] text-[10px] font-black uppercase tracking-wider touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C4B091]/40 focus-visible:ring-offset-2 active:scale-[0.98]">{t('report.backToHome')}</button>
-        </div>
       </MobileSafeArea>
     );
   }

@@ -379,6 +379,7 @@
     "saveError": "Save error.",
     "invalidReport": "Invalid report.",
     "backToHome": "Back to home",
+    "contentLangNote": "Report generated in {{lang}}. Language switch applies to the interface only.",
     "officialReport": "OFFICIAL REPORT",
     "finalAnalysis": "Concluding Analysis",
     "tabReport": "Report",
