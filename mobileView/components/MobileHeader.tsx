@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 interface MobileHeaderProps {
   title: string;
@@ -10,6 +11,7 @@ interface MobileHeaderProps {
 
 const MobileHeader: React.FC<MobileHeaderProps> = ({ title, showBack, onBack, right }) => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const handleBack = () => {
     if (onBack) onBack();
@@ -24,7 +26,7 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({ title, showBack, onBack, ri
             type="button"
             onClick={handleBack}
             className="mobile-tap flex items-center justify-center min-w-[44px] min-h-[44px] w-10 h-10 -ml-2 rounded-full active:bg-[#252525] touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C4B091]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a]"
-            aria-label="Назад"
+            aria-label={t('mobile.back')}
           >
             <svg className="w-5 h-5 text-[#C4B091]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />

@@ -64,16 +64,18 @@ const MobileExpensesPage: React.FC = () => {
         if (!isPurchase) return false;
       }
 
-      // 2. Filter by Type (video, link, social)
+      // 2. Filter by Type (video, link, social) - support BG & EN descriptions
       if (filter !== 'all') {
+        const desc = (t.description || '').toLowerCase();
         if (filter === 'video') {
-          const isVideo = t.metadata?.videoId || t.description?.toLowerCase().includes('видео') || t.metadata?.videoTitle;
+          const isVideo = t.metadata?.videoId || desc.includes('видео') || desc.includes('video') || t.metadata?.videoTitle;
           if (!isVideo) return false;
         } else if (filter === 'link') {
-          const isLink = t.description?.includes('Линк') || t.description?.includes('статия') || (t.type === 'deduction' && !t.metadata?.videoId && !t.description?.includes('видео'));
+          const isVideo = desc.includes('видео') || desc.includes('video');
+          const isLink = desc.includes('линк') || desc.includes('link') || desc.includes('статия') || desc.includes('article') || (t.type === 'deduction' && !t.metadata?.videoId && !isVideo);
           if (!isLink) return false;
         } else if (filter === 'social') {
-          const isSocial = t.description?.includes('social') || t.description?.includes('пост') || t.description?.includes('коментар');
+          const isSocial = desc.includes('social') || desc.includes('пост') || desc.includes('post') || desc.includes('коментар') || desc.includes('comment');
           if (!isSocial) return false;
         }
       }
@@ -93,15 +95,21 @@ const MobileExpensesPage: React.FC = () => {
       if (sortOrder === 'date_asc') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       if (sortOrder === 'points_desc') return Math.abs(b.amount) - Math.abs(a.amount);
       if (sortOrder === 'video') {
-        const aIsVideo = a.metadata?.videoId || a.description?.toLowerCase().includes('видео') || a.metadata?.videoTitle;
-        const bIsVideo = b.metadata?.videoId || b.description?.toLowerCase().includes('видео') || b.metadata?.videoTitle;
+        const aDesc = (a.description || '').toLowerCase();
+        const bDesc = (b.description || '').toLowerCase();
+        const aIsVideo = a.metadata?.videoId || aDesc.includes('видео') || aDesc.includes('video') || a.metadata?.videoTitle;
+        const bIsVideo = b.metadata?.videoId || bDesc.includes('видео') || bDesc.includes('video') || b.metadata?.videoTitle;
         if (aIsVideo && !bIsVideo) return -1;
         if (!aIsVideo && bIsVideo) return 1;
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       }
       if (sortOrder === 'link') {
-        const aIsLink = a.description?.includes('Линк') || a.description?.includes('статия') || (a.type === 'deduction' && !a.metadata?.videoId && !a.description?.includes('видео'));
-        const bIsLink = b.description?.includes('Линк') || b.description?.includes('статия') || (b.type === 'deduction' && !b.metadata?.videoId && !b.description?.includes('видео'));
+        const aDesc = (a.description || '').toLowerCase();
+        const bDesc = (b.description || '').toLowerCase();
+        const aIsVideo = aDesc.includes('видео') || aDesc.includes('video');
+        const bIsVideo = bDesc.includes('видео') || bDesc.includes('video');
+        const aIsLink = aDesc.includes('линк') || aDesc.includes('link') || aDesc.includes('статия') || aDesc.includes('article') || (a.type === 'deduction' && !a.metadata?.videoId && !aIsVideo);
+        const bIsLink = bDesc.includes('линк') || bDesc.includes('link') || bDesc.includes('статия') || bDesc.includes('article') || (b.type === 'deduction' && !b.metadata?.videoId && !bIsVideo);
         if (aIsLink && !bIsLink) return -1;
         if (!aIsLink && bIsLink) return 1;
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();

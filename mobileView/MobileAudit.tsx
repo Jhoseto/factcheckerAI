@@ -78,11 +78,11 @@ const MobileAudit: React.FC = () => {
     }
     const validation = validateYouTubeUrl(youtubeUrl);
     if (!validation.valid) {
-      setError(validation.error || t('errors.invalidYoutubeUrl'));
+      setError(t('errors.invalidYoutubeUrl'));
       return;
     }
     if (!currentUser) {
-      setError('Влезте в профила си.');
+      setError(t('mobile.loginRequired'));
       setTimeout(() => navigate('/login'), 1500);
       return;
     }
@@ -107,9 +107,9 @@ const MobileAudit: React.FC = () => {
       else refreshProfile();
       navigate('/analysis-result', { state: { analysis: response.analysis, type: 'video', url: youtubeUrl } });
     } catch (e: any) {
-      if (e.code === 'INSUFFICIENT_POINTS') setError('Недостатъчно точки.');
-      else if (e.code === 'RATE_LIMIT') setError('Изчакайте 1–2 мин.');
-      else setError('Грешка при анализа. Опитайте отново.');
+      if (e.code === 'INSUFFICIENT_POINTS') setError(t('errors.insufficientPointsShort'));
+      else if (e.code === 'RATE_LIMIT') setError(t('errors.rateLimitWait'));
+      else setError(t('errors.analysisError'));
     } finally {
       setLoading(false);
       setStreamingProgress(null);
@@ -120,11 +120,11 @@ const MobileAudit: React.FC = () => {
     if (!linkUrl.trim()) return;
     const validation = validateNewsUrl(linkUrl);
     if (!validation.valid) {
-      setError(validation.error || 'Невалиден URL адрес.');
+      setError(t('linkAudit.invalidUrl'));
       return;
     }
     if (!currentUser) {
-      setError('Влезте в профила си.');
+      setError(t('mobile.loginRequired'));
       setTimeout(() => navigate('/login'), 1500);
       return;
     }
@@ -144,9 +144,9 @@ const MobileAudit: React.FC = () => {
       else refreshProfile();
       navigate('/analysis-result', { state: { analysis: result, type: 'link', url: linkUrl } });
     } catch (e: any) {
-      if (e.code === 'INSUFFICIENT_POINTS') setError('Недостатъчно точки.');
-      else if (e.code === 'RATE_LIMIT') setError('Изчакайте 1–2 мин.');
-      else setError('Грешка при анализа. Опитайте отново.');
+      if (e.code === 'INSUFFICIENT_POINTS') setError(t('errors.insufficientPointsShort'));
+      else if (e.code === 'RATE_LIMIT') setError(t('errors.rateLimitWait'));
+      else setError(t('errors.analysisError'));
     } finally {
       setLinkLoading(false);
       setStreamingProgress(null);

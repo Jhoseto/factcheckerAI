@@ -263,10 +263,13 @@
   "errors": {
     "metadata": "Грешка при зареждане на информацията.",
     "invalidYoutubeUrl": "Моля, въведете валиден YouTube URL.",
+    "invalidUrl": "Моля, въведете валиден URL адрес.",
     "analysisFailed": "Възникна грешка при анализа.",
     "insufficientPoints": "Недостатъчно точки! Нужни са {{count}}.",
     "insufficientPointsShort": "Недостатъчно точки.",
-    "insufficientPointsNeeded": "Недостатъчно точки. Необходими са {{count}}."
+    "insufficientPointsNeeded": "Недостатъчно точки. Необходими са {{count}}.",
+    "rateLimitWait": "Изчакайте 1–2 мин.",
+    "analysisError": "Грешка при анализа. Опитайте отново."
   },
   "app": {
     "heroTitle": "ОДИТ НА ИСТИНАТА.",
@@ -353,7 +356,9 @@
     "pointsLabel": "точки",
     "scrollLeft": "Скролвай наляво",
     "scrollRight": "Скролвай надясно",
-    "pointsNav": "Точки"
+    "pointsNav": "Точки",
+    "user": "Потребител",
+    "back": "Назад"
   },
   "report": {
     "source": "Източник",

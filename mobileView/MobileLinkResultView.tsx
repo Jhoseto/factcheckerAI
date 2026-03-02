@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { VideoAnalysis } from '../types';
 import MobileHeader from './components/MobileHeader';
+import { useTranslatedReport } from '../hooks/useTranslatedReport';
 import ReliabilityGauge from '../components/linkAudit/ReliabilityGauge';
 
 type TabId = 'summary' | 'claims' | 'manipulation' | 'report';
@@ -15,6 +16,8 @@ interface MobileLinkResultViewProps {
 
 const MobileLinkResultView: React.FC<MobileLinkResultViewProps> = ({ analysis, reportLoading, onSaveToArchive, onBack }) => {
   const { t } = useTranslation();
+  const rawReport = analysis.summary?.finalInvestigativeReport || analysis.summary?.overallSummary || '';
+  const { displayText: reportDisplayText } = useTranslatedReport(analysis.id, rawReport);
   const [activeTab, setActiveTab] = useState<TabId>('summary');
   const scrollRef = useRef<HTMLDivElement>(null);
   const tabsScrollRef = useRef<HTMLDivElement>(null);
@@ -199,7 +202,7 @@ const MobileLinkResultView: React.FC<MobileLinkResultViewProps> = ({ analysis, r
               {(analysis.claims || []).map((claim, idx) => (
                 <div key={idx} className="rounded-xl p-4 bg-[#252525] border border-[#333]">
                   <span className={`inline-block px-3 py-1.5 text-[9px] font-black uppercase tracking-widest border mb-3 rounded ${
-                    claim.veracity.toLowerCase().includes('невярно') ? 'border-red-600/60 text-red-400 bg-red-900/20' : 'border-emerald-600/60 text-emerald-400 bg-emerald-900/20'
+                    claim.veracity.toLowerCase().includes('невярно') || claim.veracity.toLowerCase().includes('false') ? 'border-red-600/60 text-red-400 bg-red-900/20' : 'border-emerald-600/60 text-emerald-400 bg-emerald-900/20'
                   }`}>
                     {claim.veracity}
                   </span>
@@ -247,7 +250,7 @@ const MobileLinkResultView: React.FC<MobileLinkResultViewProps> = ({ analysis, r
                   <h2 className="text-2xl font-black text-[#E0E0E0]">{t('report.finalAnalysis')}</h2>
                 </div>
                 <div className="text-[#ccc] text-sm leading-relaxed whitespace-pre-wrap">
-                  {analysis.summary?.finalInvestigativeReport || analysis.summary?.overallSummary || t('analysis.reportGenerating')}
+                  {reportDisplayText || t('analysis.reportGenerating')}
                 </div>
               </div>
             </div>

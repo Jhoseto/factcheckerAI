@@ -32,7 +32,7 @@ const MobileProfile: React.FC = () => {
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-black text-[#E0E0E0] truncate">{userProfile?.displayName || 'Потребител'}</p>
+            <p className="text-sm font-black text-[#E0E0E0] truncate">{userProfile?.displayName || t('mobile.user')}</p>
             <p className="text-xs text-[#888] truncate">{currentUser.email}</p>
             {userProfile?.pointsBalance != null && (
               <p className="text-[10px] font-black text-[#C4B091] uppercase tracking-wider mt-1">

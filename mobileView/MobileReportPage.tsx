@@ -51,7 +51,7 @@ const MobileReportPage: React.FC = () => {
       return;
     }
     try {
-      const title = previewAnalysis.videoTitle || 'Analysis';
+      const title = previewAnalysis.videoTitle || t('report.reportTitle');
       const url = location.state?.url || '';
       const newId = await saveAnalysis(currentUser.uid, type, title, previewAnalysis, url);
       navigate(`/report/${newId}`, { replace: true });
