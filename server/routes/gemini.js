@@ -126,12 +126,16 @@ function getProgressMsg(lang, key, ...args) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Helper: get Gemini AI instance
+// Helper: get Gemini AI instance (module-level singleton)
 // ─────────────────────────────────────────────────────────────────────────────
+let _aiInstance = null;
 function getAI() {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.VITE_API_KEY;
-    if (!apiKey) throw new Error('Server configuration error: Missing API key');
-    return new GoogleGenAI({ apiKey });
+    if (!_aiInstance) {
+        const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.VITE_API_KEY;
+        if (!apiKey) throw new Error('Server configuration error: Missing API key');
+        _aiInstance = new GoogleGenAI({ apiKey });
+    }
+    return _aiInstance;
 }
 
 // JSON Schema for structured output — relaxed so Gemini always returns valid JSON (video & link)
@@ -440,6 +444,10 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
     const heartbeat = setInterval(() => {
         res.write(': heartbeat\n\n');
     }, 15000);
+    const endStream = () => {
+        clearInterval(heartbeat);
+        try { res.end(); } catch (_) {}
+    };
 
     try {
         const ai = getAI();
@@ -457,7 +465,8 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
 
         if (currentBalance < minRequired) {
             sendSSE('error', { error: 'Insufficient points', code: 'INSUFFICIENT_POINTS', currentBalance });
-            return res.end();
+            endStream();
+            return;
         }
 
         // ── Build request ─────────────────────────────────────────────────────
@@ -628,13 +637,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             console.error(`[Gemini Stream] Validation failed: ${validation.code}`, validation.error || '', `(${fullText.length} chars)`);
 
             if (fullText.length > 0) {
-                try {
-                    const fs = await import('fs');
-                    fs.writeFileSync(`failed_gemini_stream.txt`, fullText);
-                    console.log('Saved failed JSON to failed_gemini_stream.txt for debugging.');
-                } catch (err) {
-                    console.error('Failed to write debug file', err);
-                }
+                console.error('[Gemini Stream] Failed response preview:', fullText.substring(0, 500));
             }
 
             const emptyMsg = validation.code === 'AI_EMPTY_RESPONSE'
@@ -645,7 +648,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             } catch (sendErr) {
                 console.error('[Gemini Stream] Send error event failed:', sendErr?.message);
             }
-            try { res.end(); } catch (_) {}
+            endStream();
             return;
         }
 
@@ -663,23 +666,11 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
         const balanceNow = await getUserPoints(userId);
         if (balanceNow < finalPoints) {
             sendSSE('error', { error: 'Insufficient points.', code: 'INSUFFICIENT_POINTS', currentBalance: balanceNow });
-            return res.end();
+            endStream();
+            return;
         }
 
         const textToSend = validation.parsed ? JSON.stringify(validation.parsed) : fullText;
-        sendSSE('progress', { status: getProgressMsg(lang, 'finalizing') });
-
-        try {
-            sendSSE('complete', {
-                text: textToSend,
-                usageMetadata: usage,
-                points: { deducted: finalPoints, costInPoints: finalPoints, pending: true, isDeep: isDeepMode }
-            });
-        } catch (e) {
-            console.error('[Gemini Stream] Send failed, no charge:', e?.message);
-            return res.end();
-        }
-
         const description = serviceType === 'linkArticle' ? 'Анализ на статия (Линк)' : serviceType === 'text' ? 'Текстов анализ' : isDeepMode ? 'Дълбок видео анализ' : 'Стандартен видео анализ';
         const metadata = req.body.metadata || {};
         if (serviceType === 'video' || !serviceType) {
@@ -691,7 +682,25 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
         }
 
         const deductResult = await deductPointsFromUser(userId, finalPoints, description, metadata);
-        const newBalance = deductResult.newBalance ?? balanceNow - finalPoints;
+        if (!deductResult.success) {
+            sendSSE('error', { error: 'Insufficient points.', code: 'INSUFFICIENT_POINTS', currentBalance: deductResult.newBalance });
+            endStream();
+            return;
+        }
+        const newBalance = deductResult.newBalance;
+
+        sendSSE('progress', { status: getProgressMsg(lang, 'finalizing') });
+        try {
+            sendSSE('complete', {
+                text: textToSend,
+                usageMetadata: usage,
+                points: { deducted: finalPoints, costInPoints: finalPoints, newBalance, isDeep: isDeepMode }
+            });
+        } catch (e) {
+            console.error('[Gemini Stream] Send failed after deduct:', e?.message);
+            endStream();
+            return;
+        }
 
         // ── Log Real Token Costs to Server Console ────────────────────────────
         try {
@@ -721,24 +730,23 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
         }
 
         sendSSE('points_deducted', { newBalance });
-        res.end();
+        endStream();
 
     } catch (error) {
-        clearInterval(heartbeat);
         console.error('[Gemini Stream API] Error:', error?.message || error);
         try {
             sendSSE('error', { error: error.message || 'Failed to generate content', code: 'UNKNOWN_ERROR' });
         } catch (writeErr) {
             console.error('[Gemini Stream API] Could not send error SSE:', writeErr.message);
         }
-        res.end();
+        endStream();
     }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/gemini/synthesize-report — Report synthesis (no billing)
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/synthesize-report', requireAuth, async (req, res) => {
+router.post('/synthesize-report', requireAuth, analysisRateLimiter, async (req, res) => {
     req.setTimeout(300000); // 5 minutes
     res.setTimeout(300000);
 
