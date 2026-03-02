@@ -31,7 +31,8 @@ export const getReportSynthesisPromptEn = (analysisData: {
         `${i + 1}. ${str(m.technique)}${m.description ? `: ${str(m.description).substring(0, 150)}` : ''}${m.impact ? ` | Impact: ${str(m.impact).substring(0, 100)}` : ''}`
     ).join('\n');
 
-    return `You are an independent expert in fact-checking and media analysis. Produce a DCGE Report (${new Date().toISOString()}). You are given the raw data from the analysis of a video and must write a professional report.
+    const reportDate = new Date().toLocaleString('en-GB', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return `You are an independent expert in fact-checking and media analysis. Produce a DCGE Report (${reportDate}). You are given the raw data from the analysis of a video and must write a professional report.
 
 CRITICAL REQUIREMENTS:
 - Do NOT copy the data verbatim — ANALYSE, SYNTHESISE, REASON like an experienced journalist
@@ -87,7 +88,7 @@ Minimum 2–3 paragraphs. Professional expert opinion. Objective evaluation. Str
 Minimum 2 paragraphs. Closing thoughts. What questions remain? What should the user know?
 
 # END
-Just one line: DCGE Report (${new Date().toISOString()})
+Just one line: DCGE Report (${reportDate})
 
 REQUIREMENT: Minimum 18–25 paragraphs TOTAL. Each section must be developed and specific. Short, superficial responses are UNACCEPTABLE. The report must be so good that the user says "WOW — this is real investigative journalism!"`;
 };

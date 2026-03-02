@@ -190,7 +190,7 @@ const ReportView: React.FC<{ analysis: VideoAnalysis; reportRef?: React.RefObjec
                 <h3 className="text-2xl md:text-4xl font-black text-[#E0E0E0] tracking-tight uppercase mb-4  leading-tight">{analysis.videoTitle}</h3>
                 <div className="flex justify-center gap-10 text-[8px] font-bold text-[#666] uppercase tracking-widest">
                     <span>{t('analysis.sourceLabel')} {analysis.videoAuthor}</span>
-                    <span>{t('analysis.dateLabel')} {new Date(analysis.timestamp).toLocaleString()}</span>
+                    <span>{t('analysis.dateLabel')} {new Date(analysis.timestamp).toLocaleString(i18n.language === 'en' ? 'en-GB' : 'bg-BG', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                     <span>{t('analysis.engineLabel')} DCGE v4.8</span>
                 </div>
                 {analysis.synthesizedReport && (
@@ -482,7 +482,7 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-[#333]">
                                     <div><p className="text-[9px] font-black text-[#666] uppercase mb-0.5">{t('analysis.source')}</p><p className="text-sm font-black text-[#C4B091] uppercase truncate">{analysis.videoAuthor}</p></div>
                                     <div><p className="text-[9px] font-black text-[#666] uppercase mb-0.5">{t('analysis.duration')}</p><p className="text-sm font-black text-[#E0E0E0] uppercase">{analysis.summary.totalDuration}</p></div>
-                                    <div><p className="text-[9px] font-black text-[#666] uppercase mb-0.5">{t('analysis.date')}</p><p className="text-sm font-black text-[#E0E0E0] uppercase">{new Date(analysis.timestamp).toLocaleDateString()}</p></div>
+                                    <div><p className="text-[9px] font-black text-[#666] uppercase mb-0.5">{t('analysis.date')}</p><p className="text-sm font-black text-[#E0E0E0] uppercase">{new Date(analysis.timestamp).toLocaleDateString(i18n.language === 'en' ? 'en-GB' : 'bg-BG', { day: '2-digit', month: 'short', year: 'numeric' })}</p></div>
                                     <div><p className="text-[9px] font-black text-[#666] uppercase mb-0.5">Audit ID</p><p className="text-sm font-black text-[#968B74] uppercase">#{analysis.id}</p></div>
                                 </div>
                             </div>
