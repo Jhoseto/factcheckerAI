@@ -6,9 +6,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useLanguageSwitch } from '../../hooks/useLanguageSwitch';
 
 const Navbar: React.FC = () => {
+    const { t } = useTranslation();
     const { currentUser, userProfile, logout } = useAuth();
     const navigate = useNavigate();
-    const { t } = useTranslation();
     const { language, setLanguage, isTranslating, translateError } = useLanguageSwitch();
     const [showUserMenu, setShowUserMenu] = useState(false);
     const [menuCoords, setMenuCoords] = useState({ top: 0, right: 0 });

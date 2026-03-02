@@ -15,6 +15,7 @@ interface ScannerAnimationProps {
 }
 
 const ScannerAnimation: React.FC<ScannerAnimationProps> = ({ size = 320, width, height, className = '' }) => {
+    const { t } = useTranslation();
     const w = width ?? size;
     const h = height ?? size;
 
@@ -30,7 +31,6 @@ const ScannerAnimation: React.FC<ScannerAnimationProps> = ({ size = 320, width, 
         );
     }
 
-    const { t } = useTranslation();
     const [activeWordIndex, setActiveWordIndex] = useState(0);
     const wordKeys = [
         'app.scannerUnderstanding',

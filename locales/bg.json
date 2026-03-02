@@ -258,7 +258,13 @@
     "noResults": "Няма намерени досиета",
     "startNewAnalysis": "Стартирай Нов Анализ",
     "confirmDelete": "Сигурни ли сте, че искате да изтриете този анализ?",
-    "deleteError": "Грешка при изтриване."
+    "deleteError": "Грешка при изтриване.",
+    "unidentifiedAnalysis": "Неидентифициран Анализ",
+    "credibility": "Доверие",
+    "manipulation": "Манипулация",
+    "pointsLabel": "ТОЧКИ",
+    "delete": "ИЗТРИЙ",
+    "source": "ИЗТОЧНИК"
   },
   "errors": {
     "metadata": "Грешка при зареждане на информацията.",

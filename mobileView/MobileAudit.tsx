@@ -58,8 +58,8 @@ const MobileAudit: React.FC = () => {
 
   useEffect(() => {
     if (!loading) return;
-    const t = setInterval(() => setLoadingPhase(p => (p + 1) % LOADING_PHASE_KEYS.length), 3500);
-    return () => clearInterval(t);
+    const phaseTimer = setInterval(() => setLoadingPhase(p => (p + 1) % LOADING_PHASE_KEYS.length), 3500);
+    return () => clearInterval(phaseTimer);
   }, [loading]);
 
   useEffect(() => {
@@ -67,8 +67,8 @@ const MobileAudit: React.FC = () => {
       setElapsedSeconds(0);
       return;
     }
-    const t = setInterval(() => setElapsedSeconds(s => s + 1), 1000);
-    return () => clearInterval(t);
+    const elapsedTimer = setInterval(() => setElapsedSeconds(s => s + 1), 1000);
+    return () => clearInterval(elapsedTimer);
   }, [loading, linkLoading]);
 
   const handleStartAnalysis = async () => {

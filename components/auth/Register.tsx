@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useTranslation, Trans } from 'react-i18next';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
@@ -174,27 +174,7 @@ const Register: React.FC = () => {
                                 disabled={loading}
                             />
                             <label htmlFor="terms" className="text-[9px] text-[#666] leading-relaxed tracking-wide uppercase">
-                                <Trans
-                                    i18nKey="auth.registerAcceptWithLinks"
-                                    components={{
-                                        termsLink: (
-                                            <Link
-                                                to="/terms"
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-[8px] font-normal text-[#968B74] hover:text-[#E6D2A8] border-b border-[#968B74]/30"
-                                            />
-                                        ),
-                                        privacyLink: (
-                                            <Link
-                                                to="/privacy"
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-[8px] font-normal text-[#968B74] hover:text-[#E6D2A8] border-b border-[#968B74]/30"
-                                            />
-                                        ),
-                                    }}
-                                />
+                                Приемам <Link to="/terms" target="_blank" rel="noopener noreferrer" className="text-[8px] font-normal text-[#968B74] hover:text-[#E6D2A8] border-b border-[#968B74]/30">Правилата и условията</Link> и <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="text-[8px] font-normal text-[#968B74] hover:text-[#E6D2A8] border-b border-[#968B74]/30">Политиката за поверителност</Link>
                             </label>
                         </div>
 

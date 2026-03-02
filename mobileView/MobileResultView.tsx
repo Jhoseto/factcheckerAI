@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { VideoAnalysis } from '../types';
 import MobileHeader from './components/MobileHeader';
-import { useTranslatedReport } from '../hooks/useTranslatedReport';
 import ReliabilityChart from '../components/ReliabilityChart';
 import { TabIcon } from '../components/common/result-views/DeepTabIcons';
 
@@ -28,7 +27,6 @@ const SectionBlock: React.FC<{ title: string; content?: string; noDataLabel: str
 const MobileResultView: React.FC<MobileResultViewProps> = ({ analysis, reportLoading, onSaveToArchive, onBack }) => {
   const { t } = useTranslation();
   const rawReport = analysis.synthesizedReport || analysis.summary?.finalInvestigativeReport || analysis.summary?.overallSummary || '';
-  const { displayText: reportDisplayText } = useTranslatedReport(analysis.id, rawReport);
   const [activeTab, setActiveTab] = useState<TabId>('summary');
   const scrollRef = useRef<HTMLDivElement>(null);
   const tabsScrollRef = useRef<HTMLDivElement>(null);
@@ -239,7 +237,7 @@ const MobileResultView: React.FC<MobileResultViewProps> = ({ analysis, reportLoa
             <div className="space-y-4 mobile-fade-in">
               <div className="rounded-xl p-4 bg-[#252525] border border-[#333]">
                 <div className="text-[#ccc] text-sm leading-relaxed whitespace-pre-wrap">
-                  {reportDisplayText || t('analysis.reportGenerating')}
+                  {rawReport || t('analysis.reportGenerating')}
                 </div>
               </div>
             </div>

@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { VideoAnalysis } from '../types';
 import MobileHeader from './components/MobileHeader';
-import { useTranslatedReport } from '../hooks/useTranslatedReport';
 import ReliabilityGauge from '../components/linkAudit/ReliabilityGauge';
 
 type TabId = 'summary' | 'claims' | 'manipulation' | 'report';
@@ -17,7 +16,6 @@ interface MobileLinkResultViewProps {
 const MobileLinkResultView: React.FC<MobileLinkResultViewProps> = ({ analysis, reportLoading, onSaveToArchive, onBack }) => {
   const { t } = useTranslation();
   const rawReport = analysis.summary?.finalInvestigativeReport || analysis.summary?.overallSummary || '';
-  const { displayText: reportDisplayText } = useTranslatedReport(analysis.id, rawReport);
   const [activeTab, setActiveTab] = useState<TabId>('summary');
   const scrollRef = useRef<HTMLDivElement>(null);
   const tabsScrollRef = useRef<HTMLDivElement>(null);
@@ -250,7 +248,7 @@ const MobileLinkResultView: React.FC<MobileLinkResultViewProps> = ({ analysis, r
                   <h2 className="text-2xl font-black text-[#E0E0E0]">{t('report.finalAnalysis')}</h2>
                 </div>
                 <div className="text-[#ccc] text-sm leading-relaxed whitespace-pre-wrap">
-                  {reportDisplayText || t('analysis.reportGenerating')}
+                  {rawReport || t('analysis.reportGenerating')}
                 </div>
               </div>
             </div>

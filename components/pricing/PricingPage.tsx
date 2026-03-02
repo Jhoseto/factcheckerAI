@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { PRICING_TIERS } from '../../config/pricingConfig';
+import { getApiLang } from '../../i18n';
 
-const numberLocale = (lng: string) => (lng === 'en' || lng?.startsWith('en') ? 'en-GB' : 'bg-BG');
+const numberLocale = (lang: 'bg' | 'en') => (lang === 'en' ? 'en-GB' : 'bg-BG');
 
 const PricingPage: React.FC = () => {
-    const { t, i18n } = useTranslation();
+    const { t } = useTranslation();
     const navigate = useNavigate();
-    const locale = numberLocale(i18n.language);
+    const locale = numberLocale(getApiLang());
     const { currentUser } = useAuth();
     const TIER_NAMES: Record<string, string> = {
         starter: t('pricing.tierStarter'),

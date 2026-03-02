@@ -5,14 +5,15 @@ import { useAuth } from '../contexts/AuthContext';
 import { getUserTransactions, Transaction } from '../services/transactionService';
 import MobileSafeArea from './components/MobileSafeArea';
 import MobileHeader from './components/MobileHeader';
+import { getApiLang } from '../i18n';
 
-const dateLocale = (lng: string) => (lng === 'en' || lng?.startsWith('en') ? 'en-GB' : 'bg-BG');
+const dateLocale = (lang: 'bg' | 'en') => (lang === 'en' ? 'en-GB' : 'bg-BG');
 
 const MobileExpensesPage: React.FC = () => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { currentUser, userProfile } = useAuth();
   const navigate = useNavigate();
-  const locale = dateLocale(i18n.language);
+  const locale = dateLocale(getApiLang());
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

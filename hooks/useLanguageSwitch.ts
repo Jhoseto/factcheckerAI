@@ -1,30 +1,21 @@
 import { useState, useCallback, useEffect } from 'react';
 import i18n from '../i18n';
-import { getGoogleTranslateLang, applyGoogleTranslate } from '../utils/googleTranslate';
+// Google Translate не се използва – преводът е изцяло чрез i18next
 
 export function useLanguageSwitch() {
-  const [language, setLanguageState] = useState<'en' | 'bg'>(getGoogleTranslateLang());
-  const [isTranslating, setIsTranslating] = useState(false);
+  const [language, setLanguageState] = useState<'en' | 'bg'>(
+    i18n.language === 'en' ? 'en' : 'bg'
+  );
 
   useEffect(() => {
-    const sync = () => {
-      const lng = getGoogleTranslateLang();
-      setLanguageState(lng);
-      if (i18n.language !== lng) i18n.changeLanguage(lng);
-    };
-    sync();
-    const id = setInterval(sync, 500);
-    return () => clearInterval(id);
+    const handler = (lng: string) => setLanguageState(lng === 'en' ? 'en' : 'bg');
+    i18n.on('languageChanged', handler);
+    return () => i18n.off('languageChanged', handler);
   }, []);
 
   const setLanguage = useCallback((lng: 'bg' | 'en') => {
-    if (lng === language) return;
-    setIsTranslating(true);
-    setLanguageState(lng);
     i18n.changeLanguage(lng);
-    applyGoogleTranslate(lng);
-    setTimeout(() => setIsTranslating(false), 600);
-  }, [language]);
+  }, []);
 
-  return { language, setLanguage, isTranslating, translateError: null };
+  return { language, setLanguage, isTranslating: false, translateError: null };
 }

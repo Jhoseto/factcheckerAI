@@ -23,8 +23,6 @@ import checkoutRouter from './routes/checkout.js';
 import webhookRouter from './routes/webhook.js';
 import socialRouter from './routes/social.js';
 import transactionsRouter from './routes/transactions.js';
-import translateRouter from './routes/translate.js';
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -74,7 +72,6 @@ app.use('/api/lemonsqueezy', checkoutRouter);
 app.use('/api/lemonsqueezy', webhookRouter);
 app.use('/api/social', socialRouter);
 app.use('/api/transactions', transactionsRouter);
-app.use('/api', translateRouter);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // YouTube Proxy & Routes

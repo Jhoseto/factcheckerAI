@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { getUserAnalyses, SavedAnalysis, deleteAnalysis } from '../../services/archiveService';
+import { getApiLang } from '../../i18n';
 
 const LIMITS = {
     video: 10,
@@ -10,8 +11,11 @@ const LIMITS = {
     social: 15
 };
 
+const dateLocale = (lang: 'bg' | 'en') => (lang === 'en' ? 'en-GB' : 'bg-BG');
+
 const ArchivePage: React.FC = () => {
     const { t } = useTranslation();
+    const locale = dateLocale(getApiLang());
     const navigate = useNavigate();
     const { currentUser } = useAuth();
     
@@ -251,18 +255,18 @@ const ArchivePage: React.FC = () => {
                                             </span>
                                             <span className="text-[9px] font-bold text-[#666] uppercase tracking-widest">
                                                 {analysis.createdAt && (analysis.createdAt as any).toDate
-                                                    ? (analysis.createdAt as any).toDate().toLocaleDateString('bg-BG')
-                                                    : new Date(analysis.createdAt as any).toLocaleDateString('bg-BG')}
+                                                    ? (analysis.createdAt as any).toDate().toLocaleDateString(locale)
+                                                    : new Date(analysis.createdAt as any).toLocaleDateString(locale)}
                                             </span>
                                         </div>
 
                                         <h3 className="text-xl font-serif text-[#f0f0f0] group-hover:text-[#C4B091] transition-colors leading-tight">
-                                            {analysis.title || 'Неидентифициран Анализ'}
+                                            {analysis.title || t('archive.unidentifiedAnalysis')}
                                         </h3>
 
                                         {analysis.url && (
                                             <p className="text-[10px] text-[#555] truncate font-mono uppercase tracking-wider">
-                                                SOURCE: {analysis.url}
+                                                {t('archive.source')}: {analysis.url}
                                             </p>
                                         )}
 
@@ -272,13 +276,13 @@ const ArchivePage: React.FC = () => {
                                                 <div className="flex items-center gap-2">
                                                     <span className="w-1 h-1 rounded-full bg-[#888]"></span>
                                                     <span className="text-[9px] font-bold text-[#888] uppercase tracking-wide">
-                                                        Доверие: <span className="text-[#C4B091]">{Math.round((analysis.analysis.summary.credibilityIndex || 0) * 100)}%</span>
+                                                        {t('archive.credibility')}: <span className="text-[#C4B091]">{Math.round((analysis.analysis.summary.credibilityIndex || 0) * 100)}%</span>
                                                     </span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <span className="w-1 h-1 rounded-full bg-[#888]"></span>
                                                     <span className="text-[9px] font-bold text-[#888] uppercase tracking-wide">
-                                                        Манипулация: <span className="text-[#C4B091]">{Math.round((analysis.analysis.summary.manipulationIndex || 0) * 100)}%</span>
+                                                        {t('archive.manipulation')}: <span className="text-[#C4B091]">{Math.round((analysis.analysis.summary.manipulationIndex || 0) * 100)}%</span>
                                                     </span>
                                                 </div>
                                             </div>
@@ -289,14 +293,14 @@ const ArchivePage: React.FC = () => {
                                     <div className="flex flex-row md:flex-col gap-4 items-center md:items-end justify-between w-full md:w-auto mt-4 md:mt-0 pl-0 md:pl-8 md:border-l border-[#333]">
                                         <div className="text-right hidden md:block">
                                             <span className="block text-xl font-serif text-[#968B74]">-{analysis.analysis.pointsCost || 0}</span>
-                                            <span className="text-[8px] font-bold text-[#444] uppercase tracking-[0.3em]">ТОЧКИ</span>
+                                            <span className="text-[8px] font-bold text-[#444] uppercase tracking-[0.3em]">{t('archive.pointsLabel')}</span>
                                         </div>
 
                                         <button
                                             onClick={(e) => handleDelete(analysis.id!, e)}
                                             className="px-4 py-2 text-[9px] font-black text-[#500] hover:text-red-500 hover:bg-[#1a1a1a] rounded-sm transition-colors uppercase tracking-[0.2em] flex items-center gap-2"
                                         >
-                                            ИЗТРИЙ
+                                            {t('archive.delete')}
                                         </button>
                                     </div>
                                 </div>

@@ -10,8 +10,8 @@ interface MobileHeaderProps {
 }
 
 const MobileHeader: React.FC<MobileHeaderProps> = ({ title, showBack, onBack, right }) => {
-  const navigate = useNavigate();
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   const handleBack = () => {
     if (onBack) onBack();

@@ -18,15 +18,13 @@ interface LinkResultViewProps {
 }
 
 import ShareModal from '../ShareModal';
-import { useTranslatedReport } from '../../../hooks/useTranslatedReport';
 import { useTranslation } from 'react-i18next';
 
 const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, onSave, onReset, slotUsage, isSaved = false }) => {
     const { t } = useTranslation();
     const { currentUser } = useAuth();
     const [activeTab, setActiveTab] = useState<'summary' | 'claims' | 'manipulation' | 'profile' | 'rhetoric' | 'comments' | 'report'>('summary');
-    const linkReportText = analysis.summary.finalInvestigativeReport || '';
-    const { displayText: linkReportDisplayText, loading: linkReportTranslating } = useTranslatedReport(analysis.id, linkReportText);
+    const linkReportDisplayText = analysis.summary.finalInvestigativeReport || '';
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
     const handleShare = async () => {
@@ -582,7 +580,6 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                                     <p className="text-[9px] font-black text-[#968B74] uppercase tracking-[0.3em] mb-2">{t('analysis.officialReport')}</p>
                                     <h2 className="text-3xl md:text-4xl font-black text-[#C4B091]">{t('analysis.concludingAnalysis')}</h2>
                                 </div>
-                                {linkReportTranslating && <p className="text-[#968B74] text-sm mb-4">{t('loading.translating')}</p>}
                                 <div className="max-w-none space-y-1 font-sans text-[15px] md:text-base leading-[1.7] text-[#ddd]">
                                     {(typeof linkReportDisplayText === 'string' ? linkReportDisplayText : '').split(/\n/).map((line, idx) => {
                                         const trimmed = line.trim();

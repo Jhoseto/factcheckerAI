@@ -10,7 +10,7 @@ COPY package*.json ./
 # Install ONLY production dependencies
 RUN npm install --production --legacy-peer-deps
 
-# Copy pre-built dist folder, server, and locales (for /api/translate)
+# Copy pre-built dist folder, server, and locales (bg.json for i18n)
 COPY dist ./dist
 COPY server ./server
 COPY locales ./locales

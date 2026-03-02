@@ -6,7 +6,6 @@ import ReliabilityChart from '../../ReliabilityChart';
 import MetricBlock from '../MetricBlock';
 import { useAuth } from '../../../contexts/AuthContext';
 import { makeAnalysisPublic } from '../../../services/archiveService';
-import { useTranslatedReport } from '../../../hooks/useTranslatedReport';
 import { useTranslation } from 'react-i18next';
 import { TabIcon, SectionIcon } from './DeepTabIcons';
 
@@ -107,8 +106,7 @@ const MultimodalSection: React.FC<{ title: string; content?: string | unknown; c
 
 const ReportView: React.FC<{ analysis: VideoAnalysis; reportRef?: React.RefObject<HTMLElement>; reportLoading?: boolean }> = ({ analysis, reportRef, reportLoading }) => {
     const { t } = useTranslation();
-    const rawReportText = analysis.synthesizedReport || analysis.summary.finalInvestigativeReport || '';
-    const { displayText: reportText, loading: reportTranslating } = useTranslatedReport(analysis.id, rawReportText);
+    const reportText = analysis.synthesizedReport || analysis.summary.finalInvestigativeReport || '';
 
     // Parse markdown-like report into structured sections
     const renderReportContent = (text: string) => {

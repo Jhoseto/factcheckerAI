@@ -23,9 +23,18 @@
 
 * { box-sizing: border-box; }
 
+/* Скрива Google Translate UI – само нашите BG/ENG бутони остават видими */
+.goog-te-banner-frame,
+.goog-te-banner-frame.skiptranslate,
+body > .skiptranslate,
+#goog-gt-tt,
+.goog-te-balloon-frame,
+.goog-tooltip { display: none !important; visibility: hidden !important; }
+
 body {
   margin: 0;
   padding: 0;
+  top: 0 !important;
   background-color: var(--bg-deep);
   color: #E0E0E0;
   font-family: var(--font-sans);

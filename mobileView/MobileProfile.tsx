@@ -7,9 +7,9 @@ import MobileSafeArea from './components/MobileSafeArea';
 import MobileHeader from './components/MobileHeader';
 
 const MobileProfile: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { currentUser, userProfile, logout } = useAuth();
-  const { t } = useTranslation();
   const { language, setLanguage, isTranslating } = useLanguageSwitch();
 
   if (!currentUser) return null;
