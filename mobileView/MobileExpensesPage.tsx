@@ -35,7 +35,7 @@ const MobileExpensesPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'deductions' | 'purchases'>('deductions');
-  const [filter, setFilter] = useState<'all' | 'video' | 'link' | 'social'>('all');
+  const [filter, setFilter] = useState<'all' | 'video' | 'link'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOrder, setSortOrder] = useState<'date_desc' | 'date_asc' | 'points_desc' | 'video' | 'link'>('date_desc');
 
@@ -92,9 +92,6 @@ const MobileExpensesPage: React.FC = () => {
           const isVideo = desc.includes('видео') || desc.includes('video');
           const isLink = desc.includes('линк') || desc.includes('link') || desc.includes('статия') || desc.includes('article') || (t.type === 'deduction' && !t.metadata?.videoId && !isVideo);
           if (!isLink) return false;
-        } else if (filter === 'social') {
-          const isSocial = desc.includes('social') || desc.includes('пост') || desc.includes('post') || desc.includes('коментар') || desc.includes('comment');
-          if (!isSocial) return false;
         }
       }
 

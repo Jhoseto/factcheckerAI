@@ -30,7 +30,7 @@ const ExpensesPage: React.FC = () => {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [filter, setFilter] = useState<'all' | 'deduction' | 'purchase' | 'video' | 'link' | 'social'>('all');
+    const [filter, setFilter] = useState<'all' | 'deduction' | 'purchase' | 'video' | 'link'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [sortOrder, setSortOrder] = useState<'date_desc' | 'date_asc' | 'points_desc'>('date_desc');
 
@@ -75,7 +75,6 @@ const ExpensesPage: React.FC = () => {
                 else if (filter === 'deduction') { if (t.type !== 'deduction') return false; }
                 else if (filter === 'video') { if (!t.metadata?.videoId && !desc.includes('видео') && !desc.includes('video')) return false; }
                 else if (filter === 'link') { if (t.type !== 'deduction' || (!desc.includes('линк') && !desc.includes('link') && !desc.includes('статия') && !desc.includes('article'))) return false; }
-                else if (filter === 'social') { if (!desc.includes('social') && !desc.includes('пост') && !desc.includes('post') && !desc.includes('коментар') && !desc.includes('comment')) return false; }
             }
             if (searchTerm) {
                 const term = searchTerm.toLowerCase();

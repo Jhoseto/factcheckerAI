@@ -7,8 +7,7 @@ import { getApiLang } from '../../i18n';
 
 const LIMITS = {
     video: 10,
-    link: 15,
-    social: 15
+    link: 15
 };
 
 const dateLocale = (lang: 'bg' | 'en') => (lang === 'en' ? 'en-GB' : 'bg-BG');
@@ -21,7 +20,7 @@ const ArchivePage: React.FC = () => {
     
     const [analyses, setAnalyses] = useState<SavedAnalysis[]>([]);
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState<'all' | 'video' | 'link' | 'social'>('all');
+    const [filter, setFilter] = useState<'all' | 'video' | 'link'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [sortOrder, setSortOrder] = useState<'date_desc' | 'date_asc'>('date_desc');
 
@@ -58,8 +57,7 @@ const ArchivePage: React.FC = () => {
 
     const counts = {
         video: analyses.filter(a => a.type === 'video').length,
-        link: analyses.filter(a => a.type === 'link').length,
-        social: analyses.filter(a => a.type === 'social').length
+        link: analyses.filter(a => a.type === 'link').length
     };
 
     const filteredAnalyses = analyses
@@ -83,7 +81,6 @@ const ArchivePage: React.FC = () => {
         switch (type) {
             case 'video': return t('archive.videoAnalysis');
             case 'link': return t('archive.linkAudit');
-            case 'social': return t('archive.socialAudit');
             default: return t('archive.analysis');
         }
     };
@@ -92,7 +89,6 @@ const ArchivePage: React.FC = () => {
         switch (type) {
             case 'video': return 'text-[#968B74] border-[#968B74]/40';
             case 'link': return 'text-emerald-400 border-emerald-500/40';
-            case 'social': return 'text-purple-400 border-purple-500/40';
             default: return 'text-[#a3a3a3] border-[#404040]';
         }
     };
@@ -144,7 +140,7 @@ const ArchivePage: React.FC = () => {
                 </div>
 
                 {/* Storage Quotas */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
                     <div className={`editorial-card p-6 bg-[#252525]`}>
                         <div className="flex justify-between items-center mb-3">
                             <span className="text-[9px] font-bold text-[#888] uppercase tracking-widest">{t('archive.videoSlots')}</span>
@@ -164,22 +160,12 @@ const ArchivePage: React.FC = () => {
                             <div className={`h-full ${counts.link >= LIMITS.link ? 'bg-red-500' : 'bg-emerald-600'}`} style={{ width: `${(counts.link / LIMITS.link) * 100}%` }}></div>
                         </div>
                     </div>
-
-                    <div className={`editorial-card p-6 bg-[#252525]`}>
-                        <div className="flex justify-between items-center mb-3">
-                            <span className="text-[9px] font-bold text-[#888] uppercase tracking-widest">{t('archive.socialSlots')}</span>
-                            <span className={`text-[10px] font-bold ${counts.social >= LIMITS.social ? 'text-red-500' : 'text-purple-500'}`}>{counts.social} / {LIMITS.social}</span>
-                        </div>
-                        <div className="w-full h-1 bg-[#1a1a1a] rounded-full overflow-hidden">
-                            <div className={`h-full ${counts.social >= LIMITS.social ? 'bg-red-500' : 'bg-purple-600'}`} style={{ width: `${(counts.social / LIMITS.social) * 100}%` }}></div>
-                        </div>
-                    </div>
                 </div>
 
                 {/* Filters */}
                 <div className="flex flex-col md:flex-row gap-6 justify-between items-center bg-[#252525] p-6 rounded-xl border border-[#333] shadow-lg sticky top-24 z-30 max-md:top-14 max-md:z-20">
                     <div className="flex gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 hide-scrollbar">
-                        {(['all', 'video', 'link', 'social'] as const).map(f => (
+                        {(['all', 'video', 'link'] as const).map(f => (
                             <button
                                 key={f}
                                 onClick={() => setFilter(f)}
@@ -242,7 +228,7 @@ const ArchivePage: React.FC = () => {
                                             </div>
                                         ) : (
                                             <div className={`w-14 h-14 flex items-center justify-center rounded-full border ${getTypeColor(analysis.type)} bg-[#1a1a1a]`}>
-                                                <span className="text-xl">{analysis.type === 'link' ? '🔗' : '📱'}</span>
+                                                <span className="text-xl">🔗</span>
                                             </div>
                                         )}
                                     </div>

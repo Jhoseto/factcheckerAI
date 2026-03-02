@@ -1,6 +1,6 @@
 # PRIVACY POLICY â€“ FACTCHECKER AI
 
-**Last updated:** February 2025
+**Last updated:** March 2026
 
 ---
 
@@ -22,7 +22,7 @@ We process the following categories of data:
 **Purpose:** creating and maintaining an account, identification, delivery of the service. **Legal basis:** performance of the contract for use of the service (Art. 6(1)(b) GDPR).
 
 **When using the analysis service:**
-- URLs and metadata you submit for analysis (e.g. a link to a YouTube video, article, social media post), as well as the analysis results. When you save an analysis to the "Archive", this data is stored in your profile. When sharing a "public report", part of the data becomes accessible to anyone with the link.
+- URLs and metadata you submit for analysis (e.g. a link to a YouTube video or web article), as well as the analysis results. When you save an analysis to the "Archive", this data is stored in your profile. When sharing a "public report", part of the data becomes accessible to anyone with the link.
 
 **Purpose:** providing analysis, saving to archive, sharing at your choice. **Legal basis:** performance of the contract (Art. 6(1)(b) GDPR).
 
