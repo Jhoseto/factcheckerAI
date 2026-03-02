@@ -59,11 +59,9 @@ i18n.use(initReactI18next).init({
   interpolation: { escapeValue: false },
 });
 
-// Веднага при зареждане: ако е избран EN, възстановяваме кеша преди първи рендър
+// Веднага при зареждане: ако е избран EN, възстановяваме кеша (ако има). При липса на кеш — оставаме с static en.json.
 if (initialLng === 'en') {
-  if (!restoreEnBundleFromCache()) {
-    i18n.changeLanguage('bg');
-  }
+  restoreEnBundleFromCache();
 }
 
 // Записваме винаги само 'en' или 'bg', за да няма несъответствие с bundle

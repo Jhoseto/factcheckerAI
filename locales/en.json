@@ -1,8 +1,17 @@
 {
   "nav": {
-    "logout": "SIGN OUT"
+    "login": "LOG IN",
+    "buyPoints": "Buy Points",
+    "archive": "Archive",
+    "expenses": "Expenses",
+    "logout": "SIGN OUT",
+    "video": "VIDEO",
+    "link": "LINK",
+    "brandSubtitle": "DEEP CONTEXTUAL GENERATIVE ENGINE (DCGE) | v 4.8.0"
   },
   "common": {
+    "points": "points",
+    "pts": "PTS",
     "retry": "Retry",
     "saveToArchive": "Save to archive",
     "archiveLimitReached": "You have reached the limit for this analysis type",
@@ -10,7 +19,10 @@
     "noSlots": "NO SLOTS",
     "saveToArchiveSlots": "SAVE ({{used}}/{{max}})",
     "newAnalysis": "NEW ANALYSIS",
-    "shareReport": "SHARE"
+    "shareReport": "SHARE",
+    "translating": "Translating…",
+    "close": "CLOSE",
+    "needPointsBuy": "{{count}} points required. Buy from Pricing."
   },
   "expenses": {
     "title": "HISTORY OF",
@@ -234,12 +246,49 @@
     "verdictFalse": "FALSE",
     "verdictMixed": "MIXED"
   },
+  "loading": {
+    "translating": "Translating…",
+    "title": "Audit of truth",
+    "phase0": "Initializing secure connection...",
+    "phase1": "Extracting audio-visual metadata...",
+    "phase2": "Semantic analysis of narrative sequence...",
+    "phase3": "Cross-referencing with global sources...",
+    "phase4": "Deconstructing logical fallacies...",
+    "phase5": "Finalizing audit report...",
+    "step0": "Initializing DCGE core and loading semantic models.",
+    "step1": "Extracting audio-visual data from source.",
+    "step2": "Transcribing and segmenting speech content.",
+    "step3": "Analyzing narrative structure and key claims.",
+    "step4": "Verifying factual claims against external sources.",
+    "step5": "Identifying logical inconsistencies and gaps.",
+    "step6": "Assessing tone and possible manipulation techniques.",
+    "step7": "Cross-referencing with reliability databases.",
+    "step8": "Synthesizing interim conclusions by section.",
+    "step9": "Generating structured audit report.",
+    "step10": "Applying reliability and transparency metrics.",
+    "step11": "Finalizing report and export formats."
+  },
+  "linkAudit": {
+    "insufficientPoints": "Insufficient points. {{count}} required.",
+    "textAnalysis": "Link Analysis",
+    "articleAudit": "Article Audit",
+    "urlPlaceholder": "https://news-site.com/article/...",
+    "analyzing": "Analyzing...",
+    "invalidUrl": "Please enter a valid URL.",
+    "errorAnalysis": "An error occurred while analyzing the link."
+  },
   "mobile": {
     "loadError": "Error loading",
     "logout": "SIGN OUT",
     "sortVideoFirst": "Video first",
     "sortLinksFirst": "Links first",
-    "translatePage": "Translate page (Google)"
+    "translatePage": "Translate page (Google)",
+    "loadingPhase1": "Sending request...",
+    "loadingPhase2": "Analyzing video...",
+    "loadingPhase3": "Verifying claims...",
+    "loadingPhase4": "Finalizing report...",
+    "loading": "Loading...",
+    "analyzing": "Analyzing..."
   },
   "pricing": {
     "investInTruth": "INVEST IN",

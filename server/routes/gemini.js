@@ -92,6 +92,40 @@ function getLanguageInstruction(lang) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Progress messages for streaming (BG/EN depending on client lang)
+// ─────────────────────────────────────────────────────────────────────────────
+const PROGRESS_MSG = {
+    bg: {
+        start: 'Стартиране на DCGE модела...',
+        deepPreparing: 'Изготвяне на (DCGE) задълбочен анализ (може да отнеме до няколко минути)...',
+        retry: 'Повторен опит при празен отговор...',
+        googleRound: (r) => `Търсене в Google (кръг ${r})...`,
+        finalJson: 'Заявка за финален JSON отговор...',
+        synthesizing: (kb) => `Синтезиране (${kb} KB)...`,
+        googleSearch: (n) => `Търсене в Google (${n} заявки)...`,
+        analyzing: (kb) => `Анализиране (${kb} KB)...`,
+        finalizing: 'Финализиране...'
+    },
+    en: {
+        start: 'Starting DCGE model...',
+        deepPreparing: 'Preparing (DCGE) deep analysis (may take several minutes)...',
+        retry: 'Retrying after empty response...',
+        googleRound: (r) => `Google search (round ${r})...`,
+        finalJson: 'Requesting final JSON response...',
+        synthesizing: (kb) => `Synthesizing (${kb} KB)...`,
+        googleSearch: (n) => `Google search (${n} requests)...`,
+        analyzing: (kb) => `Analyzing (${kb} KB)...`,
+        finalizing: 'Finalizing...'
+    }
+};
+function getProgressMsg(lang, key, ...args) {
+    const isEn = (lang || 'bg').toLowerCase().startsWith('en');
+    const msgs = isEn ? PROGRESS_MSG.en : PROGRESS_MSG.bg;
+    const fn = msgs[key];
+    return typeof fn === 'function' ? fn(...args) : fn;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Helper: get Gemini AI instance
 // ─────────────────────────────────────────────────────────────────────────────
 function getAI() {
@@ -435,7 +469,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
                 : [{ text: prompt }]
         }];
 
-        sendSSE('progress', { status: 'Стартиране на DCGE модела...' });
+        sendSSE('progress', { status: getProgressMsg(lang, 'start') });
 
         // Strict JSON output — Gemini must return valid JSON; we do not repair complex breakage
         const jsonRule = [
@@ -460,7 +494,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
         if (isDeepMode && tools) {
             // DEEP MODE: Use generateContent. When model returns only a tool/function call (no text),
             // we must send that back with a function response and call again until we get text.
-            sendSSE('progress', { status: 'Изготвяне на (DCGE) задълбочен анализ (може да отнеме до няколко минути)...' });
+            sendSSE('progress', { status: getProgressMsg(lang, 'deepPreparing') });
 
             // Tool use + responseMimeType JSON is unsupported by Gemini — omit both for deep
             const config = {
@@ -499,7 +533,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
                 const hasFn = Array.isArray(parts) && parts.some(p => p?.functionCall || p?.function_call);
                 if (!hasFn || !parts?.length) {
                     if (round === 0) {
-                        sendSSE('progress', { status: 'Повторен опит при празен отговор...' });
+                        sendSSE('progress', { status: getProgressMsg(lang, 'retry') });
                         await new Promise(r => setTimeout(r, 1500));
                         continue;
                     }
@@ -507,7 +541,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
                     break;
                 }
 
-                sendSSE('progress', { status: `Търсене в Google (кръг ${round + 1})...` });
+                sendSSE('progress', { status: getProgressMsg(lang, 'googleRound', round + 1) });
                 const fnResponseParts = parts
                     .filter(p => p?.functionCall || p?.function_call)
                     .map(p => {
@@ -523,7 +557,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
 
             // If we only got function calls and no text, ask once more for JSON only (no tools — allows responseMimeType)
             if (!fullText.length && response?.candidates?.[0]?.content?.parts?.length) {
-                sendSSE('progress', { status: 'Заявка за финален JSON отговор...' });
+                sendSSE('progress', { status: getProgressMsg(lang, 'finalJson') });
                 const jsonOnlyPrompt = { role: 'user', parts: [{ text: 'Return the full analysis as a single valid JSON object. No other text. Start with { and end with }.' }] };
                 const finalConfig = { ...config, tools: undefined, responseMimeType: 'application/json', responseSchema: VIDEO_RESPONSE_SCHEMA };
                 const finalResponse = await ai.models.generateContent({
@@ -546,7 +580,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             // Simulate streaming the result back to the UI so it doesn't look frozen
             const chunkSize = 2000;
             for (let i = 0; i < fullText.length; i += chunkSize) {
-                sendSSE('progress', { status: `Синтезиране (${Math.round(i / 1024)} KB)...` });
+                sendSSE('progress', { status: getProgressMsg(lang, 'synthesizing', Math.round(i / 1024)) });
                 await new Promise(r => setTimeout(r, 50)); // tiny delay
             }
 
@@ -568,7 +602,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             for await (const chunk of stream) {
                 if (chunk.functionCalls && chunk.functionCalls.length > 0) {
                     functionCallCount += chunk.functionCalls.length;
-                    sendSSE('progress', { status: `Търсене в Google (${functionCallCount} заявки)...` });
+                    sendSSE('progress', { status: getProgressMsg(lang, 'googleSearch', functionCallCount) });
                     continue;
                 }
 
@@ -577,7 +611,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
                     fullText += chunkText;
                     chunkCount++;
                     if (chunkCount % 5 === 0) {
-                        sendSSE('progress', { status: `Анализиране (${Math.round(fullText.length / 1024)} KB)...` });
+                        sendSSE('progress', { status: getProgressMsg(lang, 'analyzing', Math.round(fullText.length / 1024)) });
                     }
                 }
                 if (chunk.usageMetadata) streamUsage = chunk.usageMetadata;
@@ -633,7 +667,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
         }
 
         const textToSend = validation.parsed ? JSON.stringify(validation.parsed) : fullText;
-        sendSSE('progress', { status: 'Финализиране...' });
+        sendSSE('progress', { status: getProgressMsg(lang, 'finalizing') });
 
         try {
             sendSSE('complete', {
