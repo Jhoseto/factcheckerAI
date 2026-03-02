@@ -1,13 +1,15 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 import { renderLegalMd } from './renderLegalMd';
 
-// Content loaded at build time (same as docs/terms.md)
-import termsMd from '../../docs/terms.md?raw';
+import termsBg from '../../docs/terms.md?raw';
+import termsEn from '../../docs/terms.en.md?raw';
 
 const TermsPage: React.FC = () => {
     const { t } = useTranslation();
+    const termsMd = i18n.language === 'en' ? termsEn : termsBg;
     return (
         <div className="min-h-screen pt-32 pb-24 px-6 md:px-12 max-md:pt-20 max-md:pb-28 max-md:px-4">
             <div className="max-w-3xl mx-auto editorial-card p-8 md:p-12 max-md:p-6 bg-[#151515]/80 backdrop-blur-md">

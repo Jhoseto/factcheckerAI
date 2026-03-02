@@ -14,6 +14,7 @@ import Login from '../components/auth/Login';
 import Register from '../components/auth/Register';
 import TermsPage from '../components/legal/TermsPage';
 import PrivacyPage from '../components/legal/PrivacyPage';
+import RefundPage from '../components/legal/RefundPage';
 /**
  * Mobile app shell: bottom tab bar + routes. Use when viewport ≤768px or ?mobile=1.
  */
@@ -39,6 +40,7 @@ const MobileView: React.FC = () => {
           <Route path="/register" element={currentUser ? <Navigate to="/profile" replace /> : <Register />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/refund-policy" element={<RefundPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

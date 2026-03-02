@@ -5,6 +5,23 @@ import { useAuth } from '../../contexts/AuthContext';
 import { getUserTransactions, Transaction } from '../../services/transactionService';
 import { getApiLang } from '../../i18n';
 
+function translateDescription(desc: string, t: (k: string) => string): string {
+    if (!desc) return desc;
+    if (desc.includes('Дълбок видео анализ') || desc.includes('Deep video analysis')) return t('expenses.descDeepVideo');
+    if (desc.includes('Стандартен видео анализ') || desc.includes('Standard video analysis')) return t('expenses.descStandardVideo');
+    if (desc.includes('Анализ на статия') || desc.includes('Article analysis') || desc.includes('Link analysis')) return t('expenses.descLinkArticle');
+    if (desc.includes('Текстов анализ') || desc.includes('Text analysis')) return t('expenses.descTextAnalysis');
+    if (desc.match(/Зареждане на \d+ точки|Loading \d+ points/)) {
+        const num = desc.match(/\d+/)?.[0] ?? '';
+        return t('expenses.descLoadPoints').replace('{{count}}', num);
+    }
+    if (desc.includes('Начален бонус') || desc.includes('Welcome bonus')) {
+        const num = desc.match(/\d+/)?.[0] ?? '';
+        return t('expenses.descWelcomeBonus').replace('{{count}}', num);
+    }
+    return desc;
+}
+
 const ExpensesPage: React.FC = () => {
     const { t } = useTranslation();
     const { currentUser, userProfile } = useAuth();
@@ -235,7 +252,7 @@ const ExpensesPage: React.FC = () => {
                                                 {tx.metadata.videoTitle}
                                             </a>
                                         ) : (
-                                            tx.description
+                                            translateDescription(tx.description, t)
                                         )}
                                     </h4>
                                     <p className="text-[9px] text-[#555] font-mono uppercase tracking-[0.15em]">

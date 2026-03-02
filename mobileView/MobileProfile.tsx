@@ -71,10 +71,12 @@ const MobileProfile: React.FC = () => {
           {t('mobile.logout')}
         </button>
 
-        <p className="text-[10px] font-normal text-[#C4B091]/90 flex flex-wrap gap-0 justify-center items-center mt-2">
+        <p className="text-[10px] font-normal text-[#C4B091]/90 flex flex-wrap gap-1 justify-center items-center mt-2">
           <Link to="/terms" className="hover:text-[#C4B091] transition-colors uppercase tracking-wider py-2">{t('legal.terms')}</Link>
-          <span className="text-[#666] mx-1">  |  </span>
+          <span className="text-[#666]">|</span>
           <Link to="/privacy" className="hover:text-[#C4B091] transition-colors uppercase tracking-wider py-2">{t('legal.privacy')}</Link>
+          <span className="text-[#666]">|</span>
+          <Link to="/refund-policy" className="hover:text-[#C4B091] transition-colors uppercase tracking-wider py-2">{t('legal.refund')}</Link>
         </p>
       </main>
     </MobileSafeArea>

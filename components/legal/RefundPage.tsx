@@ -4,17 +4,17 @@ import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
 import { renderLegalMd } from './renderLegalMd';
 
-import privacyBg from '../../docs/privacy.md?raw';
-import privacyEn from '../../docs/privacy.en.md?raw';
+import refundBg from '../../docs/refund.md?raw';
+import refundEn from '../../docs/refund.en.md?raw';
 
-const PrivacyPage: React.FC = () => {
+const RefundPage: React.FC = () => {
     const { t } = useTranslation();
-    const privacyMd = i18n.language === 'en' ? privacyEn : privacyBg;
+    const refundMd = i18n.language === 'en' ? refundEn : refundBg;
     return (
         <div className="min-h-screen pt-32 pb-24 px-6 md:px-12 max-md:pt-20 max-md:pb-28 max-md:px-4">
             <div className="max-w-3xl mx-auto editorial-card p-8 md:p-12 max-md:p-6 bg-[#151515]/80 backdrop-blur-md">
                 <div className="prose prose-invert max-w-none text-[#ddd]">
-                    {renderLegalMd(privacyMd)}
+                    {renderLegalMd(refundMd)}
                 </div>
                 <p className="mt-12 pt-6 border-t border-[#333] text-center">
                     <Link to="/" className="text-[9px] font-bold text-[#968B74] hover:text-[#C4B091] uppercase tracking-widest border-b border-[#968B74]/30">
@@ -26,4 +26,4 @@ const PrivacyPage: React.FC = () => {
     );
 };
 
-export default PrivacyPage;
+export default RefundPage;

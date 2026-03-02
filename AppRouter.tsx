@@ -13,6 +13,7 @@ import ArchivePage from './components/archive/ArchivePage';
 import ReportPage from './components/report/ReportPage';
 import TermsPage from './components/legal/TermsPage';
 import PrivacyPage from './components/legal/PrivacyPage';
+import RefundPage from './components/legal/RefundPage';
 import App from './App';
 import { MobileView } from './mobileView';
 
@@ -94,6 +95,7 @@ const AppRouter: React.FC = () => {
 
                 <Route path="/terms" element={<TermsPage />} />
                 <Route path="/privacy" element={<PrivacyPage />} />
+                <Route path="/refund-policy" element={<RefundPage />} />
 
                 {/* Fallback */}
                 <Route path="*" element={<Navigate to="/" replace />} />
