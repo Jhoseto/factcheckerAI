@@ -66,11 +66,12 @@ Perform the following IN-DEPTH analyses:
 - Find 3–5 SPECIFIC alternative materials with REAL URLs
 - Explain why they are useful for a full picture
 ${hasImages ? `
-7. VISUAL ANALYSIS (IMAGES VS TEXT): For each attached image:
+7. VISUAL ANALYSIS (REQUIRED — images are attached): For each image write:
 - Description: what the image shows and how it relates to specific parts of the text
 - Alignment with text: whether the image supports, is neutral, or contradicts what is written
 - Discrepancies and manipulation: any mismatch between visual and text (misleading image, out-of-context usage, emotional loading through imagery, cherry-picked visuals)
 - Visual manipulations: misleading graphics, doctored photos, selective framing that distorts the message of the text
+IMPORTANT: visualAnalysis must be DETAILED text (at least 3–5 sentences). Do NOT leave it empty.
 ` : ''}
 
 Return ONLY valid JSON (no Markdown wrapper):

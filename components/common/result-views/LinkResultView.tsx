@@ -505,8 +505,8 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                                     <span className="text-[#968B74]"><SectionIcon id="visual" /></span>
                                     <h3 className="text-xl md:text-2xl font-black text-[#C4B091] uppercase tracking-tight">{t('analysis.visualAnalysisTitle')}</h3>
                                 </div>
-                                <div className="max-w-none text-[#ddd] text-[15px] md:text-base leading-[1.7] whitespace-pre-wrap">
-                                    {analysis.visualAnalysis && analysis.visualAnalysis.trim() ? analysis.visualAnalysis : t('analysis.noImagesAnalyzed')}
+                                <div className="max-w-none text-[#ddd] text-[15px] md:text-base leading-[1.7] whitespace-pre-wrap min-h-[120px]">
+                                    {(analysis.visualAnalysis && String(analysis.visualAnalysis).trim()) ? analysis.visualAnalysis : t('analysis.noImagesAnalyzed')}
                                 </div>
                             </div>
                         </div>

@@ -44,8 +44,8 @@ async function fetchViaJina(url) {
 }
 
 // ── Article-relevant image extraction (exclude banners, ads, logos) ─────────────
-const IMAGE_URL_BLACKLIST = /banner|ad[s]?|logo|icon|avatar|thumbnail|pixel|tracking|social|share|facebook|twitter|widget|button|spinner|placeholder|1x1|pixel\./i;
-const MIN_IMAGE_DIM = 150;
+const IMAGE_URL_BLACKLIST = /banner|ad[s]?|logo|icon|avatar|thumbnail|pixel|tracking|social|share|facebook|twitter|widget|button|spinner|placeholder|1x1|pixel\.|gravatar|emoji|sprite/i;
+const MIN_IMAGE_DIM = 80;
 const MAX_ARTICLE_IMAGES = 4;
 const IMAGE_FETCH_TIMEOUT = 10000;
 const MAX_IMAGE_BYTES = 500000;
@@ -85,37 +85,90 @@ function resolveUrl(src, baseUrl) {
     }
 }
 
+function extractImagesFromMarkdown(md, baseUrl) {
+    const urls = [];
+    const re = /!\[[^\]]*\]\s*\(\s*([^)\s]+)\s*\)/g;
+    let m;
+    while ((m = re.exec(md)) !== null && urls.length < MAX_ARTICLE_IMAGES) {
+        const u = resolveUrl(m[1].trim(), baseUrl);
+        if (u && !IMAGE_URL_BLACKLIST.test(u.toLowerCase())) urls.push(u);
+    }
+    return urls;
+}
+
+function extractImgSrcs(tag) {
+    const src = (tag.match(/src=["']([^"']+)["']/i) || [])[1];
+    const dataSrc = (tag.match(/data-src=["']([^"']+)["']/i) || [])[1];
+    const srcset = (tag.match(/srcset=["']([^"']+)["']/i) || [])[1];
+    const urls = [];
+    if (src) urls.push(src.trim());
+    if (dataSrc) urls.push(dataSrc.trim());
+    if (srcset) {
+        const first = srcset.split(/[\s,]+/)[0]?.trim();
+        if (first) urls.push(first);
+    }
+    return urls.filter(Boolean);
+}
+
 function extractArticleImageUrls(html, baseUrl) {
     const seen = new Set();
     const urls = [];
     try {
-        // Prefer images inside article/main
+        const areas = [];
         const articleMatch = html.match(/<(?:article|main)[^>]*>([\s\S]*?)<\/(?:article|main)>/i);
-        const searchHtml = articleMatch ? articleMatch[1] : html;
-        // Also try common content selectors
-        const contentMatch = html.match(/<div[^>]*class=["'][^"']*(?:post-content|article-body|entry-content|content-body|story-body)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
-        const contentHtml = contentMatch ? contentMatch[1] : searchHtml;
-        const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
-        let m;
-        while ((m = imgRegex.exec(contentHtml)) !== null && urls.length < MAX_ARTICLE_IMAGES) {
-            const src = m[1];
-            const fullUrl = resolveUrl(src, baseUrl);
-            if (!fullUrl || seen.has(fullUrl)) continue;
-            const lower = fullUrl.toLowerCase();
-            if (IMAGE_URL_BLACKLIST.test(lower)) continue;
-            const w = (m[0].match(/width=["']?(\d+)/i) || [])[1];
-            const h = (m[0].match(/height=["']?(\d+)/i) || [])[1];
-            const dim = Math.min(parseInt(w, 10) || 999, parseInt(h, 10) || 999);
-            if (dim > 0 && dim < MIN_IMAGE_DIM) continue;
-            seen.add(fullUrl);
-            urls.push(fullUrl);
+        if (articleMatch) areas.push(articleMatch[1]);
+        const contentDiv = html.match(/<div[^>]*(?:class|id)=["'][^"']*(?:post-content|article-body|entry-content|content-body|story-body|article-content|post-body|entry-body)[^"']*["'][^>]*>([\s\S]*)/i);
+        if (contentDiv) areas.push(contentDiv[1].slice(0, 80000));
+        areas.push(html);
+        for (const area of areas) {
+            const imgTags = area.match(/<img[^>]+>/gi) || [];
+            for (const tag of imgTags) {
+                if (urls.length >= MAX_ARTICLE_IMAGES) break;
+                for (const src of extractImgSrcs(tag)) {
+                    const fullUrl = resolveUrl(src, baseUrl);
+                    if (!fullUrl || seen.has(fullUrl)) continue;
+                    const lower = fullUrl.toLowerCase();
+                    if (IMAGE_URL_BLACKLIST.test(lower)) continue;
+                    const w = (tag.match(/width=["']?(\d+)/i) || [])[1];
+                    const h = (tag.match(/height=["']?(\d+)/i) || [])[1];
+                    const dim = Math.min(parseInt(w, 10) || 999, parseInt(h, 10) || 999);
+                    if (dim > 0 && dim < MIN_IMAGE_DIM) continue;
+                    seen.add(fullUrl);
+                    urls.push(fullUrl);
+                    break;
+                }
+            }
+            if (urls.length > 0) break;
         }
-        // Fallback: og:image only if we have no article images
         if (urls.length === 0) {
             const ogImg = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
             if (ogImg) {
                 const u = resolveUrl(ogImg[1], baseUrl);
                 if (u && !IMAGE_URL_BLACKLIST.test(u.toLowerCase())) urls.push(u);
+            }
+            const jsonLd = html.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
+            if (jsonLd) {
+                for (const block of jsonLd) {
+                    const m = block.match(/<script[^>]*>([\s\S]*?)<\/script>/i);
+                    if (!m) continue;
+                    try {
+                        const obj = typeof m[1] === 'string' ? JSON.parse(m[1]) : null;
+                        const arr = Array.isArray(obj) ? obj : (obj ? [obj] : []);
+                        for (const item of arr) {
+                            const img = item?.image || item?.thumbnailUrl;
+                            const u = Array.isArray(img) ? img[0] : (typeof img === 'string' ? img : null);
+                            if (u) {
+                                const full = resolveUrl(u, baseUrl);
+                                if (full && !seen.has(full) && !IMAGE_URL_BLACKLIST.test(full.toLowerCase())) {
+                                    seen.add(full);
+                                    urls.push(full);
+                                    break;
+                                }
+                            }
+                        }
+                        if (urls.length > 0) break;
+                    } catch (_) {}
+                }
             }
         }
     } catch (e) {
@@ -195,12 +248,13 @@ router.post('/scrape', requireAuth, async (req, res) => {
             imageUrls = direct.imageUrls || [];
             console.log(`[Scraper] ✅ Direct fetch OK — ${content.length} chars, ${imageUrls.length} images`);
         } else {
-            // Jina succeeded — fetch HTML only for article-relevant images
+            // Jina succeeded — fetch HTML for images, fallback to markdown
             try {
                 const imgRes = await axios.get(url, {
                     headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
                         'Accept': 'text/html,application/xhtml+xml',
+                        'Accept-Language': 'bg,en;q=0.9',
                     },
                     timeout: 15000
                 });
@@ -209,6 +263,13 @@ router.post('/scrape', requireAuth, async (req, res) => {
                 if (imageUrls.length) console.log(`[Scraper] ✅ Images from HTML — ${imageUrls.length}`);
             } catch (e) {
                 console.warn(`[Scraper] ⚠️ Image fetch failed: ${e.message}`);
+            }
+            if (imageUrls.length === 0 && content) {
+                const mdUrls = extractImagesFromMarkdown(content, url);
+                if (mdUrls.length) {
+                    imageUrls = mdUrls;
+                    console.log(`[Scraper] ✅ Images from Jina markdown — ${imageUrls.length}`);
+                }
             }
         }
 
