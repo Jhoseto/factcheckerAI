@@ -22,7 +22,14 @@ export const getReportSynthesisPromptEn = (analysisData: {
     socialImpactPrediction?: string;
     mode: string;
 }): string => {
-    const str = (x: unknown) => (typeof x === 'string' ? x : (x != null ? String(x) : ''));
+    const str = (x: unknown): string => {
+        if (typeof x === 'string') return x;
+        if (x == null) return '';
+        if (Array.isArray(x)) return x.map((it: any) => it?.details ?? it?.point ?? it?.text ?? (typeof it === 'string' ? it : '')).filter(Boolean).join('. ') || '';
+        if (typeof x === 'object' && 'details' in x) return String((x as { details?: unknown }).details ?? '');
+        if (typeof x === 'object' && 'point' in x) return String((x as { point?: unknown }).point ?? '');
+        return typeof x === 'object' ? '' : String(x);
+    };
     const claimsSummary = (analysisData.claims || []).slice(0, 15).map((c, i) =>
         `${i + 1}. "${str(c.claim)}" → ${str(c.verdict)}${c.speaker ? ` (${str(c.speaker)})` : ''}${c.evidence ? ` | ${str(c.evidence).substring(0, 150)}` : ''}`
     ).join('\n');

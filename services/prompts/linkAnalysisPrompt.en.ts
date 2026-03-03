@@ -21,7 +21,7 @@ ${scrapedContent!.substring(0, 32000)}
 ---
 ` : ''}
 CRITICAL REQUIREMENTS:
-1. **PRIMARY SOURCE**: ${hasContent ? 'Use the ARTICLE TEXT above as your primary source. Analyse ONLY this article — do not invent or substitute with another.' : 'Use URL Context to read the article directly. If not accessible — search Google by URL and headline to find the full text.'}
+1. **PRIMARY SOURCE**: ${hasContent ? 'Use the ARTICLE TEXT above as your primary source. Analyse ONLY this article — do not invent or substitute with another.' : 'Search Google by URL and headline to find the full article text. That text is your primary source for analysis.'}
 2. **GOOGLE SEARCH — VERIFICATION ONLY**: Use Google Search exclusively for: verifying factual claims, finding context about the author and media outlet, finding comments and alternative media coverage. Do NOT use it to find the article text.
 3. **READ THE ENTIRE ARTICLE**: Read EVERY paragraph, EVERY claim, EVERY number.
 4. **MAXIMUM DETAIL**: The goal is an EXHAUSTIVE analysis. Extract EVERY claim and EVERY manipulation.

@@ -591,7 +591,7 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                                 <div className="max-w-none space-y-1 font-sans text-[15px] md:text-base leading-[1.7] text-[#ddd]">
                                     {(typeof linkReportDisplayText === 'string' ? linkReportDisplayText : '').split(/\n/).map((line, idx) => {
                                         const trimmed = line.trim();
-                                        if (!trimmed) return <br key={idx} />;
+                                        if (!trimmed || trimmed === '[object Object]') return <br key={idx} />;
                                         if (/^\d+\.\s/.test(trimmed)) {
                                             const numMatch = trimmed.match(/^(\d+)\.\s*(.*)/);
                                             const num = numMatch ? numMatch[1] : '';

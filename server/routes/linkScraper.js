@@ -2,6 +2,7 @@
  * Link Scraper Route
  * Primary: Jina Reader API (r.jina.ai) — handles JS-rendered sites.
  * Fallback: direct fetch + paragraph extraction.
+ * JINA_API_KEY in .env → higher rate limits (500 RPM).
  */
 
 import express from 'express';
@@ -10,18 +11,36 @@ import { requireAuth } from '../middleware/auth.js';
 import { getUserPoints } from '../services/firebaseAdmin.js';
 
 const router = express.Router();
+const JINA_TIMEOUT = 45000;
+const JINA_RETRIES = 2;
 
-// ── Jina Reader ────────────────────────────────────────────────────────────────
 async function fetchViaJina(url) {
-    const response = await axios.get(`https://r.jina.ai/${url}`, {
-        headers: {
-            'Accept': 'text/plain',
-            'X-Return-Format': 'text',
-            'X-No-Cache': 'true',
-        },
-        timeout: 20000
-    });
-    return (response.data || '').toString().trim();
+    const headers = {
+        'Accept': 'text/plain',
+        'X-Return-Format': 'text',
+        'X-No-Cache': 'true',
+    };
+    const jinaKey = process.env.JINA_API_KEY;
+    if (jinaKey) headers['Authorization'] = `Bearer ${jinaKey}`;
+
+    let lastErr;
+    for (let i = 0; i < JINA_RETRIES; i++) {
+        try {
+            const res = await axios.get(`https://r.jina.ai/${url}`, {
+                headers,
+                timeout: JINA_TIMEOUT,
+                validateStatus: (s) => s < 500
+            });
+            if (res.status === 200 && res.data) {
+                return (res.data || '').toString().trim();
+            }
+            lastErr = new Error(`Jina HTTP ${res.status}`);
+        } catch (e) {
+            lastErr = e;
+            if (i < JINA_RETRIES - 1) await new Promise(r => setTimeout(r, 1500));
+        }
+    }
+    throw lastErr;
 }
 
 // ── Direct fetch fallback ──────────────────────────────────────────────────────
@@ -32,7 +51,7 @@ async function fetchDirect(url) {
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Accept-Language': 'bg,en;q=0.9',
         },
-        timeout: 20000
+        timeout: 25000
     });
 
     const html = (response.data || '').toString();

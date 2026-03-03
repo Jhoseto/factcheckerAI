@@ -263,10 +263,8 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
         // ── Build request ─────────────────────────────────────────────────────
         let tools;
         if (serviceType === 'linkArticle') {
-            // urlContext: Gemini reads the URL natively (official Gemini 2.5 Flash feature)
-            // googleSearch: for fact verification, author/media context, comments, alt sources
-            // Both tools can be combined — documented as supported
-            tools = [{ urlContext: {} }, { googleSearch: {} }];
+            // Article text is injected in prompt via scraping. urlContext causes empty responses.
+            tools = [{ googleSearch: {} }];
         } else if (isDeepMode || enableGoogleSearch) {
             tools = [{ googleSearch: {} }];
         }
@@ -352,9 +350,29 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                 break; // Success, exit retry loop
             }
 
-            // If this was the last attempt, don't retry
-            if (attempt >= maxRetries) {
-                break;
+            if (attempt >= maxRetries) break;
+        }
+
+        // Fallback for linkArticle: if tools caused empty response, retry without tools
+        if (!lastValidation.valid && serviceType === 'linkArticle' && tools) {
+            console.log('[LinkArticle] Fallback: retrying without googleSearch tools');
+            const jsonRuleShort = 'CRITICAL: Respond with exactly one valid JSON object. Start with {, end with }. No markdown. Escape " in strings as \\". Never truncate.';
+            const sysInstr = (systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON.') + '\n\n' + getLanguageInstruction(lang) + '\n\n' + jsonRuleShort;
+            const fallbackResponse = await ai.models.generateContent({
+                model: model || 'gemini-2.5-flash',
+                contents,
+                config: {
+                    systemInstruction: sysInstr,
+                    temperature: 0.7,
+                    maxOutputTokens: 65536,
+                    responseMimeType: 'application/json',
+                    responseSchema: LINK_RESPONSE_SCHEMA
+                }
+            });
+            const fallbackText = fallbackResponse.text || '';
+            if (fallbackText.length > 100) {
+                lastValidation = validateJsonResponse(fallbackText, 'link');
+                if (lastValidation.valid) usage = fallbackResponse.usageMetadata || usage;
             }
         }
 

@@ -9,7 +9,7 @@ import { getApiLang } from '../../i18n';
  * Scrapes the content of a URL via server-side Jina+direct fetch.
  * Returns the extracted text and whether it's partial.
  */
-const scrapeLinkContent = async (url: string, token: string): Promise<{ content: string; isPartial: boolean }> => {
+const scrapeLinkContent = async (url: string, token: string): Promise<{ content: string; isPartial: boolean; error?: string }> => {
     try {
         const response = await fetch('/api/link/scrape', {
             method: 'POST',
@@ -19,8 +19,11 @@ const scrapeLinkContent = async (url: string, token: string): Promise<{ content:
             },
             body: JSON.stringify({ url })
         });
-        if (!response.ok) return { content: '', isPartial: true };
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            const msg = data?.error || (response.status === 408 ? 'Timeout' : 'Scrape failed');
+            return { content: '', isPartial: true, error: msg };
+        }
         return {
             content: data.content || '',
             isPartial: data.isPartial ?? true
@@ -32,8 +35,9 @@ const scrapeLinkContent = async (url: string, token: string): Promise<{ content:
 
 /**
  * Analyzes a news article URL.
- * Primary: urlContext (Gemini native URL reading) + googleSearch for fact verification.
- * Fallback: if urlContext produces empty response, scrape with Jina and inject content into prompt.
+ * 1. Scrapes the URL (Jina → direct fetch) to get real article text.
+ * 2. Injects content into prompt for accurate analysis.
+ * 3. Gemini uses Google Search only for fact verification.
  */
 export const analyzeLinkDeep = async (
     url: string,
@@ -47,9 +51,18 @@ export const analyzeLinkDeep = async (
         const lang = getApiLang();
         onProgress?.(lang === 'en' ? 'Scraping article...' : 'Извличане на статията...');
 
-        // Pre-scrape the article content so we can inject it into the prompt (fallback safety net)
         const scraped = await scrapeLinkContent(url, token);
         const scrapedContent = (!scraped.isPartial && scraped.content.length > 300) ? scraped.content : undefined;
+
+        if (scraped.error && !scrapedContent) {
+            const err = scraped.error.toLowerCase();
+            if (err.includes('paywall') || err.includes('ограничен') || err.includes('403')) {
+                throw new Error(lang === 'en' ? 'Access restricted (paywall). Try a different article.' : 'Достъпът е ограничен (paywall). Опитайте друга статия.');
+            }
+            if (err.includes('timeout') || err.includes('408')) {
+                throw new Error(lang === 'en' ? 'The site did not respond in time. Try again.' : 'Сайтът не отговори навреме. Опитайте отново.');
+            }
+        }
 
         onProgress?.(lang === 'en' ? 'Analysing article...' : 'Анализиране на статията...');
 

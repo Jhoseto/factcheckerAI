@@ -202,6 +202,13 @@ function formatMultimodalField(value: unknown): string | undefined {
   }).join('\n\n').trim() || undefined;
 }
 
+/** Convert any value to display string — avoids [object Object] for arrays/objects. */
+function toSummaryString(value: unknown, fallback: string): string {
+  if (typeof value === 'string') return value.trim() || fallback;
+  const formatted = formatMultimodalField(value);
+  return formatted ?? fallback;
+}
+
 /**
  * Transform Gemini API response to VideoAnalysis format
  */
@@ -466,13 +473,13 @@ ${metadataSection}
         contextualStability: 0.6
       },
       finalInvestigativeReport: rawResponse?.finalInvestigativeReport || constructedReport,
-      geopoliticalContext: rawResponse?.geopoliticalContext || 'Неприложимо',
-      historicalParallel: rawResponse?.historicalParallel || 'Няма данни',
-      psychoLinguisticAnalysis: rawResponse?.psychoLinguisticAnalysis || 'Няма данни',
-      strategicIntent: rawResponse?.strategicIntent || 'Няма данни',
-      narrativeArchitecture: rawResponse?.narrativeArchitecture || 'Няма данни',
-      technicalForensics: rawResponse?.technicalForensics || 'Няма данни',
-      socialImpactPrediction: rawResponse?.socialImpactPrediction || rawResponse?.recommendations || 'Няма данни',
+      geopoliticalContext: toSummaryString(rawResponse?.geopoliticalContext, 'Неприложимо'),
+      historicalParallel: toSummaryString(rawResponse?.historicalParallel, 'Няма данни'),
+      psychoLinguisticAnalysis: toSummaryString(rawResponse?.psychoLinguisticAnalysis, 'Няма данни'),
+      strategicIntent: toSummaryString(rawResponse?.strategicIntent, 'Няма данни'),
+      narrativeArchitecture: toSummaryString(rawResponse?.narrativeArchitecture, 'Няма данни'),
+      technicalForensics: toSummaryString(rawResponse?.technicalForensics, 'Няма данни'),
+      socialImpactPrediction: toSummaryString(rawResponse?.socialImpactPrediction || rawResponse?.recommendations, 'Няма данни'),
       sourceNetworkAnalysis: 'Няма данни',
       dataPointsProcessed: (claims?.length || 0) * 10
     },

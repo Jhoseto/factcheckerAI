@@ -134,7 +134,7 @@ const ReportView: React.FC<{ analysis: VideoAnalysis; reportRef?: React.RefObjec
                         {bodyLines.map((line, lIdx) => {
                             const lineStr = typeof line === 'string' ? line : (line != null && typeof line === 'object' && 'details' in line ? String((line as { details?: unknown }).details) : String(line ?? ''));
                             const trimmed = lineStr.trim();
-                            if (!trimmed) return null;
+                            if (!trimmed || trimmed === '[object Object]') return null;
                             if (trimmed.startsWith('## ')) {
                                 return <h5 key={lIdx} className="text-base md:text-lg font-black text-[#C4B091] uppercase mt-8 mb-3 tracking-tight border-b border-[#968B74]/30 pb-2">{trimmed.replace(/^##\s*/, '')}</h5>;
                             }
@@ -243,7 +243,13 @@ const ReportView: React.FC<{ analysis: VideoAnalysis; reportRef?: React.RefObjec
                         <div className="p-6 bg-[#252525] border border-[#333] rounded-sm">
                             <h4 className="text-[9px] font-black text-[#968B74] uppercase mb-4 tracking-widest">{t('analysis.strategicIntent')}</h4>
                             <p className="text-[15px] text-[#ccc] leading-[1.6]">
-                                {typeof analysis.summary.strategicIntent === 'string' ? analysis.summary.strategicIntent : (analysis.summary.strategicIntent != null && typeof analysis.summary.strategicIntent === 'object' && 'details' in analysis.summary.strategicIntent ? String((analysis.summary.strategicIntent as { details?: unknown }).details) : String(analysis.summary.strategicIntent ?? ''))}
+                                {(() => {
+                                    const v = analysis.summary.strategicIntent;
+                                    if (typeof v === 'string') return v;
+                                    if (Array.isArray(v)) return v.map((it: any) => it?.details ?? it?.point ?? (typeof it === 'string' ? it : '')).filter(Boolean).join('. ');
+                                    if (v && typeof v === 'object' && ('details' in v || 'point' in v)) return String((v as any).details ?? (v as any).point ?? '');
+                                    return '';
+                                })()}
                             </p>
                         </div>
 
