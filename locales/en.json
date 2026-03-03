@@ -77,6 +77,7 @@
     "tabClaimsVerification": "Verification",
     "noClaims": "No statements extracted.",
     "noManipulations": "No manipulation techniques detected.",
+    "noImagesAnalyzed": "No images from the article were analyzed. Visual analysis is shown only when the article contains images related to the text.",
     "effect": "Impact",
     "noData": "No data",
     "reportGenerating": "Report is being generated.",

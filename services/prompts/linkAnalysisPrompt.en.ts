@@ -3,7 +3,7 @@
  * Used when the UI language is set to English.
  * Produces a native English analysis without any post-translation overhead.
  */
-export const getLinkAnalysisPromptEn = (url: string, scrapedContent?: string): string => {
+export const getLinkAnalysisPromptEn = (url: string, scrapedContent?: string, hasImages = false): string => {
   const currentDate = new Date().toLocaleString('en-US', { dateStyle: 'full' });
   const reportDate = new Date().toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short' });
 
@@ -14,6 +14,9 @@ export const getLinkAnalysisPromptEn = (url: string, scrapedContent?: string): s
 YOUR MISSION: Read the ENTIRE article, reveal ALL manipulations, verify EVERY claim, and give the user EXCEPTIONAL information.
 
 ARTICLE URL: ${url}
+${hasImages ? `
+IMAGES: Images from the article are attached below. Analyse them in depth.
+` : ''}
 ${hasContent ? `
 ARTICLE TEXT (extracted directly from the URL — use THIS as your primary source for analysis):
 ---
@@ -62,6 +65,13 @@ Perform the following IN-DEPTH analyses:
 6. ALTERNATIVE SOURCES:
 - Find 3–5 SPECIFIC alternative materials with REAL URLs
 - Explain why they are useful for a full picture
+${hasImages ? `
+7. VISUAL ANALYSIS (IMAGES VS TEXT): For each attached image:
+- Description: what the image shows and how it relates to specific parts of the text
+- Alignment with text: whether the image supports, is neutral, or contradicts what is written
+- Discrepancies and manipulation: any mismatch between visual and text (misleading image, out-of-context usage, emotional loading through imagery, cherry-picked visuals)
+- Visual manipulations: misleading graphics, doctored photos, selective framing that distorts the message of the text
+` : ''}
 
 Return ONLY valid JSON (no Markdown wrapper):
 {
@@ -148,6 +158,7 @@ Return ONLY valid JSON (no Markdown wrapper):
     "manipulationInComments": "Coordinated patterns, trolling, disinformation in comments or null.",
     "overallSummary": "2–3 sentence summary of the discussion."
   },
-  "finalInvestigativeReport": "Write an ORIGINAL AUTHORED TEXT as a professional journalistic review/analysis. Do NOT recap the tabs — write as an editor who has read the article and the entire analysis and is now writing their OWN OPINION and CONCLUSIONS. Style: sharp, critical, but fair. Structure: # DCGE INTELLIGENCE REPORT\\n\\n## VERDICT\\nOne sentence — final assessment.\\n\\n## WHAT THE ARTICLE SAYS\\nBrief summary (3–4 sentences) in your own words — no copying.\\n\\n## WHAT OTHERS SAY\\nComparison with 2–3 other media — where there is agreement and where differences exist.\\n\\n## WHAT THE ARTICLE HIDES\\nMissing perspectives, unstated facts, conveniently omitted context.\\n\\n## MANIPULATION PROFILE\\nSummary of discovered techniques — not a list, but a connected analysis of the cumulative effect.\\n\\n## VERDICT AND RECOMMENDATIONS\\nFor whom the article is useful, with what reservations to read it, what to verify additionally.\\n\\nDCGE Report • ${reportDate}"
+  "finalInvestigativeReport": "Write an ORIGINAL AUTHORED TEXT as a professional journalistic review/analysis. Do NOT recap the tabs — write as an editor who has read the article and the entire analysis and is now writing their OWN OPINION and CONCLUSIONS. Style: sharp, critical, but fair. Structure: # DCGE INTELLIGENCE REPORT\\n\\n## VERDICT\\nOne sentence — final assessment.\\n\\n## WHAT THE ARTICLE SAYS\\nBrief summary (3–4 sentences) in your own words — no copying.\\n\\n## WHAT OTHERS SAY\\nComparison with 2–3 other media — where there is agreement and where differences exist.\\n\\n## WHAT THE ARTICLE HIDES\\nMissing perspectives, unstated facts, conveniently omitted context.\\n\\n## MANIPULATION PROFILE\\nSummary of discovered techniques — not a list, but a connected analysis of the cumulative effect.${hasImages ? '\\n\\n## VISUAL ANALYSIS\\nImages vs text — alignment, discrepancies, manipulation through imagery.' : ''}\\n\\n## VERDICT AND RECOMMENDATIONS\\nFor whom the article is useful, with what reservations to read it, what to verify additionally.\\n\\nDCGE Report • ${reportDate}",
+  "visualAnalysis": ${hasImages ? '"Structured text for Visual tab: description of each image vs text, alignment/discrepancy, manipulation through images."' : 'null'}
 }`;
 };

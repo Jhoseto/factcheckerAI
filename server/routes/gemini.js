@@ -184,7 +184,8 @@ const LINK_RESPONSE_SCHEMA = {
         factualClaims: { type: 'array', items: { type: 'object' } },
         manipulationTechniques: { type: 'array', items: { type: 'object' } },
         alternativeSources: { type: 'array', items: { type: 'object' } },
-        commentsAnalysis: { type: 'object' }
+        commentsAnalysis: { type: 'object' },
+        visualAnalysis: { type: 'string' }
     }
 };
 
@@ -240,7 +241,7 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
     try {
         const ai = getAI();
         const userId = req.userId;
-        const { model, prompt, systemInstruction, videoUrl, isBatch, enableGoogleSearch, mode, serviceType, lang } = req.body;
+        const { model, prompt, systemInstruction, videoUrl, isBatch, enableGoogleSearch, mode, serviceType, lang, images } = req.body;
 
         // ── Determine cost type ───────────────────────────────────────────────
         const isFixedPrice = serviceType && serviceType !== 'video';
@@ -278,6 +279,12 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                     { text: prompt }
                 ]
             });
+        } else if (serviceType === 'linkArticle' && Array.isArray(images) && images.length > 0) {
+            const parts = images
+                .filter(img => img && img.mimeType && img.data)
+                .map(img => ({ inlineData: { mimeType: img.mimeType, data: img.data } }));
+            parts.push({ text: prompt });
+            contents.push({ role: 'user', parts });
         } else {
             contents.push({ role: 'user', parts: [{ text: prompt }] });
         }
