@@ -98,7 +98,7 @@ Upon termination, any remaining unused points in your account expire; no monetar
 
 ## 11. Changes to the Terms
 
-The operator may update these Terms and Conditions. For significant changes, a new version will be published on this page with an updated "Last updated" date and/or a notification will be sent by email or in-Platform message when applicable. Continued use of the service after changes take effect constitutes acceptance of the updated terms.
+The operator may update these Terms and Conditions. For significant changes, a new version will be published on this page with an updated "Last updated" date and/or a notification will be sent by email or in-platform message when applicable. Continued use of the service after changes take effect constitutes acceptance of the updated terms.
 
 ---
 

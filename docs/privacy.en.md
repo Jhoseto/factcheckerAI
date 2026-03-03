@@ -1,4 +1,4 @@
-# PRIVACY POLICY â€“ FACTCHECKER AI
+# PRIVACY POLICY – FACTCHECKER AI
 
 **Last updated:** March 2026
 
@@ -6,7 +6,7 @@
 
 ## 1. Data Controller
 
-The controller of personal data processed within the FactChecker AI service ("Platform") is **Kostadin SereÐ·liev**, a natural person, with correspondence address: **Bulgaria, Sofia**. For questions about your personal data and to exercise your rights, write to: **factcheckerai42@gmail.com**.
+The controller of personal data processed within the FactChecker AI service ("Platform") is **Kostadin Serezliev**, a natural person, with correspondence address: **Bulgaria, Sofia**. For questions about your personal data and to exercise your rights, write to: **factcheckerai42@gmail.com**.
 
 No Data Protection Officer (DPO) has been appointed. For complaints about the processing of personal data, you may contact the Commission for Personal Data Protection (CPDP), Bulgaria: https://cpdp.bg/.
 
@@ -17,7 +17,7 @@ No Data Protection Officer (DPO) has been appointed. For complaints about the pr
 We process the following categories of data:
 
 **Upon registration and account maintenance:**
-- Email address, password (stored in encrypted form via Firebase Authentication), name/display name. For Google sign-in â€“ email, name, and profile picture from your Google account, if provided.
+- Email address, password (stored in encrypted form via Firebase Authentication), name/display name. For Google sign-in – email, name, and profile picture from your Google account, if provided.
 
 **Purpose:** creating and maintaining an account, identification, delivery of the service. **Legal basis:** performance of the contract for use of the service (Art. 6(1)(b) GDPR).
 
@@ -31,7 +31,7 @@ We process the following categories of data:
 
 **Purpose:** processing payment and crediting points. **Legal basis:** performance of the contract (Art. 6(1)(b) GDPR).
 
-**Transaction history:** For every credit or debit of points, a transaction is recorded (type, amount, description, date; for analysis â€“ also metadata such as video title). **Purpose:** transparency, account maintenance, possible protection in disputes. **Legal basis:** performance of the contract and legitimate interest (Art. 6(1)(b) and (f) GDPR).
+**Transaction history:** For every credit or debit of points, a transaction is recorded (type, amount, description, date; for analysis – also metadata such as video title). **Purpose:** transparency, account maintenance, possible protection in disputes. **Legal basis:** performance of the contract and legitimate interest (Art. 6(1)(b) and (f) GDPR).
 
 ---
 
@@ -41,13 +41,13 @@ Personal data may be shared with the following categories of recipients:
 
 - **Google (Firebase):** for authentication (Firebase Authentication) and storage of profiles, transactions, and analyses (Firestore). Google's servers may be located within and outside the EU (including the US). Transfers are made in accordance with applicable safeguards (e.g. standard contractual clauses or an adequacy decision, where applicable).
 
-- **Google (Gemini API):** content you submit for analysis (URL, text, metadata) is processed by Google Gemini to generate results. When you submit content for analysis, anonymized snippets or metadata may be processed by Google Gemini API. No personally identifiable information (PII) is intentionally shared with the AI model providers. This may involve transfers outside the EU; Google's data processing safeguards apply.
+- **Google (Gemini API):** content you submit for analysis (URL, text, metadata) is processed by Google Gemini to generate results. When you submit content for analysis, anonymised snippets or metadata may be processed by Google Gemini API. No personally identifiable information (PII) is intentionally shared with the AI model providers. This may involve transfers outside the EU; Google's data processing safeguards apply.
 
 - **Lemon Squeezy:** when purchasing points, we pass userId, email, and selected package data (points). Payments and card data are processed by Lemon Squeezy under their privacy policy.
 
 - **Jina (r.jina.ai):** when analysing web articles, the URL you enter is sent to Jina's service for text content extraction. Processing is carried out by Jina under their terms.
 
-- **YouTube:** when analysing YouTube videos, our systems communicate with YouTube (metadata, transcription) via official APIs; Google/YouTube terms and policy apply.
+- **YouTube:** when analysing YouTube videos, our systems communicate with YouTube (metadata, transcription) via official APIs; Google/YouTube terms and privacy policy apply.
 
 We do not sell personal data to third parties for marketing or purposes other than those listed above.
 
@@ -67,13 +67,13 @@ We do not sell personal data to third parties for marketing or purposes other th
 
 If you are located in the European Economic Area (EEA), the provisions of Regulation (EU) 2016/679 (GDPR) apply. You have the right to:
 
-- **Access** (Art. 15) â€“ to obtain information on whether we process your data and a copy thereof.
-- **Rectification** (Art. 16) â€“ to request correction of inaccurate data.
-- **Erasure** (Art. 17) â€“ to request deletion of data where there is a legal basis.
-- **Restriction of processing** (Art. 18) â€“ under certain conditions.
-- **Portability** (Art. 20) â€“ to receive your data in a structured, machine-readable format, where applicable.
-- **Objection** (Art. 21) â€“ to object to processing based on legitimate interest.
-- **Complaint to a supervisory authority** â€“ to lodge a complaint with the CPDP (Bulgaria) or the supervisory authority in your place of residence.
+- **Access** (Art. 15) – to obtain information on whether we process your data and a copy thereof.
+- **Rectification** (Art. 16) – to request correction of inaccurate data.
+- **Erasure** (Art. 17) – to request deletion of data where there is a legal basis.
+- **Restriction of processing** (Art. 18) – under certain conditions.
+- **Portability** (Art. 20) – to receive your data in a structured, machine-readable format, where applicable.
+- **Objection** (Art. 21) – to object to processing based on legitimate interest.
+- **Complaint to a supervisory authority** – to lodge a complaint with the CPDP (Bulgaria) or the supervisory authority in your place of residence.
 
 To exercise your rights, write to **factcheckerai42@gmail.com**. We will respond within 1 month of receiving the request.
 
@@ -101,7 +101,7 @@ We may update this Privacy Policy. Updates will be published on this page with a
 
 ## 9. Contact
 
-**Kostadin SereÐ·liev**  
+**Kostadin Serezliev**  
 Address: Bulgaria, Sofia  
 Email: **factcheckerai42@gmail.com**
 
