@@ -73,10 +73,10 @@ function parseJsonRobust(rawText) {
 
     try {
         return { ok: true, parsed: JSON.parse(t) };
-    } catch (_) {}
+    } catch (_) { }
     try {
         return { ok: true, parsed: JSON.parse(escapeControlCharsInJson(t)) };
-    } catch (_) {}
+    } catch (_) { }
     return { ok: false, error: 'parse failed' };
 }
 
@@ -263,8 +263,10 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
         // ── Build request ─────────────────────────────────────────────────────
         let tools;
         if (serviceType === 'linkArticle') {
-            // urlContext causes empty responses (known Gemini 2.5 Flash issue) — use googleSearch only
-            tools = [{ googleSearch: {} }];
+            // urlContext: Gemini reads the URL natively (official Gemini 2.5 Flash feature)
+            // googleSearch: for fact verification, author/media context, comments, alt sources
+            // Both tools can be combined — documented as supported
+            tools = [{ urlContext: {} }, { googleSearch: {} }];
         } else if (isDeepMode || enableGoogleSearch) {
             tools = [{ googleSearch: {} }];
         }
@@ -447,7 +449,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
     }, 15000);
     const endStream = () => {
         clearInterval(heartbeat);
-        try { res.end(); } catch (_) {}
+        try { res.end(); } catch (_) { }
     };
 
     try {

@@ -6,9 +6,34 @@ import { VideoAnalysis, APIUsage } from '../../types';
 import { getApiLang } from '../../i18n';
 
 /**
+ * Scrapes the content of a URL via server-side Jina+direct fetch.
+ * Returns the extracted text and whether it's partial.
+ */
+const scrapeLinkContent = async (url: string, token: string): Promise<{ content: string; isPartial: boolean }> => {
+    try {
+        const response = await fetch('/api/link/scrape', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ url })
+        });
+        if (!response.ok) return { content: '', isPartial: true };
+        const data = await response.json();
+        return {
+            content: data.content || '',
+            isPartial: data.isPartial ?? true
+        };
+    } catch {
+        return { content: '', isPartial: true };
+    }
+};
+
+/**
  * Analyzes a news article URL.
- * Gemini uses urlContext to read the page and googleSearch to verify facts.
- * No scraping — Gemini does everything.
+ * Primary: urlContext (Gemini native URL reading) + googleSearch for fact verification.
+ * Fallback: if urlContext produces empty response, scrape with Jina and inject content into prompt.
  */
 export const analyzeLinkDeep = async (
     url: string,
@@ -20,7 +45,14 @@ export const analyzeLinkDeep = async (
 
         const token = await user.getIdToken();
         const lang = getApiLang();
+        onProgress?.(lang === 'en' ? 'Scraping article...' : 'Извличане на статията...');
+
+        // Pre-scrape the article content so we can inject it into the prompt (fallback safety net)
+        const scraped = await scrapeLinkContent(url, token);
+        const scrapedContent = (!scraped.isPartial && scraped.content.length > 300) ? scraped.content : undefined;
+
         onProgress?.(lang === 'en' ? 'Analysing article...' : 'Анализиране на статията...');
+
 
         const response = await fetch('/api/gemini/generate', {
             method: 'POST',
@@ -30,7 +62,7 @@ export const analyzeLinkDeep = async (
             },
             body: JSON.stringify({
                 model: 'gemini-2.5-flash',
-                prompt: lang === 'en' ? getLinkAnalysisPromptEn(url) : getLinkAnalysisPrompt(url),
+                prompt: lang === 'en' ? getLinkAnalysisPromptEn(url, scrapedContent) : getLinkAnalysisPrompt(url, scrapedContent),
                 mode: 'deep',
                 serviceType: 'linkArticle',
                 systemInstruction: lang === 'en'
