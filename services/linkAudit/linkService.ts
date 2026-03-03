@@ -123,7 +123,8 @@ const transformAnalysis = (rawText: string, pointsCost: number): VideoAnalysis =
             weight: 'средна',
             confidence: c.confidence || 0,
             veracity: transformVerdict(c.verdict),
-            explanation: c.evidence,
+            verdict: (c.verdict?.toUpperCase?.() || 'UNVERIFIABLE') as string,
+            explanation: c.evidence || (getApiLang() === 'en' ? 'No information available' : 'Няма налична информация'),
             missingContext: c.context || ''
         })),
         manipulations: (raw.manipulationTechniques || []).map((m: any) => ({

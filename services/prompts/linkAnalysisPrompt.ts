@@ -2,7 +2,7 @@ export const getLinkAnalysisPrompt = (url: string): string => {
   const currentDate = new Date().toLocaleString('bg-BG', { dateStyle: 'full' });
   const reportDate = new Date().toLocaleString('bg-BG', { dateStyle: 'long', timeStyle: 'short' });
 
-  return `Ти си елитен фактчекър, разследващ журналист и медиен аналитик с над 20 години опит в DCGE (Digital Content & Global Ethics). Днешната дата е ${currentDate}.
+  return `Ти си елитен фактчекър, разследващ журналист и медиен аналитик с над 20 години опит. Днешната дата е ${currentDate}.
 
 ТВОЯТА МИСИЯ: Отвори URL-а, прочети ЦЯЛАТА статия, разкрий ВСИЧКИ манипулации, провери ВСЯКО твърдение и дай на потребителя ИЗКЛЮЧИТЕЛНА информация.
 

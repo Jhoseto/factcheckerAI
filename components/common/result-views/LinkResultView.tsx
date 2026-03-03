@@ -19,6 +19,7 @@ interface LinkResultViewProps {
 
 import ShareModal from '../ShareModal';
 import { useTranslation } from 'react-i18next';
+import { getVerdictKey } from '../../../utils/verdictDisplay';
 
 const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, onSave, onReset, slotUsage, isSaved = false }) => {
     const { t, i18n } = useTranslation();
@@ -221,13 +222,13 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                             {analysis.claims.map((claim, idx) => (
                                 <div key={idx} className="editorial-card p-6 md:p-8 space-y-6 border-l-2 border-l-[#968B74]/50">
                                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-[#333] pb-4">
-                                        <span className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest border ${claim.veracity.toLowerCase().includes('невярно') ? 'border-[#8b4a4a] text-[#c66] bg-[#8b4a4a]/20' : 'border-[#4a7c59] text-[#7cb87c] bg-[#4a7c59]/20'}`}>{claim.veracity}</span>
+                                        <span className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest border ${['FALSE', 'MOSTLY_FALSE'].includes(claim.verdict || '') || (claim.veracity || '').toLowerCase().includes('невярно') || (claim.veracity || '').toLowerCase().includes('подвеждащо') ? 'border-[#8b4a4a] text-[#c66] bg-[#8b4a4a]/20' : 'border-[#4a7c59] text-[#7cb87c] bg-[#4a7c59]/20'}`}>{t(getVerdictKey(claim))}</span>
                                         <div className="text-[8px] font-black uppercase tracking-widest text-[#666]">{t('analysis.claimNumber', { num: idx + 1 })}</div>
                                     </div>
                                     <blockquote className="text-base md:text-xl font-black text-[#E8E8E8] leading-snug  tracking-tight">„{claim.quote}“</blockquote>
                                     <div className="p-4 bg-[#252525] border-l-4 border-[#333]">
                                         <h5 className="text-[9px] font-black text-[#968B74] uppercase tracking-widest mb-1">{t('analysis.factAnalysis')}</h5>
-                                        <p className="text-[#ccc] leading-[1.6] font-medium text-[15px]">{claim.explanation}</p>
+                                        <p className="text-[#ccc] leading-[1.6] font-medium text-[15px]">{(claim.explanation === 'Няма налична информация' || claim.explanation === 'No information available') ? t('analysis.noInfoAvailable') : claim.explanation}</p>
                                     </div>
                                 </div>
                             ))}
@@ -244,16 +245,16 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                             {/* Radar chart */}
                             {analysis.manipulations.length > 1 && (() => {
                                 const radarData = analysis.manipulations.map(m => ({
-                                    subject: m.technique.length > 18 ? m.technique.slice(0, 18) + '…' : m.technique,
+                                    subject: m.technique,
                                     value: Math.round((m.severity > 1 ? m.severity / 100 : m.severity) * 100)
                                 }));
                                 return (
                                     <div className="editorial-card p-6 border border-[#968B74]/20">
                                         <p className="text-[8px] font-black text-[#968B74] uppercase tracking-widest mb-4">{t('analysis.manipulationRadar')}</p>
-                                        <ResponsiveContainer width="100%" height={260}>
-                                            <RadarChart data={radarData} margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
+                                        <ResponsiveContainer width="100%" height={420}>
+                                            <RadarChart data={radarData} margin={{ top: 90, right: 90, bottom: 90, left: 90 }}>
                                                 <PolarGrid stroke="#333" />
-                                                <PolarAngleAxis dataKey="subject" tick={{ fill: '#888', fontSize: 9, fontWeight: 700 }} />
+                                                <PolarAngleAxis dataKey="subject" tick={{ fill: '#888', fontSize: 10, fontWeight: 700 }} />
                                                 <Tooltip contentStyle={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: 2, fontSize: 10 }} formatter={(v: number) => [`${v}%`, t('analysis.intensity')]} />
                                                 <Radar dataKey="value" stroke="#C4B091" fill="#C4B091" fillOpacity={0.15} strokeWidth={1.5} />
                                             </RadarChart>

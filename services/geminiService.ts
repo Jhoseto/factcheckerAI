@@ -216,15 +216,6 @@ const transformGeminiResponse = (
   const responseLang = getApiLang();
 
   const mapVerdict = (verdict: string): 'вярно' | 'предимно вярно' | 'частично вярно' | 'подвеждащо' | 'невярно' | 'непроверимо' => {
-    if (responseLang === 'en') {
-      // EN verdicts are stored as English strings but type still expects BG keys — keep BG for internal type
-      // We store the EN label in the explanation, so here we map to a neutral BG enum key
-      const mapEn: Record<string, 'вярно' | 'предимно вярно' | 'частично вярно' | 'подвеждащо' | 'невярно' | 'непроверимо'> = {
-        'TRUE': 'вярно', 'MOSTLY_TRUE': 'предимно вярно', 'MIXED': 'частично вярно',
-        'MOSTLY_FALSE': 'подвеждащо', 'FALSE': 'невярно', 'UNVERIFIABLE': 'непроверимо'
-      };
-      return mapEn[verdict?.toUpperCase()] || 'непроверимо';
-    }
     const map: Record<string, 'вярно' | 'предимно вярно' | 'частично вярно' | 'подвеждащо' | 'невярно' | 'непроверимо'> = {
       'TRUE': 'вярно', 'MOSTLY_TRUE': 'предимно вярно', 'MIXED': 'частично вярно',
       'MOSTLY_FALSE': 'подвеждащо', 'FALSE': 'невярно', 'UNVERIFIABLE': 'непроверимо'
@@ -280,12 +271,13 @@ const transformGeminiResponse = (
   const transformedClaims = allClaims.map((c: any) => ({
     quote: c.claim || c.quote || '',
     formulation: c.claim || c.quote || '',
-    category: 'Факт',
+    category: responseLang === 'en' ? 'Fact' : 'Факт',
     weight: 'средна' as 'ниска' | 'средна' | 'висока',
     confidence: c.confidence || (c.verdict === 'TRUE' ? 0.9 : c.verdict === 'FALSE' ? 0.1 : 0.5),
     veracity: mapVerdict(c.verdict) as 'вярно' | 'предимно вярно' | 'частично вярно' | 'подвеждащо' | 'невярно' | 'непроверимо',
-    explanation: (c.logicalAnalysis || '') + (c.factualVerification ? '\n\nФактическа проверка: ' + c.factualVerification : '') + (c.comparison ? '\n\nСравнение: ' + c.comparison : '') || c.evidence || 'Няма налична информация',
-    missingContext: (c.context || '') + (Array.isArray(c.sources) && c.sources.length > 0 ? '\n\nИзточници: ' + c.sources.join(', ') : '') || ''
+    verdict: (c.verdict?.toUpperCase?.() || 'UNVERIFIABLE') as string,
+    explanation: (c.logicalAnalysis || '') + (c.factualVerification ? (responseLang === 'en' ? '\n\nFactual verification: ' : '\n\nФактическа проверка: ') + c.factualVerification : '') + (c.comparison ? (responseLang === 'en' ? '\n\nComparison: ' : '\n\nСравнение: ') + c.comparison : '') || c.evidence || (responseLang === 'en' ? 'No information available' : 'Няма налична информация'),
+    missingContext: (c.context || '') + (Array.isArray(c.sources) && c.sources.length > 0 ? (responseLang === 'en' ? '\n\nSources: ' : '\n\nИзточници: ') + c.sources.join(', ') : '') || ''
   }));
 
   const transformedManipulations = manipulations.map((m: any, idx: number) => ({

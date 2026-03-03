@@ -8,6 +8,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { makeAnalysisPublic } from '../../../services/archiveService';
 import { useTranslation } from 'react-i18next';
 import { TabIcon, SectionIcon } from './DeepTabIcons';
+import { getVerdictKey } from '../../../utils/verdictDisplay';
 
 interface VideoResultViewProps {
     analysis: VideoAnalysis;
@@ -508,12 +509,12 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
                             {(analysis.claims || []).map((claim, idx) => (
                                 <div key={idx} className="editorial-card p-6 md:p-8 space-y-6 border-l-2 border-l-[#968B74]/50">
                                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-[#333] pb-4">
-                                        <span className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest border ${claim.veracity.toLowerCase().includes('невярно') ? 'border-[#8b4a4a] text-[#c66] bg-[#8b4a4a]/20' : 'border-[#4a7c59] text-[#7cb87c] bg-[#4a7c59]/20'}`}>{claim.veracity}</span>
+                                        <span className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest border ${['FALSE', 'MOSTLY_FALSE'].includes(claim.verdict || '') || (claim.veracity || '').toLowerCase().includes('невярно') || (claim.veracity || '').toLowerCase().includes('подвеждащо') ? 'border-[#8b4a4a] text-[#c66] bg-[#8b4a4a]/20' : 'border-[#4a7c59] text-[#7cb87c] bg-[#4a7c59]/20'}`}>{t(getVerdictKey(claim))}</span>
                                         <div className="flex gap-4 text-[8px] font-black uppercase tracking-widest text-[#666]"><span>{t('analysis.category')}: {claim.category}</span><span>{t('analysis.precision')}: {Math.round(claim.confidence * 100)}%</span></div>
                                     </div>
                                     <blockquote className="text-base md:text-xl font-black text-[#E8E8E8] leading-snug  tracking-tight">„{claim.quote}“</blockquote>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-sm">
-                                        <div className="space-y-2"><h5 className="text-[9px] font-black text-[#968B74] uppercase tracking-widest border-b border-[#968B74]/50 pb-0.5 inline-block">{t('analysis.logicalAudit')}</h5><p className="text-[#ccc] leading-[1.6] font-medium">{claim.explanation}</p></div>
+                                        <div className="space-y-2"><h5 className="text-[9px] font-black text-[#968B74] uppercase tracking-widest border-b border-[#968B74]/50 pb-0.5 inline-block">{t('analysis.logicalAudit')}</h5><p className="text-[#ccc] leading-[1.6] font-medium">{(claim.explanation === 'Няма налична информация' || claim.explanation === 'No information available') ? t('analysis.noInfoAvailable') : claim.explanation}</p></div>
                                         <div className="space-y-2"><h5 className="text-[9px] font-black text-[#968B74] uppercase tracking-widest border-b border-[#968B74]/50 pb-0.5 inline-block">{t('analysis.context')}</h5><p className="text-[#ccc] leading-[1.6]">{claim.missingContext}</p></div>
                                     </div>
                                 </div>

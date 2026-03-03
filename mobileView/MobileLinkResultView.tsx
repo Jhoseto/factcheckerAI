@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { VideoAnalysis } from '../types';
+import { getVerdictKey } from '../utils/verdictDisplay';
 import MobileHeader from './components/MobileHeader';
 import { useLanguageSwitch } from '../hooks/useLanguageSwitch';
 import ReliabilityGauge from '../components/linkAudit/ReliabilityGauge';
@@ -203,12 +204,12 @@ const MobileLinkResultView: React.FC<MobileLinkResultViewProps> = ({ analysis, r
               {(analysis.claims || []).map((claim, idx) => (
                 <div key={idx} className="rounded-xl p-4 bg-[#252525] border border-[#333]">
                   <span className={`inline-block px-3 py-1.5 text-[9px] font-black uppercase tracking-widest border mb-3 rounded ${
-                    claim.veracity.toLowerCase().includes('невярно') || claim.veracity.toLowerCase().includes('false') ? 'border-red-600/60 text-red-400 bg-red-900/20' : 'border-emerald-600/60 text-emerald-400 bg-emerald-900/20'
+                    ['FALSE', 'MOSTLY_FALSE'].includes(claim.verdict || '') || (claim.veracity || '').toLowerCase().includes('невярно') || (claim.veracity || '').toLowerCase().includes('подвеждащо') ? 'border-red-600/60 text-red-400 bg-red-900/20' : 'border-emerald-600/60 text-emerald-400 bg-emerald-900/20'
                   }`}>
-                    {claim.veracity}
+                    {t(getVerdictKey(claim))}
                   </span>
                   <p className="text-base font-black text-[#E0E0E0] leading-tight mb-2">„{claim.quote}"</p>
-                  <p className="text-xs text-[#aaa] leading-relaxed">{claim.explanation}</p>
+                  <p className="text-xs text-[#aaa] leading-relaxed">{(claim.explanation === 'Няма налична информация' || claim.explanation === 'No information available') ? t('analysis.noInfoAvailable') : claim.explanation}</p>
                 </div>
               ))}
             </div>

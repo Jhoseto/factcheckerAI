@@ -14,6 +14,7 @@ interface SocialResultViewProps {
 }
 
 import ShareModal from '../ShareModal';
+import { getVerdictKey } from '../../../utils/verdictDisplay';
 
 const SocialResultView: React.FC<SocialResultViewProps> = ({ result, onReset, onSave, slotUsage }) => {
     const { t } = useTranslation();
@@ -119,15 +120,15 @@ const SocialResultView: React.FC<SocialResultViewProps> = ({ result, onReset, on
                     <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight border-b border-slate-200 pb-2">{t('analysis.identifiedClaims')}</h3>
                     <div className="space-y-4">
                         {result.claims.map((claim, idx) => (
-                            <div key={idx} className="bg-slate-50 p-6 border-l-4" style={{ borderColor: claim.veracity.includes('вярно') && !claim.veracity.includes('не') ? '#059669' : '#dc2626' }}>
+                            <div key={idx} className="bg-slate-50 p-6 border-l-4" style={{ borderColor: !['FALSE', 'MOSTLY_FALSE'].includes(claim.verdict || '') && !(claim.veracity || '').toLowerCase().includes('невярно') && !(claim.veracity || '').toLowerCase().includes('подвеждащо') ? '#059669' : '#dc2626' }}>
                                 <div className="flex justify-between items-start mb-2">
-                                    <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-1 bg-white border ${claim.veracity.includes('вярно') && !claim.veracity.includes('не') ? 'text-emerald-700 border-emerald-200' : 'text-red-700 border-red-200'
+                                    <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-1 bg-white border ${!['FALSE', 'MOSTLY_FALSE'].includes(claim.verdict || '') && !(claim.veracity || '').toLowerCase().includes('невярно') && !(claim.veracity || '').toLowerCase().includes('подвеждащо') ? 'text-emerald-700 border-emerald-200' : 'text-red-700 border-red-200'
                                         }`}>
-                                        {claim.veracity}
+                                        {t(getVerdictKey(claim))}
                                     </span>
                                 </div>
                                 <p className="text-lg font-bold text-slate-900 serif italic mb-3">"{claim.quote}"</p>
-                                <p className="text-sm text-slate-600 leading-relaxed font-medium">{claim.explanation}</p>
+                                <p className="text-sm text-slate-600 leading-relaxed font-medium">{(claim.explanation === 'Няма налична информация' || claim.explanation === 'No information available') ? t('analysis.noInfoAvailable') : claim.explanation}</p>
                             </div>
                         ))}
                     </div>

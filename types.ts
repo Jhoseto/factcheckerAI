@@ -12,6 +12,7 @@ export interface Claim {
   weight: 'ниска' | 'средна' | 'висока';
   confidence: number;
   veracity: 'вярно' | 'предимно вярно' | 'частично вярно' | 'подвеждащо' | 'невярно' | 'непроверимо';
+  verdict?: string;
   explanation: string;
   missingContext: string;
   verified?: boolean;

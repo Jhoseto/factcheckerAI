@@ -263,6 +263,7 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
         // ── Build request ─────────────────────────────────────────────────────
         let tools;
         if (serviceType === 'linkArticle') {
+            // urlContext causes empty responses (known Gemini 2.5 Flash issue) — use googleSearch only
             tools = [{ googleSearch: {} }];
         } else if (isDeepMode || enableGoogleSearch) {
             tools = [{ googleSearch: {} }];
