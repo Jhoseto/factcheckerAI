@@ -803,38 +803,58 @@ finalInvestigativeReport: comprehensive synthesis. Never leave arrays empty. Nev
             // When tools (Google Search) are active: use non-streaming generateContent for speed.
             // Streaming + tools is very slow (multiple search rounds during stream). Non-streaming is 3-4x faster.
             if (tools) {
+                /*
+                 * STANDARD + GOOGLE SEARCH: proper two-stage flow
+                 * Stage 1: focused research prompt + video + Google Search → gather real-time facts
+                 * Stage 2: video + stage-1 findings → JSON output via responseSchema
+                 * This mirrors deep mode but without multimodal analysis tabs.
+                 */
                 sendSSE('progress', { status: getProgressMsg(lang, 'deepPreparing') });
-                console.log('[Standard+Search] Using non-streaming generateContent with Google Search');
-                const searchConfig = {
-                    systemInstruction: enhancedSystemInstruction,
-                    temperature: 0.7,
-                    maxOutputTokens: 63536,
-                    mediaResolution: 'MEDIA_RESOLUTION_LOW',
-                    tools,
-                    httpOptions: { timeout: 300000 }
-                };
-                const searchResponse = await ai.models.generateContent({
+                const researchPrompt = lang === 'en'
+                    ? 'Watch this video carefully. Then use Google Search to verify every factual claim made in the video — especially political facts, statistics, names, dates, and recent events. For each claim: state what was said, search for evidence, and give a verdict (true/false/misleading). Also identify the top manipulation techniques used. Be thorough and factual.'
+                    : 'Гледай внимателно видеото. След това използвай Google Search за да провериш всяко фактическо твърдение — особено политически факти, статистики, имена, дати и актуални събития. За всяко твърдение: опиши какво е казано, потърси доказателства и дай присъда (вярно/невярно/подвеждащо). Идентифицирай и топ манипулативни техники.';
+                const stage1Contents = [{ role: 'user', parts: videoUrl
+                    ? [{ fileData: { fileUri: videoUrl } }, { text: researchPrompt }]
+                    : [{ text: researchPrompt }]
+                }];
+                console.log('[Standard+Search] Stage1 — research prompt with Google Search');
+                const stage1Response = await ai.models.generateContent({
                     model: model || 'gemini-2.5-flash',
-                    contents,
-                    config: searchConfig
+                    contents: stage1Contents,
+                    config: {
+                        systemInstruction: enhancedSystemInstruction,
+                        temperature: 0.5,
+                        maxOutputTokens: 40000,
+                        mediaResolution: 'MEDIA_RESOLUTION_LOW',
+                        tools,
+                        httpOptions: { timeout: 300000 }
+                    }
                 });
-                accumulateUsage(searchResponse.usageMetadata);
-                streamUsage = searchResponse.usageMetadata || streamUsage;
-                if (typeof searchResponse.text === 'string') fullText = searchResponse.text;
-                else if (searchResponse.candidates?.[0]?.content?.parts) {
-                    fullText = searchResponse.candidates[0].content.parts
-                            .map(p => (p && typeof p === 'object' && p.text != null) ? String(p.text) : '')
-                            .join('');
+                accumulateUsage(stage1Response.usageMetadata);
+                streamUsage = stage1Response.usageMetadata || streamUsage;
+                let stage1Text = '';
+                if (typeof stage1Response.text === 'string') stage1Text = stage1Response.text;
+                else if (stage1Response.candidates?.[0]?.content?.parts) {
+                    stage1Text = stage1Response.candidates[0].content.parts
+                            .map(p => (p && typeof p === 'object' && p.text != null) ? String(p.text) : '').join('');
                 }
-                fullText = fullText || '';
-                console.log('[Standard+Search] Response chars:', fullText.length, '| starts with {:', fullText.trimStart().startsWith('{'));
-                // If Google Search response is not valid JSON, do a schema-based JSON extraction pass
-                const searchValidation = validateJsonResponse(fullText, serviceType || 'video');
-                if (!searchValidation.valid && fullText.length > 50) {
-                    sendSSE('progress', { status: getProgressMsg(lang, 'finalJson') });
-                    console.log('[Standard+Search] Search response not valid JSON — extracting JSON with schema');
-                    const jsonPromptText = 'You just analyzed the video and researched facts via Google Search. Now return ONLY a valid JSON object with all findings. Watch the video directly for: factualClaims, manipulationTechniques, summary, overallAssessment, detailedMetrics. Never truncate. Always close all brackets.';
-                    const jsonConfig = {
+                stage1Text = stage1Text || '';
+                console.log('[Standard+Search] Stage1 research chars:', stage1Text.length);
+
+                // Stage 2: Format into JSON using schema, injecting stage 1 research as context
+                sendSSE('progress', { status: getProgressMsg(lang, 'finalJson') });
+                const stage2Prompt = prompt + (stage1Text
+                    ? '\n\n=== GOOGLE SEARCH RESEARCH (use this to populate all fields accurately) ===\n' + stage1Text.substring(0, 15000) + '\n=== END RESEARCH ==='
+                    : '');
+                const stage2Contents = [{ role: 'user', parts: videoUrl
+                    ? [{ fileData: { fileUri: videoUrl } }, { text: stage2Prompt }]
+                    : [{ text: stage2Prompt }]
+                }];
+                console.log('[Standard+Search] Stage2 — JSON schema pass, prompt chars:', stage2Prompt.length);
+                const stage2Response = await ai.models.generateContent({
+                    model: model || 'gemini-2.5-flash',
+                    contents: stage2Contents,
+                    config: {
                         systemInstruction: enhancedSystemInstruction,
                         temperature: 0.7,
                         maxOutputTokens: 63536,
@@ -842,27 +862,17 @@ finalInvestigativeReport: comprehensive synthesis. Never leave arrays empty. Nev
                         responseSchema: VIDEO_RESPONSE_SCHEMA,
                         mediaResolution: 'MEDIA_RESOLUTION_LOW',
                         httpOptions: { timeout: 300000 }
-                    };
-                    // Inject search findings + video back into a fresh request
-                    const searchFindings = fullText.substring(0, 10000);
-                    const jsonContents = [{ role: 'user', parts: videoUrl
-                        ? [{ fileData: { fileUri: videoUrl } }, { text: jsonPromptText + (searchFindings ? '\n\nSEARCH FINDINGS:\n' + searchFindings : '') }]
-                        : [{ text: jsonPromptText + (searchFindings ? '\n\nSEARCH FINDINGS:\n' + searchFindings : '') }]
-                    }];
-                    const jsonResponse = await ai.models.generateContent({
-                        model: model || 'gemini-2.5-flash',
-                        contents: jsonContents,
-                        config: jsonConfig
-                    });
-                    accumulateUsage(jsonResponse.usageMetadata);
-                    streamUsage = jsonResponse.usageMetadata || streamUsage;
-                    if (typeof jsonResponse.text === 'string') fullText = jsonResponse.text;
-                    else if (jsonResponse.candidates?.[0]?.content?.parts) {
-                        fullText = jsonResponse.candidates[0].content.parts
-                                .map(p => (p && typeof p === 'object' && p.text != null) ? String(p.text) : '').join('');
                     }
-                    fullText = fullText || '';
+                });
+                accumulateUsage(stage2Response.usageMetadata);
+                streamUsage = stage2Response.usageMetadata || streamUsage;
+                if (typeof stage2Response.text === 'string') fullText = stage2Response.text;
+                else if (stage2Response.candidates?.[0]?.content?.parts) {
+                    fullText = stage2Response.candidates[0].content.parts
+                            .map(p => (p && typeof p === 'object' && p.text != null) ? String(p.text) : '').join('');
                 }
+                fullText = fullText || '';
+                console.log('[Standard+Search] Stage2 JSON chars:', fullText.length, '| starts with {:', fullText.trimStart().startsWith('{'));
             } else {
                 // NO tools: fast streaming with responseSchema
                 const stdConfig = {
