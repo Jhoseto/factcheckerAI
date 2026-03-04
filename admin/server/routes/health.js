@@ -19,7 +19,7 @@ async function checkFirebase() {
 }
 
 async function checkGemini() {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.VITE_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
     if (!apiKey || apiKey.length < 10) {
         return { ok: false, message: 'GEMINI_API_KEY не е конфигуриран' };
     }
