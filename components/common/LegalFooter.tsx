@@ -34,6 +34,7 @@ const LegalFooter: React.FC = () => {
       <a
         href="mailto:factcheckerai42@gmail.com"
         className="text-[10px] font-normal text-[#968B74] hover:text-[#C4B091] transition-colors"
+        aria-label={t('legal.contactEmail')}
       >
         factcheckerai42@gmail.com
       </a>

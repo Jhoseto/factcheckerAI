@@ -45,7 +45,7 @@ const Navbar: React.FC = () => {
         <header className="fixed top-0 w-full z-[100] h-32 transition-all duration-700 bg-gradient-to-b from-[#222] via-[#222]/95 to-transparent backdrop-blur-md flex items-center px-10">
             <div className="w-full max-w-[1600px] mx-auto flex justify-between items-center relative">
                 {/* Logo */}
-                <a href="/" className="group cursor-pointer block">
+                <a href="/" className="group cursor-pointer block" aria-label={t('nav.home')}>
                     <h1 className="text-xl md:text-2xl font-serif tracking-[0.2em] text-transparent bg-clip-text bg-gradient-to-b from-[#C4B091] to-[#5E5646] uppercase flex items-center gap-3 transition-opacity hover:opacity-80">
                         FACTCHECKER
                         <span className="text-[9px] font-sans font-bold tracking-[0.3em] text-[#666] mt-1 opacity-60">AI</span>

@@ -1,5 +1,6 @@
 {
   "nav": {
+    "home": "FACTCHECKER AI – Home",
     "login": "Log In",
     "buyPoints": "Buy Points",
     "archive": "Archive",
@@ -326,6 +327,7 @@
     "errorAnalysis": "An error occurred during link analysis."
   },
   "mobile": {
+    "home": "Home",
     "profile": "Profile",
     "translatePage": "Translate page (Google)",
     "points": "points",
@@ -435,6 +437,7 @@
   },
   "legal": {
     "ariaLabel": "Legal documents",
+    "contactEmail": "Contact by email",
     "backHome": "Back to home",
     "terms": "Terms and Conditions",
     "privacy": "Privacy Policy",

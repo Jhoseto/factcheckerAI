@@ -24,7 +24,7 @@ const navItems = (profileTo: string, t: (key: string) => string): { to: string; 
   },
   {
     to: '/',
-    label: '',
+    label: '', // Home - aria-label used
     icon: (
       <svg className="w-11 h-11" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -93,6 +93,7 @@ const MobileBottomNav: React.FC = () => {
           <div className="flex items-end justify-center flex-shrink-0 px-4">
             <NavLink
               to={homeItem.to}
+              aria-label={t('mobile.home')}
               className={`flex items-end justify-center h-full transition-all touch-manipulation relative ${
                 location.pathname === homeItem.to ? 'text-[#C4B091]' : 'text-[#888]'
               }`}

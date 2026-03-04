@@ -114,7 +114,15 @@ app.use('/api/oembed', oembedProxy);
 // Static Files & SPA Routing
 // ─────────────────────────────────────────────────────────────────────────────
 const distPath = path.join(__dirname, '..', 'dist');
-app.use(express.static(distPath));
+app.use(express.static(distPath, {
+    maxAge: '1y',
+    immutable: true,
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) {
+            res.setHeader('Cache-Control', 'no-cache');
+        }
+    }
+}));
 
 app.use((req, res) => {
     if (req.path.startsWith('/api')) {

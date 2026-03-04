@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useSearchParams, useLocation } from 'react-router-dom';
 import { trackVisit } from './services/visitTracker';
 import { AnnouncementBanner } from './components/common/AnnouncementBanner';
@@ -10,20 +10,25 @@ import Navbar from './components/common/Navbar';
 import LegalFooter from './components/common/LegalFooter';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
-import PricingPage from './components/pricing/PricingPage';
-import ExpensesPage from './components/user/ExpensesPage';
-import LinkAuditPage from './components/linkAudit/LinkAuditPage';
-
-import ArchivePage from './components/archive/ArchivePage';
-import ReportPage from './components/report/ReportPage';
-import { AdminApp } from './admin/client/index';
-import TermsPage from './components/legal/TermsPage';
-import PrivacyPage from './components/legal/PrivacyPage';
-import RefundPage from './components/legal/RefundPage';
 import App from './App';
-import { MobileView } from './mobileView';
+
+const PricingPage = lazy(() => import('./components/pricing/PricingPage'));
+const ExpensesPage = lazy(() => import('./components/user/ExpensesPage'));
+const ArchivePage = lazy(() => import('./components/archive/ArchivePage'));
+const ReportPage = lazy(() => import('./components/report/ReportPage'));
+const AdminApp = lazy(() => import('./admin/client/index').then(m => ({ default: m.AdminApp })));
+const TermsPage = lazy(() => import('./components/legal/TermsPage'));
+const PrivacyPage = lazy(() => import('./components/legal/PrivacyPage'));
+const RefundPage = lazy(() => import('./components/legal/RefundPage'));
+const MobileView = lazy(() => import('./mobileView').then(m => ({ default: m.MobileView })));
 
 const MOBILE_BREAKPOINT = 768;
+
+const PageFallback = () => (
+    <div className="min-h-screen flex items-center justify-center bg-[#222]">
+        <div className="w-16 h-16 border-4 border-[#333] border-t-[#968B74] rounded-full animate-spin shadow-[0_0_30px_rgba(150,139,116,0.2)]"></div>
+    </div>
+);
 
 const AppRouter: React.FC = () => {
     const { currentUser, loading } = useAuth();
@@ -59,7 +64,11 @@ const AppRouter: React.FC = () => {
     }
 
     if (showMobileView) {
-        return <MobileView />;
+        return (
+            <Suspense fallback={<PageFallback />}>
+                <MobileView />
+            </Suspense>
+        );
     }
 
     return (
@@ -69,6 +78,7 @@ const AppRouter: React.FC = () => {
             <UserMessageBanner />
             <Navbar />
             <LegalFooter />
+            <Suspense fallback={<PageFallback />}>
             <Routes>
                 {/* Public routes */}
                 <Route
@@ -121,6 +131,7 @@ const AppRouter: React.FC = () => {
                 {/* Fallback */}
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+            </Suspense>
         </>
     );
 };
