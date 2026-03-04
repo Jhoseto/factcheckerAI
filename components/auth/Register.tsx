@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { doc, setDoc } from 'firebase/firestore';
-import { db } from '../../services/firebase';
+import { auth, db } from '../../services/firebase';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 
 const Register: React.FC = () => {
@@ -68,7 +68,7 @@ const Register: React.FC = () => {
             setError(null);
             setLoading(true);
             const provider = new GoogleAuthProvider();
-            const result = await signInWithPopup(useAuth().auth, provider);
+            const result = await signInWithPopup(auth, provider);
             const user = result.user;
             await setDoc(doc(db, 'users', user.uid), {
                 email: user.email,

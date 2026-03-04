@@ -14,6 +14,7 @@ import visitsRouter from './routes/visits.js';
 import revenueRouter from './routes/revenue.js';
 import configRouter from './routes/config.js';
 import healthRouter from './routes/health.js';
+import userMessagesRouter from './routes/userMessages.js';
 
 const router = express.Router();
 
@@ -32,5 +33,6 @@ router.use('/visits', visitsRouter);
 router.use('/revenue', revenueRouter);
 router.use('/config', configRouter);
 router.use('/health', healthRouter);
+router.use('/user-messages', userMessagesRouter);
 
 export default router;

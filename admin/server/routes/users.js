@@ -59,7 +59,10 @@ router.get('/:uid', requireAdmin, async (req, res) => {
         const isAdmin = !!customClaims.admin;
         const isSuperAdminUser = (authRecord?.email || '').toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase() || !!customClaims.super_admin;
         const disabled = !!authRecord?.disabled;
-        res.json({ user: { ...user, disabled }, transactions, analyses, isAdmin, isSuperAdminUser });
+        const photoURL = user.photoURL || authRecord?.photoURL || null;
+        const viewerEmail = (req.decodedToken?.email || '').toLowerCase();
+        const isSuperAdmin = viewerEmail === SUPER_ADMIN_EMAIL.toLowerCase() || !!req.decodedToken?.super_admin;
+        res.json({ user: { ...user, photoURL, disabled }, transactions, analyses, isAdmin, isSuperAdminUser, isSuperAdmin });
     } catch (e) {
         console.error('[Admin user detail]', e);
         res.status(500).json({ error: e.message });

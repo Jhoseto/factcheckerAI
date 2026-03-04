@@ -16,6 +16,7 @@ import {
     getUserPoints,
     deductPointsFromUser
 } from '../services/firebaseAdmin.js';
+import { getMaxAnalysesPerDay, getAnalysesCountToday } from '../services/configService.js';
 import {
     calculateVideoCostInPoints,
     getFixedPrice
@@ -259,6 +260,20 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                 code: 'INSUFFICIENT_POINTS',
                 currentBalance
             });
+        }
+
+        // ── Daily analyses limit ───────────────────────────────────────────────
+        const maxPerDay = await getMaxAnalysesPerDay();
+        if (maxPerDay) {
+            const countToday = await getAnalysesCountToday(userId);
+            if (countToday >= maxPerDay) {
+                return res.status(403).json({
+                    error: `Достигнахте дневния лимит от ${maxPerDay} анализа. Опитайте утре.`,
+                    code: 'DAILY_LIMIT_REACHED',
+                    countToday,
+                    maxPerDay
+                });
+            }
         }
 
         // ── Build request ─────────────────────────────────────────────────────

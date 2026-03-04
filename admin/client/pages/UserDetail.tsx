@@ -6,11 +6,12 @@ const txTypeLabels: Record<string, string> = { purchase: 'Покупка', bonus
 const analysisTypeLabels: Record<string, string> = { video: 'Видео', link: 'Линк' };
 
 interface UserDetailData {
-    user: { id: string; email?: string; displayName?: string; pointsBalance?: number; createdAt?: string; disabled?: boolean };
+    user: { id: string; email?: string; displayName?: string; photoURL?: string; pointsBalance?: number; createdAt?: string; disabled?: boolean };
     transactions: Array<{ id: string; type: string; amount: number; description?: string; createdAt?: string }>;
     analyses: Array<{ id: string; type?: string; title?: string; createdAt?: string }>;
     isAdmin?: boolean;
     isSuperAdminUser?: boolean;
+    isSuperAdmin?: boolean;
 }
 
 export const UserDetail: React.FC = () => {
@@ -18,7 +19,6 @@ export const UserDetail: React.FC = () => {
     const navigate = useNavigate();
     const [data, setData] = useState<UserDetailData | null>(null);
     const [loading, setLoading] = useState(true);
-    const [isSuperAdmin, setIsSuperAdmin] = useState(false);
     const [pointsAmount, setPointsAmount] = useState('');
     const [pointsReason, setPointsReason] = useState('');
     const [pointsLoading, setPointsLoading] = useState(false);
@@ -61,14 +61,23 @@ export const UserDetail: React.FC = () => {
             <button onClick={() => navigate('/admin/users')} className="text-[9px] font-bold text-[#968B74] hover:text-[#C4B091]">
                 ← Назад към потребителите
             </button>
-            <h1 className="text-xl font-black text-[#C4B091] uppercase tracking-tight">{data.user.displayName || data.user.email || data.user.id}</h1>
+            <div className="flex items-center gap-4">
+                {data.user.photoURL ? (
+                    <img src={data.user.photoURL} alt="" className="w-16 h-16 rounded-full object-cover border-2 border-[#333]" />
+                ) : (
+                    <div className="w-16 h-16 rounded-full bg-[#333] flex items-center justify-center text-xl font-bold text-[#888]">
+                        {(data.user.displayName || data.user.email || '?').slice(0, 2).toUpperCase()}
+                    </div>
+                )}
+                <h1 className="text-xl font-black text-[#C4B091] uppercase tracking-tight">{data.user.displayName || data.user.email || data.user.id}</h1>
+            </div>
 
             <div className="p-5 bg-[#252525] border border-[#333] rounded-sm space-y-2">
                 <p><span className="text-[8px] text-[#666] uppercase">Имейл:</span> {data.user.email || '—'}</p>
                 <p><span className="text-[8px] text-[#666] uppercase">Точки:</span> <span className="font-bold text-[#C4B091]">{data.user.pointsBalance ?? 0}</span></p>
                 <p><span className="text-[8px] text-[#666] uppercase">Регистрация:</span> {data.user.createdAt || '—'}</p>
                 {data.user.disabled && <p><span className="text-[8px] text-[#c66] uppercase">Блокиран</span></p>}
-                {isSuperAdmin && !data.isSuperAdminUser && (
+                {data.isSuperAdmin && !data.isSuperAdminUser && (
                     <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t border-[#333]">
                         {data.user.disabled ? (
                             <button

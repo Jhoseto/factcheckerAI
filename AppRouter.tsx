@@ -2,7 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useSearchParams, useLocation } from 'react-router-dom';
 import { trackVisit } from './services/visitTracker';
 import { AnnouncementBanner } from './components/common/AnnouncementBanner';
+import { UserMessageBanner } from './components/common/UserMessageBanner';
+import { MaintenanceOverlay } from './components/common/MaintenanceOverlay';
 import { useAuth } from './contexts/AuthContext';
+import { usePublicConfig } from './contexts/PublicConfigContext';
 import Navbar from './components/common/Navbar';
 import LegalFooter from './components/common/LegalFooter';
 import Login from './components/auth/Login';
@@ -24,6 +27,7 @@ const MOBILE_BREAKPOINT = 768;
 
 const AppRouter: React.FC = () => {
     const { currentUser, loading } = useAuth();
+    const { newRegistrationEnabled } = usePublicConfig();
     const location = useLocation();
     const [searchParams] = useSearchParams();
 
@@ -60,7 +64,9 @@ const AppRouter: React.FC = () => {
 
     return (
         <>
+            <MaintenanceOverlay />
             <AnnouncementBanner />
+            <UserMessageBanner />
             <Navbar />
             <LegalFooter />
             <Routes>
@@ -71,7 +77,7 @@ const AppRouter: React.FC = () => {
                 />
                 <Route
                     path="/register"
-                    element={currentUser ? <Navigate to="/" replace /> : <Register />}
+                    element={currentUser ? <Navigate to="/" replace /> : !newRegistrationEnabled ? <Navigate to="/login?reg=disabled" replace /> : <Register />}
                 />
 
                 {/* Main app - PUBLIC, authentication checked on analysis action */}

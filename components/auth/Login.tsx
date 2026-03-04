@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
+import { usePublicConfig } from '../../contexts/PublicConfigContext';
 
 const Login: React.FC = () => {
     const { t } = useTranslation();
@@ -11,6 +12,9 @@ const Login: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [agreedToTerms, setAgreedToTerms] = useState(false);
     const { login, loginWithGoogle } = useAuth();
+    const { newRegistrationEnabled } = usePublicConfig();
+    const [searchParams] = useSearchParams();
+    const regDisabled = searchParams.get('reg') === 'disabled';
     const navigate = useNavigate();
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -141,9 +145,20 @@ const Login: React.FC = () => {
                     </button>
 
                     <div className="text-center pt-6 border-t border-[#222]">
-                        <p className="text-[9px] text-[#666] tracking-wide">
-                            {t('auth.noCredentials')} <a href="/register" className="text-[#968B74] font-bold hover:text-[#E6D2A8] uppercase transition-colors ml-1 border-b border-[#968B74]/30 hover:border-[#E6D2A8]">{t('auth.requestAccess')}</a>
-                        </p>
+                        {regDisabled && (
+                            <p className="text-[10px] text-amber-500/90 mb-3 font-bold uppercase tracking-wider">
+                                Регистрациите са временно спрени.
+                            </p>
+                        )}
+                        {newRegistrationEnabled ? (
+                            <p className="text-[9px] text-[#666] tracking-wide">
+                                {t('auth.noCredentials')} <Link to="/register" className="text-[#968B74] font-bold hover:text-[#E6D2A8] uppercase transition-colors ml-1 border-b border-[#968B74]/30 hover:border-[#E6D2A8]">{t('auth.requestAccess')}</Link>
+                            </p>
+                        ) : (
+                            <p className="text-[9px] text-[#666] tracking-wide">
+                                {t('auth.noCredentials')} <span className="text-[#555]">{t('auth.requestAccess')}</span>
+                            </p>
+                        )}
                     </div>
                 </div>
                 

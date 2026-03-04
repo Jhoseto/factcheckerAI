@@ -50,7 +50,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             const userDoc = await getDoc(doc(db, 'users', user.uid));
             if (userDoc.exists()) {
-                setUserProfile(userDoc.data() as UserProfile);
+                const data = userDoc.data() as UserProfile;
+                if (!data.photoURL && user.photoURL) {
+                    await updateDoc(doc(db, 'users', user.uid), { photoURL: user.photoURL });
+                    setUserProfile({ ...data, photoURL: user.photoURL });
+                } else {
+                    setUserProfile(data);
+                }
             } else {
                 // Create new user profile with welcome bonus
                 const newProfile: UserProfile = {
