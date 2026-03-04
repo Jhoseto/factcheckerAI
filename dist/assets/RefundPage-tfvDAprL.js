@@ -1,4 +1,4 @@
-import{j as e}from"./motion-DMmWGCb4.js";import{u as t,m as a}from"./index-DtjFUSNH.js";import{r as o}from"./renderLegalMd-CM_Jpi49.js";import{L as s}from"./react-vendor-DfPuibdP.js";import"./firebase-DzH6GH7r.js";import"./charts-COc1iTIi.js";const i=`# ПОЛИТИКА ЗА ВРЪЩАНЕ НА СУМИ – FACTCHECKER AI\r
+import{j as e}from"./motion-DMmWGCb4.js";import{u as t,m as a}from"./index-DTrrf1fj.js";import{r as o}from"./renderLegalMd-CM_Jpi49.js";import{L as s}from"./react-vendor-DfPuibdP.js";import"./firebase-DzH6GH7r.js";import"./charts-COc1iTIi.js";const i=`# ПОЛИТИКА ЗА ВРЪЩАНЕ НА СУМИ – FACTCHECKER AI\r
 \r
 **Последна актуализация:** Март 2026 г.\r
 \r
