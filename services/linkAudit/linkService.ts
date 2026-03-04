@@ -9,7 +9,6 @@ interface ScrapeResult {
     content: string;
     isPartial: boolean;
     error?: string;
-    images?: Array<{ mimeType: string; data: string }>;
 }
 
 const scrapeLinkContent = async (url: string, token: string): Promise<ScrapeResult> => {
@@ -29,8 +28,7 @@ const scrapeLinkContent = async (url: string, token: string): Promise<ScrapeResu
         }
         return {
             content: data.content || '',
-            isPartial: data.isPartial ?? true,
-            images: Array.isArray(data.images) ? data.images : []
+            isPartial: data.isPartial ?? true
         };
     } catch {
         return { content: '', isPartial: true };
@@ -57,8 +55,6 @@ export const analyzeLinkDeep = async (
 
         const scraped = await scrapeLinkContent(url, token);
         const scrapedContent = (!scraped.isPartial && scraped.content.length > 300) ? scraped.content : undefined;
-        const images = scraped.images?.filter((img: any) => img?.mimeType && img?.data) || [];
-        const hasImages = images.length > 0;
 
         if (scraped.error && !scrapedContent) {
             const err = scraped.error.toLowerCase();
@@ -80,10 +76,9 @@ export const analyzeLinkDeep = async (
             },
             body: JSON.stringify({
                 model: 'gemini-2.5-flash',
-                prompt: lang === 'en' ? getLinkAnalysisPromptEn(url, scrapedContent, hasImages) : getLinkAnalysisPrompt(url, scrapedContent, hasImages),
+                prompt: lang === 'en' ? getLinkAnalysisPromptEn(url, scrapedContent) : getLinkAnalysisPrompt(url, scrapedContent),
                 mode: 'deep',
                 serviceType: 'linkArticle',
-                ...(hasImages && images.length ? { images } : {}),
                 systemInstruction: lang === 'en'
                     ? 'You are a professional fact-checker and investigative journalist. Answer ONLY in English language.'
                     : 'You are a professional fact-checker and investigative journalist. Answer ONLY in Bulgarian language.',
@@ -223,7 +218,6 @@ const transformAnalysis = (rawText: string, pointsCost: number): VideoAnalysis =
                 : (raw.recommendations || '')
         },
         pointsCost,
-        visualAnalysis: raw.visualAnalysis || undefined,
         commentsAnalysis: raw.commentsAnalysis ?? null,
         authorProfile: raw.authorProfile ?? undefined,
         mediaProfile: raw.mediaProfile ?? undefined,

@@ -20,13 +20,12 @@ interface LinkResultViewProps {
 import ShareModal from '../ShareModal';
 import { useTranslation } from 'react-i18next';
 import { getVerdictKey } from '../../../utils/verdictDisplay';
-import { SectionIcon } from './DeepTabIcons';
 
 const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, onSave, onReset, slotUsage, isSaved = false }) => {
     const { t, i18n } = useTranslation();
     const { currentUser } = useAuth();
     const analysisLang: 'bg' | 'en' = (analysis as any).lang || ((analysis.summary?.overallSummary || analysis.summary?.finalInvestigativeReport || '').match(/[а-яА-ЯёЁ]/) ? 'bg' : 'en');
-    const [activeTab, setActiveTab] = useState<'summary' | 'claims' | 'manipulation' | 'profile' | 'rhetoric' | 'visual' | 'comments' | 'report'>('summary');
+    const [activeTab, setActiveTab] = useState<'summary' | 'claims' | 'manipulation' | 'profile' | 'rhetoric' | 'comments' | 'report'>('summary');
     const linkReportDisplayText = analysis.summary.finalInvestigativeReport || '';
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
@@ -109,7 +108,6 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
         { id: 'manipulation' as const, label: t('analysis.tabManipulation') },
         { id: 'profile' as const, label: t('analysis.tabProfile') },
         { id: 'rhetoric' as const, label: t('analysis.tabRhetoric') },
-        { id: 'visual' as const, label: t('analysis.tabVisual') },
         { id: 'comments' as const, label: t('analysis.tabComments') },
         { id: 'report' as const, label: t('analysis.tabFinalReport') },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -495,20 +493,6 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                                     <p className="text-[#555] text-sm">{t('analysis.rhetoricNotAvailable')}</p>
                                 </div>
                             )}
-                        </div>
-                    )}
-
-                    {activeTab === 'visual' && (
-                        <div className="space-y-6 animate-fadeIn">
-                            <div className="editorial-card p-6 md:p-10 border-l-2 border-l-[#968B74]/50">
-                                <div className="mb-6 pb-4 border-b border-[#333] flex items-center gap-3">
-                                    <span className="text-[#968B74]"><SectionIcon id="visual" /></span>
-                                    <h3 className="text-xl md:text-2xl font-black text-[#C4B091] uppercase tracking-tight">{t('analysis.visualAnalysisTitle')}</h3>
-                                </div>
-                                <div className="max-w-none text-[#ddd] text-[15px] md:text-base leading-[1.7] whitespace-pre-wrap min-h-[120px]">
-                                    {(analysis.visualAnalysis && String(analysis.visualAnalysis).trim()) ? analysis.visualAnalysis : t('analysis.noImagesAnalyzed')}
-                                </div>
-                            </div>
                         </div>
                     )}
 
