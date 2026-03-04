@@ -2,6 +2,18 @@ import path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
+function nonBlockingCss() {
+  return {
+    name: 'non-blocking-css',
+    transformIndexHtml(html: string) {
+      return html.replace(
+        /<link rel="stylesheet"([^>]*)href="([^"]+)"([^>]*)>/g,
+        (_, a, href, b) => `<link rel="stylesheet"${a}href="${href}"${b} media="print" onload="this.media='all'"><noscript><link rel="stylesheet" href="${href}"></noscript>`
+      );
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   return {
@@ -70,7 +82,7 @@ export default defineConfig(({ mode }) => {
         }
       }
     },
-    plugins: [react()],
+    plugins: [react(), nonBlockingCss()],
     build: {
       rollupOptions: {
         output: {

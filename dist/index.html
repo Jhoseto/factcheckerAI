@@ -28,13 +28,11 @@
     onload="this.media='all'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,900;1,400&display=swap" rel="stylesheet"></noscript>
   <style>
-    body {
-      font-family: 'Inter', sans-serif;
-      background-color: #0F0F0F;
-      color: #E0E0E0;
-      -webkit-font-smoothing: antialiased;
-    }
-    .serif { font-family: 'Playfair Display', serif; }
+    body{margin:0;background:#222;color:#e0e0e0;font-family:system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+    #root{min-height:100vh}
+    ._lp{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#222}
+    ._ls{width:64px;height:64px;border:4px solid #333;border-top-color:#968B74;border-radius:50%;animation:_s .8s linear infinite}
+    @keyframes _s{to{transform:rotate(360deg)}}
   </style>
   <script type="application/ld+json">
   {
@@ -54,11 +52,11 @@
   <link rel="modulepreload" crossorigin href="/assets/motion-DMmWGCb4.js">
   <link rel="modulepreload" crossorigin href="/assets/firebase-DzH6GH7r.js">
   <link rel="modulepreload" crossorigin href="/assets/charts-COc1iTIi.js">
-  <link rel="stylesheet" crossorigin href="/assets/index-sRsJ5spM.css">
+  <link rel="stylesheet" crossorigin href="/assets/index-sRsJ5spM.css" media="print" onload="this.media='all'"><noscript><link rel="stylesheet" href="/assets/index-sRsJ5spM.css"></noscript>
 </head>
 
 <body>
-  <div id="root"></div>
+  <div id="root"><div class="_lp" aria-hidden="true"><div class="_ls"></div></div></div>
 </body>
 
 </html>
