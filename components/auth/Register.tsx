@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
+import { useTranslation, Trans } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../../services/firebase';
@@ -25,10 +25,8 @@ const Register: React.FC = () => {
         if (/[A-Z]/.test(pass)) strength += 20;
         if (/[0-9]/.test(pass)) strength += 20;
         if (/[^A-Za-z0-9]/.test(pass)) strength += 20;
-        return {
-            strength,
-            label: strength < 40 ? 'WEAK' : strength < 70 ? 'MEDIUM' : 'STRONG'
-        };
+        const label = strength < 40 ? 'auth.passwordStrengthWeak' : strength < 70 ? 'auth.passwordStrengthMedium' : 'auth.passwordStrengthStrong';
+        return { strength, label };
     };
 
     const passwordStrength = getPasswordStrength(password);
@@ -112,29 +110,29 @@ const Register: React.FC = () => {
 
                     <form onSubmit={handleSubmit} className="space-y-5">
                         <div className="space-y-1">
-                            <label className="text-[9px] font-bold text-[#666] uppercase tracking-widest pl-1">Codename</label>
+                            <label className="text-[9px] font-bold text-[#666] uppercase tracking-widest pl-1">{t('auth.codename')}</label>
                             <input
                                 type="text"
                                 value={displayName}
                                 onChange={(e) => setDisplayName(e.target.value)}
                                 className="w-full bg-[#121212] border border-[#222] p-4 text-xs text-[#E0E0E0] outline-none focus:border-[#968B74] transition-all rounded-sm placeholder:text-[#333] tracking-wide"
-                                placeholder="Agent Name"
+                                placeholder={t('auth.agentName')}
                                 disabled={loading}
                             />
                         </div>
                         <div className="space-y-1">
-                            <label className="text-[9px] font-bold text-[#666] uppercase tracking-widest pl-1">Email</label>
+                            <label className="text-[9px] font-bold text-[#666] uppercase tracking-widest pl-1">{t('auth.email')}</label>
                             <input
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 className="w-full bg-[#121212] border border-[#222] p-4 text-xs text-[#E0E0E0] outline-none focus:border-[#968B74] transition-all rounded-sm placeholder:text-[#333] tracking-wide"
-                                placeholder="name@agency.com"
+                                placeholder={t('auth.emailPlaceholderRegister')}
                                 disabled={loading}
                             />
                         </div>
                         <div className="space-y-1">
-                            <label className="text-[9px] font-bold text-[#666] uppercase tracking-widest pl-1">Passcode</label>
+                            <label className="text-[9px] font-bold text-[#666] uppercase tracking-widest pl-1">{t('auth.passcode')}</label>
                             <input
                                 type="password"
                                 value={password}
@@ -148,12 +146,12 @@ const Register: React.FC = () => {
                                     <div className="flex-1 h-[2px] bg-[#222] overflow-hidden rounded-full">
                                         <div className={`h-full transition-all duration-500 ${passwordStrength.strength >= 70 ? 'bg-emerald-600' : 'bg-[#968B74]'}`} style={{ width: `${passwordStrength.strength}%` }}></div>
                                     </div>
-                                    <span className="text-[8px] font-bold uppercase tracking-wider text-[#666]">{passwordStrength.label}</span>
+                                    <span className="text-[8px] font-bold uppercase tracking-wider text-[#666]">{t(passwordStrength.label)}</span>
                                 </div>
                             )}
                         </div>
                         <div className="space-y-1">
-                            <label className="text-[9px] font-bold text-[#666] uppercase tracking-widest pl-1">Confirm</label>
+                            <label className="text-[9px] font-bold text-[#666] uppercase tracking-widest pl-1">{t('auth.confirm')}</label>
                             <input
                                 type="password"
                                 value={confirmPassword}
@@ -174,7 +172,10 @@ const Register: React.FC = () => {
                                 disabled={loading}
                             />
                             <label htmlFor="terms" className="text-[9px] text-[#666] leading-relaxed tracking-wide uppercase">
-                                Приемам <Link to="/terms" target="_blank" rel="noopener noreferrer" className="text-[8px] font-normal text-[#968B74] hover:text-[#E6D2A8] border-b border-[#968B74]/30">Правилата и условията</Link> и <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="text-[8px] font-normal text-[#968B74] hover:text-[#E6D2A8] border-b border-[#968B74]/30">Политиката за поверителност</Link>
+                                <Trans i18nKey="auth.registerAcceptWithLinks" components={{
+                                    termsLink: <Link to="/terms" target="_blank" rel="noopener noreferrer" className="text-[8px] font-normal text-[#968B74] hover:text-[#E6D2A8] border-b border-[#968B74]/30" />,
+                                    privacyLink: <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="text-[8px] font-normal text-[#968B74] hover:text-[#E6D2A8] border-b border-[#968B74]/30" />
+                                }} />
                             </label>
                         </div>
 

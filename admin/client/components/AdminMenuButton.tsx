@@ -15,8 +15,17 @@ export const AdminMenuButton: React.FC<AdminMenuButtonProps> = ({ onNavigate, cl
     const navigate = useNavigate();
 
     useEffect(() => {
-        fetchAdmin('/verify')
-            .then(r => setIsAdmin(r.ok))
+        const verify = () => fetchAdmin('/verify');
+        verify()
+            .then(r => {
+                if (r.ok) return setIsAdmin(true);
+                if (r.status === 403) {
+                    return new Promise<void>(resolve => setTimeout(resolve, 300))
+                        .then(() => verify())
+                        .then(r2 => setIsAdmin(r2.ok));
+                }
+                setIsAdmin(false);
+            })
             .catch(() => setIsAdmin(false));
     }, []);
 
