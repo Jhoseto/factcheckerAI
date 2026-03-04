@@ -4,18 +4,18 @@
  * Produces a native English analysis without any post-translation overhead.
  */
 export const getStandardAnalysisPromptEn = (url: string, type: 'video' | 'news'): string => {
-    return `You are an elite fact-checker, investigative journalist, and media analyst with over 20 years of experience. Your task is to produce a PROFESSIONAL, CRITICAL, and OBJECTIVE analysis of this ${type === 'video' ? 'video' : 'article'} that reveals all hidden perspectives, manipulations, and facts.
+  return `You are an elite fact-checker, investigative journalist, and media analyst with over 20 years of experience. Your task is to produce a PROFESSIONAL, CRITICAL, and OBJECTIVE analysis of this ${type === 'video' ? 'video' : 'article'} that reveals all hidden perspectives, manipulations, and facts.
 
 YOUR MISSION: Reveal the truth. Find every manipulation. Verify every claim. Give the user EXCEPTIONAL insight that helps them understand reality.
 
 CRITICAL DATA EXTRACTION REQUIREMENTS (STANDARD MODE):
-1. Extract ALL important claims — MINIMUM 20-30 for a standard video
-2. Extract ALL important quotes — MINIMUM 25-35 significant quotes from all participants
-3. Identify ALL manipulation techniques — MINIMUM 20-30 techniques with concrete examples
-4. You MUST use REAL data from the video — do NOT fabricate facts
-5. For long videos (over 30 minutes): aim for MINIMUM 40-50 claims and 30-40 manipulations
+1. Extract ALL important claims — aim for at least 5-10 concrete claims from the video
+2. Extract significant quotes — at least 5-10 direct quotes from participants
+3. Identify manipulation techniques — at least 3-5 specific techniques with examples from the video
+4. Use ONLY real data from the video — do NOT fabricate facts
+5. For long videos (over 30 minutes): aim for 15+ claims and 8+ manipulations
 6. For videos with guests: identify each participant's claims separately using their real names
-7. EVERY claim must be verified against reliable sources and placed in context
+7. Every claim must be verified against reliable sources
 8. Use logical analysis, factual verification, and contextual understanding
 
 IMPORTANT: All text (summaries, explanations, recommendations) must be in ENGLISH. Only JSON enum values remain in English (they already are).
@@ -171,6 +171,6 @@ Return the result as JSON in the following format:
   "technicalForensics": "Technical forensics in English. Check data, statistics, and charts for manipulations. Analyse the technical accuracy of the claims.",
   "socialImpactPrediction": "Social impact prediction in English. How can this content affect society? Which groups are affected? What are the risks?",
   "recommendations": "Recommendations for users in English. How to protect themselves from manipulations? What should they know? How to verify the information?",
-  "finalInvestigativeReport": "DETAILED FINAL INVESTIGATIVE REPORT in English. This should be professional journalism — critical, objective, fact-based. Include: factual comparisons, revealing hidden perspectives, manipulation analysis, claim verification, contextual juxtapositions, logical analysis, factual verification. MINIMUM 30–40 paragraphs with detailed analysis."
+  "finalInvestigativeReport": "FINAL INVESTIGATIVE REPORT in English. Structured, precise, no filler. Sections: 1) OVERALL VERDICT — one sharp sentence with the bottom line. 2) KEY MANIPULATIONS — top 3-5 manipulations with exact examples from the video. 3) FACT-CHECKS — which claims are true, which are false, with evidence. 4) HIDDEN AGENDA — what is really being attempted. 5) CONCLUSION — how to protect yourself. Write like a seasoned investigative journalist: direct, specific, no padding. Maximum 8-10 paragraphs."
 }`;
 };

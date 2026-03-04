@@ -800,66 +800,126 @@ finalInvestigativeReport: comprehensive synthesis. Never leave arrays empty. Nev
 
         } else {
             // STANDARD MODE: streaming first, retry with non-streaming on validation failure
-            // When Google Search tools are active, responseSchema cannot be used (API limitation)
-            const stdConfig = {
-                systemInstruction: enhancedSystemInstruction,
-                temperature: 0.7,
-                maxOutputTokens: 63536,
-                ...(tools ? {} : { responseMimeType: 'application/json', responseSchema: VIDEO_RESPONSE_SCHEMA }),
-                mediaResolution: 'MEDIA_RESOLUTION_LOW',
-                abortSignal: abortController.signal,
-                httpOptions: { timeout: 300000 },
-                ...(tools ? { tools } : {})
-            };
-            console.log('[Standard] tools active:', !!tools, '| schema active:', !tools);
-            const stream = await ai.models.generateContentStream({
-                model: model || 'gemini-2.5-flash',
-                contents,
-                config: stdConfig
-            });
-
-            for await (const chunk of stream) {
-                if (chunk.functionCalls && chunk.functionCalls.length > 0) {
-                    functionCallCount += chunk.functionCalls.length;
-                    sendSSE('progress', { status: getProgressMsg(lang, 'googleSearch', functionCallCount) });
-                    continue;
+            // When tools (Google Search) are active: use non-streaming generateContent for speed.
+            // Streaming + tools is very slow (multiple search rounds during stream). Non-streaming is 3-4x faster.
+            if (tools) {
+                sendSSE('progress', { status: getProgressMsg(lang, 'deepPreparing') });
+                console.log('[Standard+Search] Using non-streaming generateContent with Google Search');
+                const searchConfig = {
+                    systemInstruction: enhancedSystemInstruction,
+                    temperature: 0.7,
+                    maxOutputTokens: 63536,
+                    mediaResolution: 'MEDIA_RESOLUTION_LOW',
+                    tools,
+                    httpOptions: { timeout: 300000 }
+                };
+                const searchResponse = await ai.models.generateContent({
+                    model: model || 'gemini-2.5-flash',
+                    contents,
+                    config: searchConfig
+                });
+                accumulateUsage(searchResponse.usageMetadata);
+                streamUsage = searchResponse.usageMetadata || streamUsage;
+                if (typeof searchResponse.text === 'string') fullText = searchResponse.text;
+                else if (searchResponse.candidates?.[0]?.content?.parts) {
+                    fullText = searchResponse.candidates[0].content.parts
+                            .map(p => (p && typeof p === 'object' && p.text != null) ? String(p.text) : '')
+                            .join('');
                 }
-
-                const chunkText = chunk.text || '';
-                if (chunkText) {
-                    fullText += chunkText;
-                    chunkCount++;
-                    if (chunkCount % 5 === 0) {
-                        sendSSE('progress', { status: getProgressMsg(lang, 'analyzing', Math.round(fullText.length / 1024)) });
+                fullText = fullText || '';
+                console.log('[Standard+Search] Response chars:', fullText.length, '| starts with {:', fullText.trimStart().startsWith('{'));
+                // If Google Search response is not valid JSON, do a schema-based JSON extraction pass
+                const searchValidation = validateJsonResponse(fullText, serviceType || 'video');
+                if (!searchValidation.valid && fullText.length > 50) {
+                    sendSSE('progress', { status: getProgressMsg(lang, 'finalJson') });
+                    console.log('[Standard+Search] Search response not valid JSON — extracting JSON with schema');
+                    const jsonPromptText = 'You just analyzed the video and researched facts via Google Search. Now return ONLY a valid JSON object with all findings. Watch the video directly for: factualClaims, manipulationTechniques, summary, overallAssessment, detailedMetrics. Never truncate. Always close all brackets.';
+                    const jsonConfig = {
+                        systemInstruction: enhancedSystemInstruction,
+                        temperature: 0.7,
+                        maxOutputTokens: 63536,
+                        responseMimeType: 'application/json',
+                        responseSchema: VIDEO_RESPONSE_SCHEMA,
+                        mediaResolution: 'MEDIA_RESOLUTION_LOW',
+                        httpOptions: { timeout: 300000 }
+                    };
+                    // Inject search findings + video back into a fresh request
+                    const searchFindings = fullText.substring(0, 10000);
+                    const jsonContents = [{ role: 'user', parts: videoUrl
+                        ? [{ fileData: { fileUri: videoUrl } }, { text: jsonPromptText + (searchFindings ? '\n\nSEARCH FINDINGS:\n' + searchFindings : '') }]
+                        : [{ text: jsonPromptText + (searchFindings ? '\n\nSEARCH FINDINGS:\n' + searchFindings : '') }]
+                    }];
+                    const jsonResponse = await ai.models.generateContent({
+                        model: model || 'gemini-2.5-flash',
+                        contents: jsonContents,
+                        config: jsonConfig
+                    });
+                    accumulateUsage(jsonResponse.usageMetadata);
+                    streamUsage = jsonResponse.usageMetadata || streamUsage;
+                    if (typeof jsonResponse.text === 'string') fullText = jsonResponse.text;
+                    else if (jsonResponse.candidates?.[0]?.content?.parts) {
+                        fullText = jsonResponse.candidates[0].content.parts
+                                .map(p => (p && typeof p === 'object' && p.text != null) ? String(p.text) : '').join('');
                     }
+                    fullText = fullText || '';
                 }
-                if (chunk.usageMetadata) {
-                    accumulateUsage(chunk.usageMetadata);
-                    streamUsage = chunk.usageMetadata;
-                }
-            }
-
-            // Retry with non-streaming if validation fails (more reliable for complete response)
-            let stdValidation = validateJsonResponse(fullText, serviceType || 'video');
-            if (!stdValidation.valid && (stdValidation.code === 'AI_JSON_PARSE_ERROR' || stdValidation.code === 'AI_INCOMPLETE_RESPONSE')) {
-                sendSSE('progress', { status: getProgressMsg(lang, 'retry') });
-                const nonStreamResponse = await ai.models.generateContent({
+            } else {
+                // NO tools: fast streaming with responseSchema
+                const stdConfig = {
+                    systemInstruction: enhancedSystemInstruction,
+                    temperature: 0.7,
+                    maxOutputTokens: 63536,
+                    responseMimeType: 'application/json',
+                    responseSchema: VIDEO_RESPONSE_SCHEMA,
+                    mediaResolution: 'MEDIA_RESOLUTION_LOW',
+                    abortSignal: abortController.signal,
+                    httpOptions: { timeout: 300000 }
+                };
+                const stream = await ai.models.generateContentStream({
                     model: model || 'gemini-2.5-flash',
                     contents,
                     config: stdConfig
                 });
-                accumulateUsage(nonStreamResponse.usageMetadata);
-                streamUsage = nonStreamResponse.usageMetadata || streamUsage;
-                fullText = '';
-                if (typeof nonStreamResponse.text === 'string') fullText = nonStreamResponse.text;
-                else if (typeof nonStreamResponse.text === 'function') { try { fullText = nonStreamResponse.text(); } catch (_) { } }
-                else if (nonStreamResponse.text != null && typeof nonStreamResponse.text.then === 'function') { try { fullText = await nonStreamResponse.text; } catch (_) { } }
-                if (!fullText && nonStreamResponse.candidates?.[0]?.content?.parts) {
-                    fullText = nonStreamResponse.candidates[0].content.parts
-                        .map(p => (p && typeof p === 'object' && p.text != null) ? String(p.text) : '')
-                        .join('');
+                for await (const chunk of stream) {
+                    if (chunk.functionCalls && chunk.functionCalls.length > 0) {
+                        functionCallCount += chunk.functionCalls.length;
+                        sendSSE('progress', { status: getProgressMsg(lang, 'googleSearch', functionCallCount) });
+                        continue;
+                    }
+                    const chunkText = chunk.text || '';
+                    if (chunkText) {
+                        fullText += chunkText;
+                        chunkCount++;
+                        if (chunkCount % 5 === 0) {
+                            sendSSE('progress', { status: getProgressMsg(lang, 'analyzing', Math.round(fullText.length / 1024)) });
+                        }
+                    }
+                    if (chunk.usageMetadata) {
+                        accumulateUsage(chunk.usageMetadata);
+                        streamUsage = chunk.usageMetadata;
+                    }
                 }
-                fullText = fullText || '';
+                // Retry with non-streaming if validation fails
+                const stdValidation = validateJsonResponse(fullText, serviceType || 'video');
+                if (!stdValidation.valid && (stdValidation.code === 'AI_JSON_PARSE_ERROR' || stdValidation.code === 'AI_INCOMPLETE_RESPONSE')) {
+                    sendSSE('progress', { status: getProgressMsg(lang, 'retry') });
+                    const nonStreamResponse = await ai.models.generateContent({
+                        model: model || 'gemini-2.5-flash',
+                        contents,
+                        config: stdConfig
+                    });
+                    accumulateUsage(nonStreamResponse.usageMetadata);
+                    streamUsage = nonStreamResponse.usageMetadata || streamUsage;
+                    fullText = '';
+                    if (typeof nonStreamResponse.text === 'string') fullText = nonStreamResponse.text;
+                    else if (typeof nonStreamResponse.text === 'function') { try { fullText = nonStreamResponse.text(); } catch (_) { } }
+                    else if (nonStreamResponse.text != null && typeof nonStreamResponse.text.then === 'function') { try { fullText = await nonStreamResponse.text; } catch (_) { } }
+                    if (!fullText && nonStreamResponse.candidates?.[0]?.content?.parts) {
+                        fullText = nonStreamResponse.candidates[0].content.parts
+                            .map(p => (p && typeof p === 'object' && p.text != null) ? String(p.text) : '').join('');
+                    }
+                    fullText = fullText || '';
+                }
             }
         }
 
