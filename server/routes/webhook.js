@@ -54,6 +54,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         ) {
             const attributes = event.data?.attributes || {};
             const orderId = String(event.data.id);
+            const isTestMode = !!attributes.test_mode;
 
             // Lemon Squeezy: custom data is in meta.custom_data (see docs)
             const customData = event.meta?.custom_data
@@ -72,9 +73,13 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
                 return res.json({ received: true, warning: 'Missing userId or points' });
             }
 
-            console.log(`[Webhook] Processing order ${orderId} → userId=${userId} points=${points} (from meta.custom_data)`);
+            const txOptions = isTestMode
+                ? { type: 'bonus', source: 'lemonsqueezy_test', description: `Бонус (Lemon Squeezy тест): ${points} точки` }
+                : { type: 'purchase', source: 'lemonsqueezy', description: `Зареждане на ${points} точки` };
+
+            console.log(`[Webhook] Processing order ${orderId} → userId=${userId} points=${points} ${isTestMode ? '(TEST MODE → bonus)' : '(purchase)'}`);
             try {
-                await addPointsToUser(userId, points, orderId);
+                await addPointsToUser(userId, points, orderId, txOptions);
                 console.log(`[Webhook] ✅ Credited ${points} points to user ${userId} (order ${orderId})`);
             } catch (error) {
                 console.error(`[Webhook] ❌ Failed to add points for user ${userId}:`, error.message);

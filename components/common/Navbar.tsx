@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguageSwitch } from '../../hooks/useLanguageSwitch';
+import { AdminMenuButton } from '../../admin/client/components/AdminMenuButton';
 
 const Navbar: React.FC = () => {
     const { t } = useTranslation();
@@ -139,6 +140,7 @@ const Navbar: React.FC = () => {
                                         <button onClick={() => { navigate('/expenses'); setShowUserMenu(false); }} className="w-full text-left px-4 py-3 text-[9px] font-bold text-[#888] uppercase tracking-[0.2em] hover:bg-[#252525] rounded transition-colors hover:text-[#ddd]">
                                             {t('nav.expenses')}
                                         </button>
+                                        <AdminMenuButton onNavigate={() => { navigate('/admin'); setShowUserMenu(false); }} />
                                         <div className="h-[1px] bg-[#333] my-2"></div>
                                         <button onClick={() => { logout(); setShowUserMenu(false); }} className="w-full text-left px-4 py-3 text-[9px] font-bold text-[#888] hover:text-[#ddd] uppercase tracking-[0.2em] hover:bg-[#252525] rounded transition-colors">
                                             {t('nav.logout')}

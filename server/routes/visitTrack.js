@@ -1,0 +1,55 @@
+/**
+ * POST /api/track/visit — Log page view or login (public, rate limited)
+ */
+import express from 'express';
+import { getFirestore } from '../services/firebaseAdmin.js';
+import { verifyToken } from '../services/firebaseAdmin.js';
+
+const router = express.Router();
+const rateLimitMap = new Map(); // ip -> last timestamp
+const RATE_MS = 60000;
+
+function getIp(req) {
+    return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || req.connection?.remoteAddress || '';
+}
+
+router.post('/visit', express.json(), async (req, res) => {
+    try {
+        const ip = getIp(req);
+        const now = Date.now();
+        const last = rateLimitMap.get(ip) || 0;
+        if (now - last < RATE_MS) {
+            return res.status(429).json({ ok: false, retryAfter: 60 });
+        }
+        rateLimitMap.set(ip, now);
+
+        const { path, action } = req.body || {};
+        const userAgent = req.headers['user-agent'] || '';
+        const act = ['page_view', 'login'].includes(action) ? action : 'page_view';
+        const pathStr = typeof path === 'string' ? path.slice(0, 200) : '/';
+
+        let userId = null;
+        const authHeader = req.headers.authorization;
+        if (authHeader?.startsWith('Bearer ')) {
+            const token = authHeader.slice(7);
+            userId = await verifyToken(token);
+        }
+
+        const db = getFirestore();
+        await db.collection('visit_log').add({
+            ip,
+            userId: userId || null,
+            path: pathStr,
+            userAgent: userAgent.slice(0, 500),
+            action: act,
+            timestamp: new Date().toISOString()
+        });
+
+        res.json({ ok: true });
+    } catch (e) {
+        console.error('[VisitTrack]', e);
+        res.status(500).json({ ok: false });
+    }
+});
+
+export default router;

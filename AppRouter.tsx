@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
+import { Routes, Route, Navigate, useSearchParams, useLocation } from 'react-router-dom';
+import { trackVisit } from './services/visitTracker';
+import { AnnouncementBanner } from './components/common/AnnouncementBanner';
 import { useAuth } from './contexts/AuthContext';
 import Navbar from './components/common/Navbar';
 import LegalFooter from './components/common/LegalFooter';
@@ -11,6 +13,7 @@ import LinkAuditPage from './components/linkAudit/LinkAuditPage';
 
 import ArchivePage from './components/archive/ArchivePage';
 import ReportPage from './components/report/ReportPage';
+import { AdminApp } from './admin/client/index';
 import TermsPage from './components/legal/TermsPage';
 import PrivacyPage from './components/legal/PrivacyPage';
 import RefundPage from './components/legal/RefundPage';
@@ -21,7 +24,12 @@ const MOBILE_BREAKPOINT = 768;
 
 const AppRouter: React.FC = () => {
     const { currentUser, loading } = useAuth();
+    const location = useLocation();
     const [searchParams] = useSearchParams();
+
+    useEffect(() => {
+        if (!loading) trackVisit(location.pathname || '/', 'page_view');
+    }, [loading]); // only on initial load, not on every route change
     const forceMobile = searchParams.get('mobile') === '1';
     const [isNarrow, setIsNarrow] = useState(typeof window !== 'undefined' && window.innerWidth <= MOBILE_BREAKPOINT);
 
@@ -52,6 +60,7 @@ const AppRouter: React.FC = () => {
 
     return (
         <>
+            <AnnouncementBanner />
             <Navbar />
             <LegalFooter />
             <Routes>
@@ -81,6 +90,12 @@ const AppRouter: React.FC = () => {
                 <Route
                     path="/expenses"
                     element={currentUser ? <ExpensesPage /> : <Navigate to="/login" replace />}
+                />
+
+                {/* Admin Panel - requires authentication + admin claim */}
+                <Route
+                    path="/admin/*"
+                    element={currentUser ? <AdminApp /> : <Navigate to="/login" replace />}
                 />
 
                 {/* Archive - saved analyses */}

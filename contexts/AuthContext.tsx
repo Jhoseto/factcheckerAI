@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { trackVisit } from '../services/visitTracker';
 import {
     User,
     createUserWithEmailAndPassword,
@@ -66,6 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 await setDoc(doc(db, 'transactions', `${user.uid}_welcome`), {
                     userId: user.uid,
                     type: 'bonus',
+                    source: 'welcome',
                     amount: WELCOME_BONUS_POINTS,
                     description: `Начален бонус при регистрация (${WELCOME_BONUS_POINTS} точки)`,
                     createdAt: new Date().toISOString()
@@ -114,9 +116,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUserProfile(null);
     };
 
+    const prevUserRef = useRef<User | null | undefined>(undefined);
+
     // Auth state listener
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            if (prevUserRef.current === null && user) {
+                trackVisit('/', 'login');
+            }
+            prevUserRef.current = user;
             setCurrentUser(user);
             if (user) {
                 await loadUserProfile(user);

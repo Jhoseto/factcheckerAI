@@ -23,6 +23,9 @@ import checkoutRouter from './routes/checkout.js';
 import webhookRouter from './routes/webhook.js';
 import socialRouter from './routes/social.js';
 import transactionsRouter from './routes/transactions.js';
+import adminRouter from '../admin/server/index.js';
+import visitTrackRouter from './routes/visitTrack.js';
+import publicConfigRouter from './routes/publicConfig.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -72,6 +75,9 @@ app.use('/api/lemonsqueezy', checkoutRouter);
 app.use('/api/lemonsqueezy', webhookRouter);
 app.use('/api/social', socialRouter);
 app.use('/api/transactions', transactionsRouter);
+app.use('/api/track', express.json({ limit: '10kb' }), visitTrackRouter);
+app.use('/api/config', publicConfigRouter);
+app.use('/api/admin', express.json({ limit: '1mb' }), adminRouter);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // YouTube Proxy & Routes

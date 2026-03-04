@@ -111,12 +111,13 @@ export async function verifyToken(idToken) {
  * Add points to user account
  * Writes to Firestore:
  *   collection: 'transactions', doc: auto-ID
- *   fields: { userId (string), type: 'purchase', amount (number), description, paymentIntentId, createdAt (ISO string) }
- * @param userId - Firebase user UID (will be stringified)
+ *   fields: { userId, type, amount, description, paymentIntentId, source, createdAt }
+ * @param userId - Firebase user UID
  * @param points - Number of points to add
- * @param orderId - Optional Lemon Squeezy order ID for idempotency (skip if already processed)
+ * @param orderId - Optional Lemon Squeezy order ID for idempotency
+ * @param options - { type: 'purchase'|'bonus', source: 'lemonsqueezy'|'lemonsqueezy_test'|'manual', description }
  */
-export async function addPointsToUser(userId, points, orderId = null) {
+export async function addPointsToUser(userId, points, orderId = null, options = {}) {
     if (!adminInitialized) {
         console.error('[Firebase Admin] Cannot add points - not initialized');
         return;
@@ -161,14 +162,18 @@ export async function addPointsToUser(userId, points, orderId = null) {
                 lastPointsUpdate: admin.firestore.FieldValue.serverTimestamp()
             });
 
-            // Record in collection 'transactions' — same collection read by GET /api/transactions with where('userId', '==', uid)
+            const txType = options.type || (orderId ? 'purchase' : 'bonus');
+            const txSource = options.source || (orderId ? 'lemonsqueezy' : 'manual');
+            const txDesc = options.description ?? (txType === 'purchase' ? `Зареждане на ${points} точки` : 'Бонус (ръчно)');
+
             const transactionRef = db.collection('transactions').doc();
             transaction.set(transactionRef, {
                 userId: uid,
-                type: 'purchase',
+                type: txType,
                 amount: points,
-                description: `Зареждане на ${points} точки`,
+                description: txDesc,
                 paymentIntentId: orderId || null,
+                source: txSource,
                 createdAt: new Date().toISOString()
             });
 

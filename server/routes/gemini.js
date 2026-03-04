@@ -20,6 +20,7 @@ import {
     calculateVideoCostInPoints,
     getFixedPrice
 } from '../config/pricing.js';
+import { logActivity } from '../../admin/server/activityLogger.js';
 const router = express.Router();
 
 /** Escape raw control chars inside JSON string literals so JSON.parse accepts the string. */
@@ -417,6 +418,7 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                     currentBalance: deductResult.newBalance
                 });
             }
+            logActivity(userId, serviceType === 'linkArticle' ? 'analysis_link' : 'analysis_video', { points: finalPoints }).catch(() => {});
 
             // Update balance in response object
             res.json({
@@ -709,6 +711,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             return;
         }
         const newBalance = deductResult.newBalance;
+        logActivity(userId, 'analysis_video', { points: finalPoints, isDeep: isDeepMode }).catch(() => {});
 
         sendSSE('progress', { status: getProgressMsg(lang, 'finalizing') });
         try {
