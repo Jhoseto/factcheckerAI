@@ -147,7 +147,36 @@ const POINT_DETAILS_ITEM = {
     required: ['point', 'details']
 };
 
-// JSON Schema for structured output — detailed nested structure for WoW analysis
+// Lean claim item — only the minimum required by the UI transform
+const CLAIM_ITEM = {
+    type: 'object',
+    properties: {
+        claim: { type: 'string' },
+        verdict: { type: 'string' },
+        evidence: { type: 'string' },
+        speaker: { type: 'string' },
+        timestamp: { type: 'string' }
+    },
+    required: ['claim', 'verdict']
+};
+
+const MANIPULATION_ITEM = {
+    type: 'object',
+    properties: {
+        technique: { type: 'string' },
+        description: { type: 'string' },
+        example: { type: 'string' },
+        impact: { type: 'string' },
+        counterArgument: { type: 'string' },
+        timestamp: { type: 'string' }
+    },
+    required: ['technique', 'description']
+};
+
+// Lean VIDEO_RESPONSE_SCHEMA — only enforces critical fields.
+// Gemini's 400 "too many states" error is caused by schemas with:
+//   - many properties, large maxItems, nested enums, nested typed arrays.
+// Solution: constrain only required fields; all other fields come back as free JSON.
 const VIDEO_RESPONSE_SCHEMA = {
     type: 'object',
     required: ['summary', 'overallAssessment'],
@@ -155,73 +184,26 @@ const VIDEO_RESPONSE_SCHEMA = {
         summary: { type: 'string' },
         overallAssessment: { type: 'string' },
         detailedMetrics: { type: 'object' },
-        factualClaims: {
-            type: 'array',
-            maxItems: 30,
-            items: {
-                type: 'object',
-                properties: {
-                    claim: { type: 'string', description: 'Full claim as stated' },
-                    verdict: { type: 'string', enum: ['TRUE', 'MOSTLY_TRUE', 'MIXED', 'MOSTLY_FALSE', 'FALSE', 'UNVERIFIABLE'] },
-                    evidence: { type: 'string' },
-                    logicalAnalysis: { type: 'string' },
-                    factualVerification: { type: 'string' },
-                    comparison: { type: 'string' },
-                    context: { type: 'string' },
-                    sources: { type: 'array', items: { type: 'string' } },
-                    speaker: { type: 'string' },
-                    timestamp: { type: 'string' }
-                },
-                required: ['claim', 'verdict']
-            }
-        },
-        claims: {
-            type: 'array',
-            maxItems: 30,
-            items: {
-                type: 'object',
-                properties: {
-                    claim: { type: 'string' },
-                    verdict: { type: 'string', enum: ['TRUE', 'MOSTLY_TRUE', 'MIXED', 'MOSTLY_FALSE', 'FALSE', 'UNVERIFIABLE'] },
-                    evidence: { type: 'string' }
-                },
-                required: ['claim', 'verdict']
-            }
-        },
-        quotes: { type: 'array', items: { type: 'object' }, maxItems: 10 },
-        manipulationTechniques: {
-            type: 'array',
-            maxItems: 20,
-            items: {
-                type: 'object',
-                properties: {
-                    technique: { type: 'string' },
-                    description: { type: 'string' },
-                    example: { type: 'string' },
-                    impact: { type: 'string' },
-                    counterArgument: { type: 'string' },
-                    timestamp: { type: 'string' },
-                    severity: { type: 'number' }
-                },
-                required: ['technique', 'description']
-            }
-        },
+        factualClaims: { type: 'array', items: CLAIM_ITEM },
+        claims: { type: 'array', items: CLAIM_ITEM },
+        manipulationTechniques: { type: 'array', items: MANIPULATION_ITEM },
         finalInvestigativeReport: { type: 'string' },
-        geopoliticalContext: { type: 'array', items: { type: 'object' }, maxItems: 5 },
-        historicalParallel: { type: 'array', items: { type: 'object' }, maxItems: 5 },
-        psychoLinguisticAnalysis: { type: 'array', items: { type: 'object' }, maxItems: 5 },
-        strategicIntent: { type: 'array', items: { type: 'object' }, maxItems: 5 },
-        narrativeArchitecture: { type: 'array', items: { type: 'object' }, maxItems: 5 },
-        technicalForensics: { type: 'array', items: { type: 'object' }, maxItems: 5 },
-        socialImpactPrediction: { type: 'array', items: { type: 'object' }, maxItems: 5 },
-        visualAnalysis: { type: 'array', items: POINT_DETAILS_ITEM, maxItems: 5 },
-        bodyLanguageAnalysis: { type: 'array', items: POINT_DETAILS_ITEM, maxItems: 5 },
-        vocalAnalysis: { type: 'array', items: POINT_DETAILS_ITEM, maxItems: 5 },
-        deceptionAnalysis: { type: 'array', items: POINT_DETAILS_ITEM, maxItems: 5 },
-        humorAnalysis: { type: 'array', items: POINT_DETAILS_ITEM, maxItems: 5 },
-        psychologicalProfile: { type: 'array', items: POINT_DETAILS_ITEM, maxItems: 5 },
-        culturalSymbolicAnalysis: { type: 'array', items: POINT_DETAILS_ITEM, maxItems: 5 },
-        recommendations: { type: 'array', items: { type: 'object' }, maxItems: 10 },
+        quotes: { type: 'array', items: { type: 'object' } },
+        visualAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
+        bodyLanguageAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
+        vocalAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
+        deceptionAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
+        humorAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
+        psychologicalProfile: { type: 'array', items: POINT_DETAILS_ITEM },
+        culturalSymbolicAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
+        geopoliticalContext: { type: 'array', items: { type: 'object' } },
+        historicalParallel: { type: 'array', items: { type: 'object' } },
+        psychoLinguisticAnalysis: { type: 'array', items: { type: 'object' } },
+        strategicIntent: { type: 'array', items: { type: 'object' } },
+        narrativeArchitecture: { type: 'array', items: { type: 'object' } },
+        technicalForensics: { type: 'array', items: { type: 'object' } },
+        socialImpactPrediction: { type: 'array', items: { type: 'object' } },
+        recommendations: { type: 'array', items: { type: 'object' } },
         biasIndicators: { type: 'object' }
     }
 };
@@ -501,7 +483,7 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                     currentBalance: deductResult.newBalance
                 });
             }
-            logActivity(userId, serviceType === 'linkArticle' ? 'analysis_link' : 'analysis_video', { points: finalPoints }).catch(() => {});
+            logActivity(userId, serviceType === 'linkArticle' ? 'analysis_link' : 'analysis_video', { points: finalPoints }).catch(() => { });
 
             // Update balance in response object
             res.json({
@@ -662,23 +644,43 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             }
             console.log('[Gemini Stream] Deep stage1 rawText length:', rawText?.length || 0, 'parts:', parts?.length || 0);
 
-            // Build conversation for final JSON step (model's analysis as context)
-            let currentContents = [...contents];
-            let hasGrounding = rawText && rawText.trim().length > 50 && parts?.length;
-            if (hasGrounding) {
-                currentContents = [...currentContents, { role: 'model', parts }];
-            }
+            // Build contents for final JSON step.
+            // IMPORTANT: Do NOT send raw stage-1 parts as { role: 'model' } — they contain
+            // grounding metadata objects that the API rejects in multi-turn history, which
+            // causes Gemini to ignore the video when generating the final JSON.
+            // Instead: fresh single-turn request = video + prompt that embeds stage-1 text.
+            const stage1Summary = rawText && rawText.trim().length > 50
+                ? rawText.trim().substring(0, 12000) // cap to avoid token overflow
+                : null;
+            const hasGrounding = !!stage1Summary;
 
-            // Final JSON step — schema-validated, no tools (API restriction)
-            const jsonPromptsWithContext = [
-                'Return the complete analysis as valid JSON. Use the schema. Extract ALL findings from the conversation above. factualClaims: each item must have claim, verdict, evidence. manipulationTechniques: each item must have technique, description, example, impact, counterArgument. visualAnalysis, bodyLanguageAnalysis, vocalAnalysis, deceptionAnalysis, humorAnalysis, psychologicalProfile, culturalSymbolicAnalysis: each item must have point and details. Populate finalInvestigativeReport with a full report (at least 10 paragraphs). Do not leave arrays empty if the conversation contains relevant content. Aim for at least 5 factualClaims and 3 manipulationTechniques when content exists. Prioritize completeness over brevity. Always close all brackets and quotes. Never truncate mid-string.',
-                'Extract ALL findings from the conversation. Include factualClaims (claim, verdict, evidence), manipulationTechniques (technique, description, example, impact, counterArgument), multimodal arrays (point, details). Populate finalInvestigativeReport fully. Do not leave arrays empty when relevant content exists. Prioritize completeness. Ensure complete valid JSON. Never truncate.'
-            ];
-            const jsonPromptsNoContext = [
-                'Analyze the video and return the complete fact-check analysis as valid JSON. Use the schema. factualClaims: each item must have claim, verdict, evidence. manipulationTechniques: each item must have technique, description, example, impact, counterArgument. visualAnalysis, bodyLanguageAnalysis, vocalAnalysis, deceptionAnalysis, humorAnalysis, psychologicalProfile, culturalSymbolicAnalysis: each item must have point and details. Populate finalInvestigativeReport with a full report (at least 10 paragraphs). No web search results — base analysis on video content only. Do not leave arrays empty if the video contains relevant content. Aim for at least 5 factualClaims and 3 manipulationTechniques when content exists. Prioritize completeness over brevity. Always close all brackets and quotes. Never truncate.',
-                'Extract ALL findings from the video. Include factualClaims (claim, verdict, evidence), manipulationTechniques (technique, description, example, impact, counterArgument), multimodal arrays (point, details). Populate finalInvestigativeReport fully. Do not leave arrays empty when relevant content exists. Prioritize completeness. Ensure complete valid JSON. Never truncate.'
-            ];
-            const jsonPrompts = hasGrounding ? jsonPromptsWithContext : jsonPromptsNoContext;
+            // Final JSON step — schema-validated, no tools (API restriction).
+            // Fresh single-turn requests: video included directly + stage-1 research injected as text.
+            const MULTIMODAL_INSTRUCTION = 'DIRECT VIDEO ANALYSIS REQUIRED: Watch and listen to the video carefully. Analyze these fields from the video itself — visualAnalysis (environment, objects, symbols, camera angles, lighting), bodyLanguageAnalysis (posture, gestures, microexpressions, eye contact per speaker), vocalAnalysis (tone, pitch, pace, hesitations, emphasis), deceptionAnalysis (credibility score, deception indicators, cognitive load), humorAnalysis (type of humor, purpose, manipulative vs genuine), psychologicalProfile (personality traits, power dynamics, manipulation tactics per speaker), culturalSymbolicAnalysis (cultural references, dog whistles, archetypes, symbols). Each item: {"point": "...", "details": "..."}. Minimum 2 items per array. Do NOT leave these empty.';
+
+            const groundingBlock = stage1Summary
+                ? `\n\nGOOGLE SEARCH RESEARCH (use for factual verification):\n${stage1Summary}\n`
+                : '';
+
+            const promptMain = `You are analyzing the video attached to this message. Return a complete fact-check as valid JSON.${groundingBlock}
+
+STEPS:
+1. For factualClaims: use the Google Search research above to verify each claim. Each item needs: claim, verdict, evidence, sources, speaker, timestamp, logicalAnalysis, factualVerification, comparison.
+2. For manipulationTechniques: technique, description, example, impact, counterArgument, timestamp, severity.
+3. ${MULTIMODAL_INSTRUCTION}
+4. Populate: finalInvestigativeReport (min 15 paragraphs), summary (8+ sentences), overallAssessment (ACCURATE/MOSTLY_ACCURATE/MIXED/MISLEADING/FALSE), detailedMetrics, geopoliticalContext, historicalParallel, psychoLinguisticAnalysis, strategicIntent, narrativeArchitecture, technicalForensics, socialImpactPrediction — all as [{point, details}].
+5. Aim for 5+ factualClaims, 3+ manipulationTechniques, 2+ items per multimodal array. Never truncate. Always close all brackets.`;
+
+            const promptRetry = `Complete the analysis of the attached video. Return valid JSON with ALL fields.${groundingBlock}
+factualClaims (claim, verdict, evidence), manipulationTechniques (technique, description, example, impact, counterArgument).
+${MULTIMODAL_INSTRUCTION}
+finalInvestigativeReport: comprehensive synthesis. Never leave arrays empty. Never truncate.`;
+
+            const makeContents = (promptText) => videoUrl
+                ? [{ role: 'user', parts: [{ fileData: { mimeType: 'video/mp4', fileUri: videoUrl } }, { text: promptText }] }]
+                : [{ role: 'user', parts: [{ text: promptText }] }];
+
+            const stage2Contents = [makeContents(promptMain), makeContents(promptRetry)];
             const finalConfig = {
                 ...toolConfig,
                 tools: undefined,
@@ -693,10 +695,9 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
                     await new Promise(r => setTimeout(r, 1500));
                 }
                 sendSSE('progress', { status: getProgressMsg(lang, 'finalJson') });
-                const jsonPrompt = { role: 'user', parts: [{ text: jsonPrompts[attempt] }] };
                 const finalResponse = await ai.models.generateContent({
                     model: model || 'gemini-2.5-flash',
-                    contents: [...currentContents, jsonPrompt],
+                    contents: stage2Contents[attempt] || stage2Contents[0],
                     config: finalConfig
                 });
                 accumulateUsage(finalResponse.usageMetadata);
@@ -859,7 +860,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             return;
         }
         const newBalance = deductResult.newBalance;
-        logActivity(userId, 'analysis_video', { points: finalPoints, isDeep: isDeepMode }).catch(() => {});
+        logActivity(userId, 'analysis_video', { points: finalPoints, isDeep: isDeepMode }).catch(() => { });
 
         sendSSE('progress', { status: getProgressMsg(lang, 'finalizing') });
         try {
