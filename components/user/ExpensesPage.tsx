@@ -125,7 +125,7 @@ const ExpensesPage: React.FC = () => {
                 <div className="flex flex-col md:flex-row justify-between items-end border-b border-[#968B74]/20 pb-8 mb-12 gap-6">
                     <div>
                         <h1 className="text-4xl font-serif text-[#E0E0E0] tracking-tight">
-                            {t('expenses.title')} <span className="text-bronze-gradient italic">{t('expenses.titleHighlight')}</span>
+                            {t('expenses.title')} <span className="text-bronze-gradient">{t('expenses.titleHighlight')}</span>
                         </h1>
                         <p className="text-[9px] text-[#666] font-bold mt-3 uppercase tracking-[0.3em] flex items-center gap-2">
                             <span className="w-2 h-2 bg-[#968B74] rounded-full"></span>

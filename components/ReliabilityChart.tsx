@@ -52,7 +52,7 @@ const ReliabilityChart: React.FC<Props> = ({ data, claims, totalDuration }) => {
             <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-[#968B74]">{data.label}</span>
             <span className="text-base md:text-xl font-black text-[#C4B091]">{data.reliability}%</span>
           </div>
-          <p className="text-[10px] md:text-xs leading-relaxed font-medium italic text-[#ccc]">„{data.event}“</p>
+          <p className="text-[10px] md:text-xs leading-relaxed font-medium text-[#ccc]">„{data.event}“</p>
         </div>
       );
     }
@@ -78,7 +78,7 @@ const ReliabilityChart: React.FC<Props> = ({ data, claims, totalDuration }) => {
             <h3 className="text-[10px] md:text-[12px] font-extrabold text-[#968B74] uppercase tracking-[0.3em] md:tracking-[0.5em] mb-2 md:mb-3">
               {t('analysis.chartOscilloscope')}
             </h3>
-            <p className="text-2xl md:text-4xl font-black uppercase tracking-tighter serif italic leading-none text-[#E0E0E0]">{t('analysis.reliabilityDynamics')}</p>
+            <p className="text-2xl md:text-4xl font-black uppercase tracking-tighter serif leading-none text-[#E0E0E0]">{t('analysis.reliabilityDynamics')}</p>
           </div>
           <div className="text-right hidden md:block">
             <div className="flex gap-8">
@@ -161,11 +161,11 @@ const ReliabilityChart: React.FC<Props> = ({ data, claims, totalDuration }) => {
                 <span className="text-[9px] md:text-[10px] font-black text-[#968B74] tracking-tighter">{point.label}</span>
                 <span className={`text-[10px] md:text-xs font-black ${point.reliability < 50 ? 'text-[#c66]' : 'text-[#7cb87c]'}`}>{point.reliability}%</span>
               </div>
-              <p className="text-[11px] md:text-[12px] leading-relaxed font-medium text-[#aaa] group-hover:text-[#ccc] transition-colors serif italic">
+              <p className="text-[11px] md:text-[12px] leading-relaxed font-medium text-[#aaa] group-hover:text-[#ccc] transition-colors serif">
                 {point.event && point.event.length > 100 ? point.event.substring(0, 100) + '...' : point.event}
               </p>
               {point.event && point.event.length > 100 && (
-                <p className="text-[9px] text-[#666] mt-1 italic tracking-tight font-bold uppercase">({t('analysis.fullQuoteInClaimsTab')})</p>
+                <p className="text-[9px] text-[#666] mt-1 tracking-tight font-bold uppercase">({t('analysis.fullQuoteInClaimsTab')})</p>
               )}
             </div>
           ))}

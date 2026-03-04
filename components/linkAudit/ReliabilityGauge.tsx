@@ -48,7 +48,7 @@ const ReliabilityGauge: React.FC<Props> = ({ score, size = 180 }) => {
                 />
             </svg>
             <div className="absolute flex flex-col items-center justify-center">
-                <span className="text-4xl font-black text-[#C4B091] tracking-tighter serif italic">
+                <span className="text-4xl font-black text-[#C4B091] tracking-tighter serif">
                     {percentage}%
                 </span>
                 <span className="text-[8px] font-black text-[#666] uppercase tracking-widest mt-1">

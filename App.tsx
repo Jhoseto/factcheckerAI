@@ -106,7 +106,7 @@ const App: React.FC = () => {
             <div className="hero-blackhole-bg" aria-hidden />
             <div className="hero-saturn-ring" aria-hidden />
             <h1 className="relative z-10 text-6xl md:text-8xl lg:text-9xl font-serif text-white tracking-tight leading-[1] drop-shadow-2xl">
-              {t('app.heroTitle').split(' ').slice(0, 2).join(' ')} <span className="italic text-bronze-gradient">{t('app.heroTitle').split(' ').slice(2).join(' ')}</span>
+              {t('app.heroTitle').split(' ').slice(0, 2).join(' ')} <span className="text-bronze-gradient">{t('app.heroTitle').split(' ').slice(2).join(' ')}</span>
             </h1>
           </div>
 

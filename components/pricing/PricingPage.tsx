@@ -66,7 +66,7 @@ const PricingPage: React.FC = () => {
                 {/* Header */}
                 <div className="text-center mb-24 space-y-8">
                     <h1 className="text-5xl md:text-7xl font-serif text-[#E0E0E0] tracking-tight">
-                        {t('pricing.investInTruth')} <span className="italic text-bronze-gradient">{t('pricing.investInTruthHighlight')}</span>
+                        {t('pricing.investInTruth')} <span className="text-bronze-gradient">{t('pricing.investInTruthHighlight')}</span>
                     </h1>
                     <p className="text-[#888] text-xs uppercase tracking-[0.2em] max-w-2xl mx-auto leading-relaxed border-t border-[#333] pt-6 inline-block px-10">
                         {t('pricing.subtitle')}

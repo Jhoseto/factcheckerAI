@@ -78,7 +78,7 @@ const SocialResultView: React.FC<SocialResultViewProps> = ({ result, onReset, on
                 </div>
             </div>
             <div className="flex justify-between items-center border-b-2 border-slate-100 pb-6">
-                <h2 className="text-2xl font-black text-slate-900 serif italic">{t('report.analysisResults')}</h2>
+                <h2 className="text-2xl font-black text-slate-900 serif">{t('report.analysisResults')}</h2>
                 <button
                     onClick={onReset}
                     className="text-[9px] font-black text-amber-900 uppercase tracking-widest hover:text-amber-700 transition-colors"
@@ -127,7 +127,7 @@ const SocialResultView: React.FC<SocialResultViewProps> = ({ result, onReset, on
                                         {t(getVerdictKey(claim))}
                                     </span>
                                 </div>
-                                <p className="text-lg font-bold text-slate-900 serif italic mb-3">"{claim.quote}"</p>
+                                <p className="text-lg font-bold text-slate-900 serif mb-3">"{claim.quote}"</p>
                                 <p className="text-sm text-slate-600 leading-relaxed font-medium">{(claim.explanation === 'Няма налична информация' || claim.explanation === 'No information available') ? t('analysis.noInfoAvailable') : claim.explanation}</p>
                             </div>
                         ))}

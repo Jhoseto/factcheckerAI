@@ -131,7 +131,7 @@ const ArchivePage: React.FC = () => {
                             </span>
                         </div>
                         <h1 className="text-4xl md:text-5xl font-serif text-[#E0E0E0] tracking-tight">
-                            {t('archive.archiveTitleShort')} <span className="italic text-bronze-gradient">{t('archive.archiveTitleHighlight')}</span>
+                            {t('archive.archiveTitleShort')} <span className="text-bronze-gradient">{t('archive.archiveTitleHighlight')}</span>
                         </h1>
                         <p className="text-xs text-[#888] max-w-xl mx-auto md:mx-0 pt-2 uppercase tracking-wide">
                             {t('archive.archiveSubtitle')}
