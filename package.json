@@ -11,6 +11,8 @@
     "test": "vitest run --config test/vitest.config.ts",
     "test:watch": "vitest --config test/vitest.config.ts",
     "test:e2e": "playwright test --config test/e2e-browser/playwright.config.ts",
+    "test:e2e:auth": "playwright test auth-setup.spec.ts --config=test/e2e-browser/playwright.video-analysis.config.ts --headed",
+    "test:e2e:video": "playwright test video-deep-analysis-stability.spec.ts --config=test/e2e-browser/playwright.video-analysis.config.ts",
     "test:lighthouse": "npm run build && lhci autorun --config=lighthouserc.cjs"
   },
   "dependencies": {

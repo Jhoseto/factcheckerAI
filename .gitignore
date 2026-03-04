@@ -5,6 +5,7 @@ node_modules/
 
 # Testing (do not commit test folders or reports)
 test/
+test/e2e-browser/.auth/
 coverage/
 playwright-report/
 test-results/
