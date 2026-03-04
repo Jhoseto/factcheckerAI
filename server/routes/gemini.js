@@ -148,10 +148,10 @@ const VIDEO_RESPONSE_SCHEMA = {
         summary: { type: 'string' },
         overallAssessment: { type: 'string' },
         detailedMetrics: { type: 'object' },
-        factualClaims: { type: 'array', items: { type: 'object' }, maxItems: 15 },
-        claims: { type: 'array', items: { type: 'object' }, maxItems: 15 },
+        factualClaims: { type: 'array', items: { type: 'object' }, maxItems: 30 },
+        claims: { type: 'array', items: { type: 'object' }, maxItems: 30 },
         quotes: { type: 'array', items: { type: 'object' }, maxItems: 10 },
-        manipulationTechniques: { type: 'array', items: { type: 'object' }, maxItems: 10 },
+        manipulationTechniques: { type: 'array', items: { type: 'object' }, maxItems: 20 },
         finalInvestigativeReport: { type: 'string' },
         geopoliticalContext: { type: 'array', items: { type: 'object' }, maxItems: 5 },
         historicalParallel: { type: 'array', items: { type: 'object' }, maxItems: 5 },
@@ -210,13 +210,16 @@ function validateJsonResponse(responseText, serviceType = 'link') {
     }
 
     if (serviceType === 'video') {
-        const hasSummary = typeof parsed.summary === 'string' && parsed.summary.trim().length > 10;
-        const hasSufficientContent =
+        const hasSummary = typeof parsed.summary === 'string';
+        const hasAssessment = typeof parsed.overallAssessment === 'string';
+        const hasAnyContent =
+            hasSummary ||
+            hasAssessment ||
             (Array.isArray(parsed.factualClaims) && parsed.factualClaims.length > 0) ||
+            (Array.isArray(parsed.claims) && parsed.claims.length > 0) ||
             (Array.isArray(parsed.manipulationTechniques) && parsed.manipulationTechniques.length > 0) ||
-            (typeof parsed.overallAssessment === 'string' && parsed.overallAssessment.length > 10) ||
             (parsed.finalInvestigativeReport && typeof parsed.finalInvestigativeReport === 'string');
-        if (hasSummary && hasSufficientContent) {
+        if (hasAnyContent) {
             return { valid: true, parsed, cleanedText: JSON.stringify(parsed) };
         }
         return { valid: false, code: 'AI_INCOMPLETE_RESPONSE', parsed };
@@ -563,57 +566,94 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
         };
 
         if (isDeepMode && tools) {
-            // DEEP MODE: Single generateContent with googleSearch. Google executes search on its servers;
-            // model returns direct text with groundingMetadata, NOT functionCall.
+            // DEEP MODE: 1) generateContent with googleSearch (Google does search on its servers)
+            // 2) ALWAYS final JSON step with responseSchema — guarantees valid JSON (tools + schema incompatible)
             sendSSE('progress', { status: getProgressMsg(lang, 'deepPreparing') });
 
-            const config = {
+            const toolConfig = {
                 systemInstruction: enhancedSystemInstruction,
                 temperature: 0.7,
                 maxOutputTokens: 63536,
                 mediaResolution: 'MEDIA_RESOLUTION_LOW',
                 tools,
-                abortSignal: abortController.signal
+                abortSignal: abortController.signal,
+                httpOptions: { timeout: 600000 } // 10 min for video + search
             };
 
-            const jsonPrompts = [
-                'Return the FULL analysis as valid JSON. Populate ALL schema fields: summary, overallAssessment, detailedMetrics (factualAccuracy, logicalSoundness, emotionalBias, propagandaScore), factualClaims (minimum 5, with claim, verdict, evidence), manipulationTechniques (minimum 3, with technique, description). Integrate Google Search results. Only shorten individual strings if needed to avoid truncation. Never truncate mid-string. Start with { and end with }.',
-                'Be more concise but still complete. Include: summary, overallAssessment, detailedMetrics, factualClaims (top 8), manipulationTechniques (top 5). Ensure complete valid JSON. Never truncate. Return as JSON only.'
-            ];
+            const response = await ai.models.generateContent({
+                model: model || 'gemini-2.5-flash',
+                contents,
+                config: toolConfig
+            });
+            accumulateUsage(response.usageMetadata);
+            streamUsage = response.usageMetadata || streamUsage;
 
-            let deepContents = [...contents];
+            const parts = response.candidates?.[0]?.content?.parts;
+            const hasFn = Array.isArray(parts) && parts.some(p => p?.functionCall || p?.function_call);
+            if (hasFn) {
+                console.error('[Gemini Stream] Deep: unexpected functionCall. Google Search should return direct text.');
+                sendSSE('error', { error: 'AI returned unexpected format. Please try again.', code: 'AI_UNEXPECTED_FUNCTION_CALL' });
+                endStream();
+                return;
+            }
+
+            let rawText = '';
+            if (typeof response.text === 'string') rawText = response.text;
+            else if (typeof response.text === 'function') { try { rawText = response.text(); } catch (_) { } }
+            else if (response.text != null && typeof response.text.then === 'function') { try { rawText = await response.text; } catch (_) { } }
+            if (!rawText && parts?.length) {
+                rawText = parts
+                    .map(p => (p && typeof p === 'object' && p.text != null) ? String(p.text) : '')
+                    .join('');
+            }
+            console.log('[Gemini Stream] Deep stage1 rawText length:', rawText?.length || 0, 'parts:', parts?.length || 0);
+
+            // Build conversation for final JSON step (model's analysis as context)
+            let currentContents = [...contents];
+            let hasGrounding = rawText && rawText.trim().length > 50 && parts?.length;
+            if (hasGrounding) {
+                currentContents = [...currentContents, { role: 'model', parts }];
+            }
+
+            // Final JSON step — schema-validated, no tools (API restriction)
+            const jsonPromptsWithContext = [
+                'Return the complete analysis as valid JSON. Use the schema. Extract ALL findings from the conversation above. For long videos, include all relevant claims and techniques. Prioritize completeness over brevity. Always close all brackets and quotes. Never truncate mid-string.',
+                'Extract ALL findings from the conversation. Include all relevant factualClaims and manipulationTechniques. Prioritize completeness. Ensure complete valid JSON. Never truncate.'
+            ];
+            const jsonPromptsNoContext = [
+                'Analyze the video and return the complete fact-check analysis as valid JSON. Use the schema. Populate summary, overallAssessment, detailedMetrics, factualClaims, manipulationTechniques. No web search results — base analysis on video content only. For long videos, include all relevant claims and techniques. Prioritize completeness over brevity. Always close all brackets and quotes. Never truncate.',
+                'Extract ALL findings from the video. Include all relevant factualClaims and manipulationTechniques. Prioritize completeness. Ensure complete valid JSON. Never truncate.'
+            ];
+            const jsonPrompts = hasGrounding ? jsonPromptsWithContext : jsonPromptsNoContext;
+            const finalConfig = {
+                ...toolConfig,
+                tools: undefined,
+                responseMimeType: 'application/json',
+                responseSchema: VIDEO_RESPONSE_SCHEMA,
+                httpOptions: { timeout: 300000 } // 5 min for JSON step
+            };
+
             for (let attempt = 0; attempt < 2; attempt++) {
                 if (attempt > 0) {
                     sendSSE('progress', { status: getProgressMsg(lang, 'retry') });
                     await new Promise(r => setTimeout(r, 1500));
-                    deepContents = [
-                        ...contents,
-                        { role: 'user', parts: [{ text: jsonPrompts[1] }] }
-                    ];
                 }
-                const response = await ai.models.generateContent({
+                sendSSE('progress', { status: getProgressMsg(lang, 'finalJson') });
+                const jsonPrompt = { role: 'user', parts: [{ text: jsonPrompts[attempt] }] };
+                const finalResponse = await ai.models.generateContent({
                     model: model || 'gemini-2.5-flash',
-                    contents: deepContents,
-                    config
+                    contents: [...currentContents, jsonPrompt],
+                    config: finalConfig
                 });
-                accumulateUsage(response.usageMetadata);
-                streamUsage = response.usageMetadata || streamUsage;
-
-                const parts = response.candidates?.[0]?.content?.parts;
-                const hasFn = Array.isArray(parts) && parts.some(p => p?.functionCall || p?.function_call);
-                if (hasFn) {
-                    console.error('[Gemini Stream] Deep: unexpected functionCall from model (video edge case). Google Search should return direct text.');
-                    sendSSE('error', { error: 'AI returned unexpected format. Please try again.', code: 'AI_UNEXPECTED_FUNCTION_CALL' });
-                    endStream();
-                    return;
-                }
+                accumulateUsage(finalResponse.usageMetadata);
+                streamUsage = finalResponse.usageMetadata || streamUsage;
 
                 fullText = '';
-                if (typeof response.text === 'string') fullText = response.text;
-                else if (typeof response.text === 'function') { try { fullText = response.text(); } catch (_) { } }
-                else if (response.text != null && typeof response.text.then === 'function') { try { fullText = await response.text; } catch (_) { } }
-                if (!fullText && parts?.length) {
-                    fullText = parts
+                if (typeof finalResponse.text === 'string') fullText = finalResponse.text;
+                else if (typeof finalResponse.text === 'function') { try { fullText = finalResponse.text(); } catch (_) { } }
+                else if (finalResponse.text != null && typeof finalResponse.text.then === 'function') { try { fullText = await finalResponse.text; } catch (_) { } }
+                if (!fullText && finalResponse.candidates?.[0]?.content?.parts) {
+                    fullText = finalResponse.candidates[0].content.parts
                         .map(p => (p && typeof p === 'object' && p.text != null) ? String(p.text) : '')
                         .join('');
                 }
@@ -621,15 +661,19 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
 
                 const v = validateJsonResponse(fullText, serviceType || 'video');
                 if (v.valid) break;
-                if (attempt === 0 && (v.code === 'AI_JSON_PARSE_ERROR' || v.code === 'AI_INCOMPLETE_RESPONSE')) continue;
+                if (attempt < 2 && (v.code === 'AI_JSON_PARSE_ERROR' || v.code === 'AI_INCOMPLETE_RESPONSE')) {
+                    const p = v.parsed || {};
+                    console.warn('[Gemini Stream] Deep attempt', attempt + 1, 'failed:', v.code, '| factualClaims:', p.factualClaims?.length, 'claims:', p.claims?.length, 'manipulationTechniques:', p.manipulationTechniques?.length);
+                    continue;
+                }
                 break;
             }
 
-            // Simulate streaming the result back to the UI so it doesn't look frozen
+            // Simulate streaming the result back to the UI
             const chunkSize = 2000;
             for (let i = 0; i < fullText.length; i += chunkSize) {
                 sendSSE('progress', { status: getProgressMsg(lang, 'synthesizing', Math.round(i / 1024)) });
-                await new Promise(r => setTimeout(r, 50)); // tiny delay
+                await new Promise(r => setTimeout(r, 50));
             }
 
         } else {
@@ -641,7 +685,8 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
                 responseMimeType: 'application/json',
                 responseSchema: VIDEO_RESPONSE_SCHEMA,
                 mediaResolution: 'MEDIA_RESOLUTION_LOW',
-                abortSignal: abortController.signal
+                abortSignal: abortController.signal,
+                httpOptions: { timeout: 300000 } // 5 min for video
             };
             const stream = await ai.models.generateContentStream({
                 model: model || 'gemini-2.5-flash',

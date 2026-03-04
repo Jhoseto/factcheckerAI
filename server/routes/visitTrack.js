@@ -7,7 +7,7 @@ import { verifyToken } from '../services/firebaseAdmin.js';
 
 const router = express.Router();
 const rateLimitMap = new Map(); // ip -> last timestamp
-const RATE_MS = 60000;
+const RATE_MS = 10000; // 10 sec — allow normal navigation, React Strict Mode double-mount
 
 function getIp(req) {
     return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || req.connection?.remoteAddress || '';
@@ -19,7 +19,7 @@ router.post('/visit', express.json(), async (req, res) => {
         const now = Date.now();
         const last = rateLimitMap.get(ip) || 0;
         if (now - last < RATE_MS) {
-            return res.status(429).json({ ok: false, retryAfter: 60 });
+            return res.status(429).json({ ok: false, retryAfter: Math.ceil(RATE_MS / 1000) });
         }
         rateLimitMap.set(ip, now);
 
