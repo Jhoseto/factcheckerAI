@@ -513,7 +513,7 @@ export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTub
       systemInstruction,
       videoUrl: normalizedUrl, // ← Use normalized URL
       mode: mode, // ← Send mode to activate Deep analysis features
-      enableGoogleSearch: mode === 'deep', // ← Explicit Google Search activation for deep mode
+      enableGoogleSearch: true, // ← Google Search active for ALL modes (real-time facts)
       metadata: videoMetadata ? { // ← Send video metadata for transaction records
         title: videoMetadata.title,
         author: videoMetadata.author,

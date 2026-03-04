@@ -371,8 +371,15 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                     }
                 }
             } else {
-                const jsonRuleShort = 'CRITICAL: Respond with exactly one valid JSON object. Start with {, end with }. No markdown. Escape " in strings as \\". Never truncate.';
-                const sysInstr = (systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON.') + '\n\n' + getLanguageInstruction(lang) + '\n\n' + jsonRuleShort;
+                const jsonRuleShort = 'CRITICAL: Respond with exactly one valid JSON object. Start with {, end with }. No markdown. Never truncate.';
+                const todayStr = new Date().toISOString().slice(0, 10);
+                const dateInstr = serviceType === 'linkArticle'
+                    ? 'IMPORTANT: Today is ' + todayStr + '. Use Google Search to verify ALL current facts, political positions, and recent events. Do NOT rely on training data alone for time-sensitive facts — especially: current heads of state, election results, recent appointments, ongoing conflicts.'
+                    : '';
+                const sysInstr = (systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON.')
+                    + '\n\n' + getLanguageInstruction(lang)
+                    + (dateInstr ? '\n\n' + dateInstr : '')
+                    + '\n\n' + jsonRuleShort;
                 const response = await ai.models.generateContent({
                     model: model || 'gemini-2.5-flash',
                     contents,
@@ -420,7 +427,14 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
         if (!lastValidation.valid && serviceType === 'linkArticle' && tools) {
             console.log('[LinkArticle] Fallback: retrying without googleSearch tools');
             const jsonRuleShort = 'CRITICAL: Respond with exactly one valid JSON object. Start with {, end with }. No markdown. Escape " in strings as \\". Never truncate.';
-            const sysInstr = (systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON.') + '\n\n' + getLanguageInstruction(lang) + '\n\n' + jsonRuleShort;
+            const todayStr = new Date().toISOString().slice(0, 10);
+            const dateInstr = serviceType === 'linkArticle'
+                ? 'IMPORTANT: Today is ' + todayStr + '. Use Google Search to verify ALL current facts, political positions, and recent events. Do NOT rely on training data for facts that may have changed — especially: current heads of state, election results, recent appointments, ongoing wars/conflicts.'
+                : '';
+            const sysInstr = (systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON.')
+                + '\n\n' + getLanguageInstruction(lang)
+                + (dateInstr ? '\n\n' + dateInstr : '')
+                + '\n\n' + jsonRuleShort;
             const fallbackResponse = await ai.models.generateContent({
                 model: model || 'gemini-2.5-flash',
                 contents,
@@ -566,7 +580,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
         const contents = [{
             role: 'user',
             parts: videoUrl
-                ? [{ fileData: { mimeType: 'video/mp4', fileUri: videoUrl } }, { text: prompt }]
+                ? [{ fileData: { fileUri: videoUrl } }, { text: prompt }]
                 : [{ text: prompt }]
         }];
 
@@ -580,12 +594,14 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             'Never truncate: always output the full JSON and close every bracket.',
             'Keep ALL schema fields populated (summary, overallAssessment, detailedMetrics, factualClaims, manipulationTechniques, etc.); only shorten long text strings if needed to avoid truncation. Always close all brackets and quotes.'
         ].join(' ');
-        let enhancedSystemInstruction = (systemInstruction || '') + '\n\n' + getLanguageInstruction(lang) + '\n\n' + jsonRule;
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const dateNote = `IMPORTANT: Today's date is ${todayStr}. When verifying facts, always consider the current date — do not assume your training knowledge is up to date.`;
+        let enhancedSystemInstruction = (systemInstruction || '') + '\n\n' + getLanguageInstruction(lang) + '\n\n' + dateNote + '\n\n' + jsonRule;
         if (isDeepMode && tools) {
             enhancedSystemInstruction +=
                 ' After tool use, respond with one complete JSON object only; integrate all tool results into it.';
         } else if (!systemInstruction) {
-            enhancedSystemInstruction = 'You are a professional fact-checker. Your response must be valid JSON only.\n\n' + getLanguageInstruction(lang) + '\n\n' + jsonRule;
+            enhancedSystemInstruction = 'You are a professional fact-checker. Your response must be valid JSON only.\n\n' + getLanguageInstruction(lang) + '\n\n' + dateNote + '\n\n' + jsonRule;
         }
 
         let fullText = '';
@@ -616,11 +632,34 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
                 httpOptions: { timeout: 600000 } // 10 min for video + search
             };
 
-            const response = await ai.models.generateContent({
-                model: model || 'gemini-2.5-flash',
-                contents,
-                config: toolConfig
-            });
+            console.log('[Deep] Stage1 starting — videoUrl:', videoUrl ? videoUrl.substring(0, 80) : 'none', '| model:', model || 'gemini-2.5-flash', '| hasTools:', !!tools);
+            let response;
+            const stage1MaxRetries = 3;
+            for (let s1attempt = 0; s1attempt < stage1MaxRetries; s1attempt++) {
+                try {
+                    if (s1attempt > 0) {
+                        console.log('[Deep] Stage1 retry', s1attempt, '— waiting 3s...');
+                        sendSSE('progress', { status: getProgressMsg(lang, 'deepPreparing') });
+                        await new Promise(r => setTimeout(r, 3000));
+                    }
+                    response = await ai.models.generateContent({
+                        model: model || 'gemini-2.5-flash',
+                        contents,
+                        config: toolConfig
+                    });
+                    break; // success
+                } catch (stage1Err) {
+                    const msg = stage1Err?.message || '';
+                    const isTransient = msg.includes('fetch failed') || msg.includes('ECONNRESET') || msg.includes('ETIMEDOUT') || msg.includes('socket hang up');
+                    console.error('[Deep] Stage1 attempt', s1attempt + 1, 'FAILED —', msg);
+                    if (isTransient && s1attempt < stage1MaxRetries - 1) {
+                        console.log('[Deep] Stage1 transient error — will retry');
+                        continue;
+                    }
+                    console.error('[Deep] Stage1 FINAL FAIL — videoUrl:', videoUrl);
+                    throw stage1Err;
+                }
+            }
             accumulateUsage(response.usageMetadata);
             streamUsage = response.usageMetadata || streamUsage;
 
@@ -653,6 +692,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
                 ? rawText.trim().substring(0, 12000) // cap to avoid token overflow
                 : null;
             const hasGrounding = !!stage1Summary;
+            console.log('[Deep] Stage1 result — hasGrounding:', hasGrounding, '| rawText chars:', rawText?.length || 0, '| parts:', parts?.length || 0);
 
             // Final JSON step — schema-validated, no tools (API restriction).
             // Fresh single-turn requests: video included directly + stage-1 research injected as text.
@@ -677,7 +717,7 @@ ${MULTIMODAL_INSTRUCTION}
 finalInvestigativeReport: comprehensive synthesis. Never leave arrays empty. Never truncate.`;
 
             const makeContents = (promptText) => videoUrl
-                ? [{ role: 'user', parts: [{ fileData: { mimeType: 'video/mp4', fileUri: videoUrl } }, { text: promptText }] }]
+                ? [{ role: 'user', parts: [{ fileData: { fileUri: videoUrl } }, { text: promptText }] }]
                 : [{ role: 'user', parts: [{ text: promptText }] }];
 
             const stage2Contents = [makeContents(promptMain), makeContents(promptRetry)];
@@ -695,11 +735,13 @@ finalInvestigativeReport: comprehensive synthesis. Never leave arrays empty. Nev
                     await new Promise(r => setTimeout(r, 1500));
                 }
                 sendSSE('progress', { status: getProgressMsg(lang, 'finalJson') });
+                console.log('[Deep] Stage2 attempt', attempt + 1, '— sending', videoUrl ? 'video+prompt' : 'text-only', '| grounding block chars:', groundingBlock.length);
                 const finalResponse = await ai.models.generateContent({
                     model: model || 'gemini-2.5-flash',
                     contents: stage2Contents[attempt] || stage2Contents[0],
                     config: finalConfig
                 });
+                console.log('[Deep] Stage2 attempt', attempt + 1, '— raw response candidates:', finalResponse.candidates?.length, '| finishReason:', finalResponse.candidates?.[0]?.finishReason);
                 accumulateUsage(finalResponse.usageMetadata);
                 streamUsage = finalResponse.usageMetadata || streamUsage;
 
@@ -713,14 +755,39 @@ finalInvestigativeReport: comprehensive synthesis. Never leave arrays empty. Nev
                         .join('');
                 }
                 fullText = fullText || '';
+                console.log('[Deep] Stage2 attempt', attempt + 1, '— fullText chars:', fullText.length, '| starts with {:', fullText.trimStart().startsWith('{'));
 
                 const v = validateJsonResponse(fullText, serviceType || 'video');
-                if (v.valid) break;
+                if (v.valid) {
+                    // Log field summary on success
+                    const p = v.parsed || {};
+                    console.log('[Deep] Stage2 SUCCESS — fields summary:', {
+                        summary: p.summary ? p.summary.length + ' chars' : 'MISSING',
+                        overallAssessment: p.overallAssessment || 'MISSING',
+                        factualClaims: p.factualClaims?.length ?? 'MISSING',
+                        manipulationTechniques: p.manipulationTechniques?.length ?? 'MISSING',
+                        visualAnalysis: p.visualAnalysis?.length ?? 'MISSING',
+                        bodyLanguageAnalysis: p.bodyLanguageAnalysis?.length ?? 'MISSING',
+                        vocalAnalysis: p.vocalAnalysis?.length ?? 'MISSING',
+                        deceptionAnalysis: p.deceptionAnalysis?.length ?? 'MISSING',
+                        humorAnalysis: p.humorAnalysis?.length ?? 'MISSING',
+                        psychologicalProfile: p.psychologicalProfile?.length ?? 'MISSING',
+                        culturalSymbolicAnalysis: p.culturalSymbolicAnalysis?.length ?? 'MISSING',
+                        finalInvestigativeReport: p.finalInvestigativeReport ? p.finalInvestigativeReport.length + ' chars' : 'MISSING',
+                    });
+                    break;
+                }
                 if (attempt < 2 && (v.code === 'AI_JSON_PARSE_ERROR' || v.code === 'AI_INCOMPLETE_RESPONSE')) {
                     const p = v.parsed || {};
-                    console.warn('[Gemini Stream] Deep attempt', attempt + 1, 'failed:', v.code, '| factualClaims:', p.factualClaims?.length, 'claims:', p.claims?.length, 'manipulationTechniques:', p.manipulationTechniques?.length);
+                    console.warn('[Deep] Stage2 attempt', attempt + 1, 'FAILED:', v.code, '| partial fields:', {
+                        factualClaims: p.factualClaims?.length ?? 'none',
+                        manipulationTechniques: p.manipulationTechniques?.length ?? 'none',
+                        visualAnalysis: p.visualAnalysis?.length ?? 'none',
+                        bodyLanguageAnalysis: p.bodyLanguageAnalysis?.length ?? 'none',
+                    });
                     continue;
                 }
+                console.warn('[Deep] Stage2 attempt', attempt + 1, 'FAILED (no retry):', v.code);
                 break;
             }
 
@@ -733,16 +800,18 @@ finalInvestigativeReport: comprehensive synthesis. Never leave arrays empty. Nev
 
         } else {
             // STANDARD MODE: streaming first, retry with non-streaming on validation failure
+            // When Google Search tools are active, responseSchema cannot be used (API limitation)
             const stdConfig = {
                 systemInstruction: enhancedSystemInstruction,
                 temperature: 0.7,
                 maxOutputTokens: 63536,
-                responseMimeType: 'application/json',
-                responseSchema: VIDEO_RESPONSE_SCHEMA,
+                ...(tools ? {} : { responseMimeType: 'application/json', responseSchema: VIDEO_RESPONSE_SCHEMA }),
                 mediaResolution: 'MEDIA_RESOLUTION_LOW',
                 abortSignal: abortController.signal,
-                httpOptions: { timeout: 300000 } // 5 min for video
+                httpOptions: { timeout: 300000 },
+                ...(tools ? { tools } : {})
             };
+            console.log('[Standard] tools active:', !!tools, '| schema active:', !tools);
             const stream = await ai.models.generateContentStream({
                 model: model || 'gemini-2.5-flash',
                 contents,
