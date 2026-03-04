@@ -276,8 +276,8 @@ const transformGeminiResponse = (
   const manipulationIndex = Math.min(manipulations.length * 0.15, 1);
 
   const transformedClaims = allClaims.map((c: any) => ({
-    quote: c.claim || c.quote || '',
-    formulation: c.claim || c.quote || '',
+    quote: c.claim || c.quote || c.text || '',
+    formulation: c.claim || c.quote || c.text || '',
     category: responseLang === 'en' ? 'Fact' : 'Факт',
     weight: 'средна' as 'ниска' | 'средна' | 'висока',
     confidence: c.confidence || (c.verdict === 'TRUE' ? 0.9 : c.verdict === 'FALSE' ? 0.1 : 0.5),
@@ -290,7 +290,7 @@ const transformGeminiResponse = (
   const transformedManipulations = manipulations.map((m: any, idx: number) => ({
     technique: m.technique || (responseLang === 'en' ? 'Unknown technique' : 'Неизвестна'),
     timestamp: m.timestamp || '00:00',
-    logic: (m.description || '') + (m.example ? (responseLang === 'en' ? '\n\nExample: ' : '\n\nПример: ') + m.example : ''),
+    logic: (m.description || m.logic || '') + (m.example ? (responseLang === 'en' ? '\n\nExample: ' : '\n\nПример: ') + m.example : ''),
     effect: m.impact || (responseLang === 'en' ? 'Impact on the audience' : 'Въздействие върху аудиторията'),
     severity: m.severity || (0.5 + (idx * 0.1)),
     counterArgument: m.counterArgument || (responseLang === 'en' ? 'Verify primary sources.' : 'Проверка на първоизточници.')

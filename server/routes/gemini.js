@@ -140,7 +140,14 @@ function getAI() {
     return _aiInstance;
 }
 
-// JSON Schema for structured output — required + maxItems to prevent truncation
+// Point-details structure for multimodal analysis arrays
+const POINT_DETAILS_ITEM = {
+    type: 'object',
+    properties: { point: { type: 'string' }, details: { type: 'string' } },
+    required: ['point', 'details']
+};
+
+// JSON Schema for structured output — detailed nested structure for WoW analysis
 const VIDEO_RESPONSE_SCHEMA = {
     type: 'object',
     required: ['summary', 'overallAssessment'],
@@ -148,10 +155,57 @@ const VIDEO_RESPONSE_SCHEMA = {
         summary: { type: 'string' },
         overallAssessment: { type: 'string' },
         detailedMetrics: { type: 'object' },
-        factualClaims: { type: 'array', items: { type: 'object' }, maxItems: 30 },
-        claims: { type: 'array', items: { type: 'object' }, maxItems: 30 },
+        factualClaims: {
+            type: 'array',
+            maxItems: 30,
+            items: {
+                type: 'object',
+                properties: {
+                    claim: { type: 'string', description: 'Full claim as stated' },
+                    verdict: { type: 'string', enum: ['TRUE', 'MOSTLY_TRUE', 'MIXED', 'MOSTLY_FALSE', 'FALSE', 'UNVERIFIABLE'] },
+                    evidence: { type: 'string' },
+                    logicalAnalysis: { type: 'string' },
+                    factualVerification: { type: 'string' },
+                    comparison: { type: 'string' },
+                    context: { type: 'string' },
+                    sources: { type: 'array', items: { type: 'string' } },
+                    speaker: { type: 'string' },
+                    timestamp: { type: 'string' }
+                },
+                required: ['claim', 'verdict']
+            }
+        },
+        claims: {
+            type: 'array',
+            maxItems: 30,
+            items: {
+                type: 'object',
+                properties: {
+                    claim: { type: 'string' },
+                    verdict: { type: 'string', enum: ['TRUE', 'MOSTLY_TRUE', 'MIXED', 'MOSTLY_FALSE', 'FALSE', 'UNVERIFIABLE'] },
+                    evidence: { type: 'string' }
+                },
+                required: ['claim', 'verdict']
+            }
+        },
         quotes: { type: 'array', items: { type: 'object' }, maxItems: 10 },
-        manipulationTechniques: { type: 'array', items: { type: 'object' }, maxItems: 20 },
+        manipulationTechniques: {
+            type: 'array',
+            maxItems: 20,
+            items: {
+                type: 'object',
+                properties: {
+                    technique: { type: 'string' },
+                    description: { type: 'string' },
+                    example: { type: 'string' },
+                    impact: { type: 'string' },
+                    counterArgument: { type: 'string' },
+                    timestamp: { type: 'string' },
+                    severity: { type: 'number' }
+                },
+                required: ['technique', 'description']
+            }
+        },
         finalInvestigativeReport: { type: 'string' },
         geopoliticalContext: { type: 'array', items: { type: 'object' }, maxItems: 5 },
         historicalParallel: { type: 'array', items: { type: 'object' }, maxItems: 5 },
@@ -160,13 +214,13 @@ const VIDEO_RESPONSE_SCHEMA = {
         narrativeArchitecture: { type: 'array', items: { type: 'object' }, maxItems: 5 },
         technicalForensics: { type: 'array', items: { type: 'object' }, maxItems: 5 },
         socialImpactPrediction: { type: 'array', items: { type: 'object' }, maxItems: 5 },
-        visualAnalysis: { type: 'array', items: { type: 'object' }, maxItems: 5 },
-        bodyLanguageAnalysis: { type: 'array', items: { type: 'object' }, maxItems: 5 },
-        vocalAnalysis: { type: 'array', items: { type: 'object' }, maxItems: 5 },
-        deceptionAnalysis: { type: 'array', items: { type: 'object' }, maxItems: 5 },
-        humorAnalysis: { type: 'array', items: { type: 'object' }, maxItems: 5 },
-        psychologicalProfile: { type: 'array', items: { type: 'object' }, maxItems: 5 },
-        culturalSymbolicAnalysis: { type: 'array', items: { type: 'object' }, maxItems: 5 },
+        visualAnalysis: { type: 'array', items: POINT_DETAILS_ITEM, maxItems: 5 },
+        bodyLanguageAnalysis: { type: 'array', items: POINT_DETAILS_ITEM, maxItems: 5 },
+        vocalAnalysis: { type: 'array', items: POINT_DETAILS_ITEM, maxItems: 5 },
+        deceptionAnalysis: { type: 'array', items: POINT_DETAILS_ITEM, maxItems: 5 },
+        humorAnalysis: { type: 'array', items: POINT_DETAILS_ITEM, maxItems: 5 },
+        psychologicalProfile: { type: 'array', items: POINT_DETAILS_ITEM, maxItems: 5 },
+        culturalSymbolicAnalysis: { type: 'array', items: POINT_DETAILS_ITEM, maxItems: 5 },
         recommendations: { type: 'array', items: { type: 'object' }, maxItems: 10 },
         biasIndicators: { type: 'object' }
     }
@@ -617,12 +671,12 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
 
             // Final JSON step — schema-validated, no tools (API restriction)
             const jsonPromptsWithContext = [
-                'Return the complete analysis as valid JSON. Use the schema. Extract ALL findings from the conversation above. For long videos, include all relevant claims and techniques. Prioritize completeness over brevity. Always close all brackets and quotes. Never truncate mid-string.',
-                'Extract ALL findings from the conversation. Include all relevant factualClaims and manipulationTechniques. Prioritize completeness. Ensure complete valid JSON. Never truncate.'
+                'Return the complete analysis as valid JSON. Use the schema. Extract ALL findings from the conversation above. factualClaims: each item must have claim, verdict, evidence. manipulationTechniques: each item must have technique, description, example, impact, counterArgument. visualAnalysis, bodyLanguageAnalysis, vocalAnalysis, deceptionAnalysis, humorAnalysis, psychologicalProfile, culturalSymbolicAnalysis: each item must have point and details. Populate finalInvestigativeReport with a full report (at least 10 paragraphs). Do not leave arrays empty if the conversation contains relevant content. Aim for at least 5 factualClaims and 3 manipulationTechniques when content exists. Prioritize completeness over brevity. Always close all brackets and quotes. Never truncate mid-string.',
+                'Extract ALL findings from the conversation. Include factualClaims (claim, verdict, evidence), manipulationTechniques (technique, description, example, impact, counterArgument), multimodal arrays (point, details). Populate finalInvestigativeReport fully. Do not leave arrays empty when relevant content exists. Prioritize completeness. Ensure complete valid JSON. Never truncate.'
             ];
             const jsonPromptsNoContext = [
-                'Analyze the video and return the complete fact-check analysis as valid JSON. Use the schema. Populate summary, overallAssessment, detailedMetrics, factualClaims, manipulationTechniques. No web search results — base analysis on video content only. For long videos, include all relevant claims and techniques. Prioritize completeness over brevity. Always close all brackets and quotes. Never truncate.',
-                'Extract ALL findings from the video. Include all relevant factualClaims and manipulationTechniques. Prioritize completeness. Ensure complete valid JSON. Never truncate.'
+                'Analyze the video and return the complete fact-check analysis as valid JSON. Use the schema. factualClaims: each item must have claim, verdict, evidence. manipulationTechniques: each item must have technique, description, example, impact, counterArgument. visualAnalysis, bodyLanguageAnalysis, vocalAnalysis, deceptionAnalysis, humorAnalysis, psychologicalProfile, culturalSymbolicAnalysis: each item must have point and details. Populate finalInvestigativeReport with a full report (at least 10 paragraphs). No web search results — base analysis on video content only. Do not leave arrays empty if the video contains relevant content. Aim for at least 5 factualClaims and 3 manipulationTechniques when content exists. Prioritize completeness over brevity. Always close all brackets and quotes. Never truncate.',
+                'Extract ALL findings from the video. Include factualClaims (claim, verdict, evidence), manipulationTechniques (technique, description, example, impact, counterArgument), multimodal arrays (point, details). Populate finalInvestigativeReport fully. Do not leave arrays empty when relevant content exists. Prioritize completeness. Ensure complete valid JSON. Never truncate.'
             ];
             const jsonPrompts = hasGrounding ? jsonPromptsWithContext : jsonPromptsNoContext;
             const finalConfig = {
