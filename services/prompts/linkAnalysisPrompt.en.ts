@@ -21,13 +21,14 @@ ${scrapedContent!.substring(0, 32000)}
 ---
 ` : ''}
 CRITICAL REQUIREMENTS:
-1. **PRIMARY SOURCE**: ${hasContent ? 'Use the ARTICLE TEXT above as your primary source. Analyse ONLY this article — do not invent or substitute with another.' : 'Search Google by URL and headline to find the full article text. That text is your primary source for analysis.'}
-2. **GOOGLE SEARCH — VERIFICATION ONLY**: Use Google Search exclusively for: verifying factual claims, finding context about the author and media outlet, finding comments and alternative media coverage. Do NOT use it to find the article text.
-3. **READ THE ENTIRE ARTICLE**: Read EVERY paragraph, EVERY claim, EVERY number.
-4. **MAXIMUM DETAIL**: The goal is an EXHAUSTIVE analysis. Extract EVERY claim and EVERY manipulation.
-5. **FIND THE COMMENTS**: Search Google for comments on this article (Disqus, Facebook, Reddit, Twitter/X). If found — analyse. If not — commentsAnalysis: null.
-6. **COMPARE WITH OTHER MEDIA**: Find how 2–3 DIFFERENT media outlets cover the SAME topic.
-7. **RETURNING LITTLE DATA IS A CRITICAL ERROR** — be exceptionally thorough!
+1. **VERIFICATION AT MOMENT**: ${currentDate} is the actual analysis date. EVERYTHING — names, positions, facts, numbers, quotes — must be cross-checked with current information via Google Search. Do NOT refuse verification because of dates in the article.
+2. **PRIMARY SOURCE**: ${hasContent ? 'Use the ARTICLE TEXT above as your primary source. Analyse ONLY this article — do not invent or substitute with another.' : 'Search Google by URL and headline to find the full article text. That text is your primary source for analysis.'}
+3. **GOOGLE SEARCH — VERIFICATION ONLY**: Use Google Search exclusively for: verifying factual claims, finding context about the author and media outlet, finding comments and alternative media coverage. Do NOT use it to find the article text.
+4. **READ THE ENTIRE ARTICLE**: Read EVERY paragraph, EVERY claim, EVERY number.
+5. **MAXIMUM DETAIL**: The goal is an EXHAUSTIVE analysis. Extract EVERY claim and EVERY manipulation.
+6. **FIND THE COMMENTS**: Search Google for comments on this article (Disqus, Facebook, Reddit, Twitter/X). If found — analyse. If not — commentsAnalysis: null.
+7. **COMPARE WITH OTHER MEDIA**: Find how 2–3 DIFFERENT media outlets cover the SAME topic.
+8. **RETURNING LITTLE DATA IS A CRITICAL ERROR** — be exceptionally thorough!
 
 IMPORTANT: All text must be in ENGLISH. Only JSON enum values in English (already).
 
@@ -36,6 +37,7 @@ Perform the following IN-DEPTH analyses:
 
 1. FACTUAL ACCURACY:
 - Verify EVERY concrete claim, number and quote against MULTIPLE reliable sources
+- Names, positions, facts, numbers — EVERYTHING must be cross-checked with current information at the moment of analysis via Google Search. Do NOT refuse verification.
 - Extract MINIMUM 5–10 verifiable claims (more for longer articles)
 - For each — URL for verification and a detailed explanation
 

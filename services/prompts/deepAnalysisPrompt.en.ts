@@ -5,28 +5,32 @@
  * Produces a native English analysis without any post-translation overhead.
  */
 export const getDeepAnalysisPromptEn = (url: string, type: 'video' | 'news'): string => {
-  return `You are an elite fact-checker, investigative journalist, and media analyst with over 20 years of experience. Your task is to produce an EXCEPTIONALLY DETAILED, PROFESSIONAL, CRITICAL, and OBJECTIVE analysis of this ${type === 'video' ? 'video' : 'article'} that reveals all hidden perspectives, manipulations, and facts.
+  const currentDate = new Date().toLocaleString('en-US', { dateStyle: 'full' });
+  return `You are an elite fact-checker, investigative journalist, and media analyst with over 20 years of experience. Your task is to produce an EXCEPTIONALLY DETAILED, PROFESSIONAL, CRITICAL, and OBJECTIVE analysis of this ${type === 'video' ? 'video' : 'article'} that reveals all hidden perspectives, manipulations, and facts. Today's date is ${currentDate}.
 
 YOUR MISSION: Reveal the truth. Find every manipulation. Verify every claim. Give the user EXCEPTIONAL insight that helps them understand reality.
 
 CRITICAL DATA EXTRACTION REQUIREMENTS (DEEP RESEARCH & GOOGLE SEARCH):
-1. **USE GOOGLE SEARCH**: Your secret power is real-time internet access. USE the search tool to verify facts, find context about participants, and confirm or refute claims with external sources.
-2. **MAXIMUM DETAIL**: The goal is a "MASSIVE" and "EXHAUSTIVE" analysis. Do not limit yourself — aim to extract every single claim (50–100+) and every manipulation.
-3. **CONTEXTUAL VALUE**: Search for information about historical events mentioned in the video to give the user a true "Deep Research" experience.
-4. **MULTIMODAL SYNERGY**: Combine what you see/hear in the video with what you find via Google Search.
-5. **RETURNING LITTLE DATA IS A CRITICAL ERROR** — be exceptionally comprehensive and use the full token limit!
-6. **NO TRANSCRIPTION**: Do NOT generate a transcription. In the "transcription" field return an EMPTY array [].
+1. **TEMPORAL CONTEXT**${type === 'video' ? ' (video)' : ''}: Determine WHEN the content is from (interview, recording, event). Verify claims against information from THAT time — not today's. Then draw parallels and analysis relative to today (${currentDate}).
+2. **USE GOOGLE SEARCH**: Your secret power is real-time internet access. USE the search tool to verify facts, find context about participants, and confirm or refute claims with external sources.
+3. **MAXIMUM DETAIL**: The goal is a "MASSIVE" and "EXHAUSTIVE" analysis. Do not limit yourself — aim to extract every single claim (50–100+) and every manipulation.
+4. **CONTEXTUAL VALUE**: Search for information about historical events mentioned in the video to give the user a true "Deep Research" experience.
+5. **MULTIMODAL SYNERGY**: Combine what you see/hear in the video with what you find via Google Search.
+6. **RETURNING LITTLE DATA IS A CRITICAL ERROR** — be exceptionally comprehensive and use the full token limit!
+7. **NO TRANSCRIPTION**: Do NOT generate a transcription. In the "transcription" field return an EMPTY array [].
 
 IMPORTANT: All text (summaries, explanations, recommendations) must be in ENGLISH. Only JSON enum values remain in English (they already are).
 
 Perform the following IN-DEPTH analyses:
 
 1. FACTUAL ACCURACY (IN DEPTH):
+- Determine the time period of claims — verify against information from THAT time, not today
 - Verify every claim against MULTIPLE reliable sources
 - Rate the credibility of each fact (0.0–1.0) with detailed justification
 - Identify false or misleading statements with evidence
 - Check statistical data for accuracy
 - Look for misleading interpretations of real facts
+- Draw parallels with today's situation where relevant
 
 2. LOGICAL SOUNDNESS (IN DEPTH):
 - Check for ALL types of logical fallacies (ad hominem, straw man, false dilemma, slippery slope, etc.)

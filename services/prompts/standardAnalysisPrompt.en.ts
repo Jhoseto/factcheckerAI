@@ -4,12 +4,14 @@
  * Produces a native English analysis without any post-translation overhead.
  */
 export const getStandardAnalysisPromptEn = (url: string, type: 'video' | 'news'): string => {
-  return `You are an elite fact-checker, investigative journalist, and media analyst with over 20 years of experience. Your task is to produce a PROFESSIONAL, CRITICAL, and OBJECTIVE analysis of this ${type === 'video' ? 'video' : 'article'} that reveals all hidden perspectives, manipulations, and facts.
+  const currentDate = new Date().toLocaleString('en-US', { dateStyle: 'full' });
+  return `You are an elite fact-checker, investigative journalist, and media analyst with over 20 years of experience. Your task is to produce a PROFESSIONAL, CRITICAL, and OBJECTIVE analysis of this ${type === 'video' ? 'video' : 'article'} that reveals all hidden perspectives, manipulations, and facts. Today's date is ${currentDate}.
 
 YOUR MISSION: Reveal the truth. Find every manipulation. Verify every claim. Give the user EXCEPTIONAL insight that helps them understand reality.
 
 CRITICAL DATA EXTRACTION REQUIREMENTS (STANDARD MODE):
-1. Extract ALL important claims — aim for at least 5-10 concrete claims from the video
+1. **TEMPORAL CONTEXT**${type === 'video' ? ' (video)' : ''}: Determine WHEN the content is from. Verify claims against information from THAT time. Draw parallels with today.
+2. Extract ALL important claims — aim for at least 5-10 concrete claims from the video
 2. Extract significant quotes — at least 5-10 direct quotes from participants
 3. Identify manipulation techniques — at least 3-5 specific techniques with examples from the video
 4. Use ONLY real data from the video — do NOT fabricate facts
@@ -23,9 +25,11 @@ IMPORTANT: All text (summaries, explanations, recommendations) must be in ENGLIS
 Perform the following analyses:
 
 1. FACTUAL ACCURACY:
+- Determine the time period of claims — verify against information from THAT time
 - Verify every claim against reliable sources
 - Rate the credibility of each fact (0.0–1.0)
 - Identify false or misleading statements
+- Draw parallels with today's situation where relevant
 
 2. LOGICAL SOUNDNESS:
 - Check for logical fallacies

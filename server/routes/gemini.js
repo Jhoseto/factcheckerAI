@@ -181,6 +181,7 @@ const CLAIM_ITEM = {
         claim: { type: 'string' },
         verdict: { type: 'string' },
         evidence: { type: 'string' },
+        context: { type: 'string' },
         speaker: { type: 'string' },
         timestamp: { type: 'string' }
     },
@@ -732,14 +733,14 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             const promptMain = `You are analyzing the video attached to this message. Return a complete fact-check as valid JSON.${groundingBlock}
 
 STEPS:
-1. For factualClaims: use the Google Search research above to verify each claim. Each item needs: claim, verdict, evidence, sources, speaker, timestamp, logicalAnalysis, factualVerification, comparison.
+1. For factualClaims: use the Google Search research above to verify each claim. Each item needs: claim, verdict, evidence, context (full context around the claim — what was said before/after, how it fits the discussion), sources, speaker, timestamp, logicalAnalysis, factualVerification, comparison.
 2. For manipulationTechniques: technique, description, example, impact, counterArgument, timestamp, severity.
 3. ${MULTIMODAL_INSTRUCTION}
 4. Populate: finalInvestigativeReport (min 15 paragraphs), summary (8+ sentences), overallAssessment (ACCURATE/MOSTLY_ACCURATE/MIXED/MISLEADING/FALSE), detailedMetrics, geopoliticalContext, historicalParallel, psychoLinguisticAnalysis, strategicIntent, narrativeArchitecture, technicalForensics, socialImpactPrediction — all as [{point, details}].
 5. Aim for 5+ factualClaims, 3+ manipulationTechniques, 2+ items per multimodal array. Never truncate. Always close all brackets.`;
 
             const promptRetry = `Complete the analysis of the attached video. Return valid JSON with ALL fields.${groundingBlock}
-factualClaims (claim, verdict, evidence), manipulationTechniques (technique, description, example, impact, counterArgument).
+factualClaims (claim, verdict, evidence, context — full context around each claim), manipulationTechniques (technique, description, example, impact, counterArgument).
 ${MULTIMODAL_INSTRUCTION}
 finalInvestigativeReport: comprehensive synthesis. Never leave arrays empty. Never truncate.`;
 
