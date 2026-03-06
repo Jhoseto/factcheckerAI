@@ -155,149 +155,158 @@ const MobileAudit: React.FC = () => {
 
   if (loading || linkLoading) {
     return (
-      <MobileSafeArea className="flex flex-col">
-        <div className="flex-1 flex flex-col items-center justify-center px-6">
-          <div className="w-full max-w-[280px] h-1 bg-[#333] rounded-full overflow-hidden mb-8">
-            <div className="h-full w-1/2 bg-[#968B74] rounded-full mobile-loading-bar" />
+      <MobileSafeArea className="flex flex-col relative overflow-hidden bg-[#111]">
+        {/* Subtle background glow for loading */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150%] h-[50%] bg-[#C4B091] opacity-[0.05] blur-[100px] rounded-full mix-blend-screen pointer-events-none animate-pulse" style={{ animationDuration: '4s' }} />
+
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-8">
+          <div className="w-full max-w-[240px] h-1.5 bg-[#252525] border border-[#333] rounded-full overflow-hidden mb-10 shadow-[inset_0_1px_3px_rgba(0,0,0,0.5)]">
+            <div className="h-full w-1/2 bg-gradient-to-r from-transparent via-[#C4B091] to-transparent rounded-full mobile-loading-bar" />
           </div>
-          <p className="text-[10px] font-black text-[#C4B091] uppercase tracking-[0.3em] mb-2">{t('loading.title')}</p>
-          <p className="text-2xl font-mono font-black text-[#E0E0E0] tabular-nums tracking-tight">
-            {String(Math.floor(elapsedSeconds / 60)).padStart(2, '0')}:{String(elapsedSeconds % 60).padStart(2, '0')}
-          </p>
-          <p className="text-[10px] font-black text-[#888] uppercase tracking-widest mt-4 text-center min-h-[3rem]">
-            {streamingProgress || t(LOADING_PHASE_KEYS[loadingPhase])}
-          </p>
+
+          <div className="flex flex-col items-center gap-1 mb-6">
+            <p className="text-[9px] font-black text-[#888] uppercase tracking-[0.4em] mb-1">{t('loading.title')}</p>
+            <p className="text-4xl font-serif text-[#E0E0E0] tabular-nums tracking-tight drop-shadow-[0_2px_10px_rgba(196,176,145,0.2)]">
+              {String(Math.floor(elapsedSeconds / 60)).padStart(2, '0')}<span className="text-[#968B74] mx-1">:</span>{String(elapsedSeconds % 60).padStart(2, '0')}
+            </p>
+          </div>
+
+          <div className="h-12 flex items-center justify-center">
+            <p className="text-[10px] font-bold text-[#C4B091] uppercase tracking-[0.2em] text-center animate-pulse">
+              {streamingProgress || t(LOADING_PHASE_KEYS[loadingPhase])}
+            </p>
+          </div>
         </div>
       </MobileSafeArea>
     );
   }
 
   return (
-    <MobileSafeArea>
+    <MobileSafeArea className="bg-[#111]">
       <MobileHeader title={t('mobile.audit')} />
       <main className="flex flex-col flex-1 px-4 pt-6 pb-24 overflow-y-auto">
         {/* YouTube Video Section */}
-        <div className="relative mb-6 mobile-fade-in">
-          <div className="rounded-2xl bg-[#252525] border border-[#333] p-5 sm:p-6">
-            <div className="flex items-center justify-center gap-2 mb-3">
-              <span className="h-[1px] w-8 bg-[#968B74]/40" />
-              <span className="text-[10px] font-black text-[#C4B091] uppercase tracking-[0.4em]">{t('mobile.youtubeVideoAudit')}</span>
-              <span className="h-[1px] w-8 bg-[#968B74]/40" />
+        <div className="relative mb-8 mobile-fade-in">
+          <div className="mobile-glass rounded-2xl p-5 sm:p-6 shadow-xl relative overflow-hidden">
+            {/* Subtle inner highlight */}
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#C4B091]/20 to-transparent" />
+
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <span className="h-[1px] w-6 bg-gradient-to-r from-transparent to-[#968B74]/50" />
+              <span className="text-[9px] font-black text-[#C4B091] uppercase tracking-[0.4em]">{t('mobile.youtubeVideoAudit')}</span>
+              <span className="h-[1px] w-6 bg-gradient-to-l from-transparent to-[#968B74]/50" />
             </div>
-            <h2 className="text-xl sm:text-2xl font-serif font-black text-[#E0E0E0] tracking-tight leading-tight text-center mb-5">
+            <h2 className="text-2xl font-serif font-black text-[#E0E0E0] tracking-tight leading-tight text-center mb-6">
               {t('mobile.analyzeVideoStream')}
             </h2>
 
-            <div className="rounded-xl border border-[#333] bg-[#1a1a1a] overflow-hidden mb-4 mobile-fade-in-delay-1">
+            <div className="rounded-xl border border-[#333] bg-[#1a1a1a] shadow-inner overflow-hidden mb-5 mobile-fade-in-delay-1 transition-all focus-within:border-[#968B74]/40 focus-within:shadow-[0_0_15px_rgba(196,176,145,0.1)]">
               <input
                 type="text"
                 value={youtubeUrl}
                 onChange={(e) => setYoutubeUrl(e.target.value)}
                 placeholder={t('mobile.placeholderYoutube')}
-                className="w-full px-4 py-3.5 min-h-[44px] text-base text-[#E0E0E0] font-medium placeholder:text-[#666] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#968B74]/40 bg-transparent"
+                className="w-full px-5 py-4 min-h-[52px] text-sm text-[#E0E0E0] font-medium placeholder:text-[#666] outline-none bg-transparent"
               />
               {fetchingMetadata && (
-                <div className="px-4 pb-3 flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-[#333] border-t-[#968B74] rounded-full animate-spin" />
-                  <span className="text-[10px] font-bold text-[#888] uppercase tracking-wider">{t('mobile.loading')}</span>
+                <div className="px-5 pb-4 flex items-center gap-2">
+                  <div className="w-3.5 h-3.5 border-2 border-[#333] border-t-[#C4B091] rounded-full animate-spin" />
+                  <span className="text-[9px] font-bold text-[#888] uppercase tracking-wider">{t('mobile.loading')}</span>
                 </div>
               )}
             </div>
 
             {error && (
-              <div className="mb-4 px-4 py-3 rounded-xl bg-red-900/20 border border-red-800/50 mobile-fade-in">
-                <p className="text-sm font-medium text-red-300">{error}</p>
+              <div className="mb-5 px-4 py-3 rounded-xl bg-red-950/30 border border-red-900/40 mobile-fade-in">
+                <p className="text-sm font-medium text-red-400 text-center">{error}</p>
               </div>
             )}
 
             {videoMetadata && !fetchingMetadata && (
-              <div className="rounded-xl border border-[#333] bg-[#1a1a1a] p-4 mb-4 flex items-center gap-4 mobile-fade-in">
-                <span className="text-2xl">📹</span>
+              <div className="rounded-xl border border-[#333] bg-[#1a1a1a] p-4 mb-6 flex items-center gap-4 mobile-fade-in shadow-md">
+                <span className="text-3xl drop-shadow-md">📹</span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-black text-[#E0E0E0] truncate">{videoMetadata.title}</p>
-                  <p className="text-[10px] text-[#888] font-bold uppercase tracking-wider mt-0.5">{videoMetadata.author} · {videoMetadata.durationFormatted}</p>
+                  <p className="text-sm font-black text-[#E0E0E0] truncate leading-tight mb-1">{videoMetadata.title}</p>
+                  <p className="text-[10px] text-[#A89F91] font-bold uppercase tracking-wider">{videoMetadata.author} · {videoMetadata.durationFormatted}</p>
                 </div>
               </div>
             )}
 
             {costEstimates && (
-              <div className="space-y-4 mb-6 mobile-fade-in mobile-fade-in-delay-2">
-                <p className="text-[10px] font-black text-[#888] uppercase tracking-widest text-center">{t('mobile.auditMode')}</p>
+              <div className="space-y-5 mb-2 mobile-fade-in mobile-fade-in-delay-2">
+                <p className="text-[9px] font-black text-[#888] uppercase tracking-[0.3em] text-center">{t('mobile.auditMode')}</p>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => setAnalysisMode('standard')}
-                    className={`mobile-tap rounded-xl border-2 p-4 min-h-[44px] text-left transition-all duration-200 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-[#968B74]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a] ${
-                      analysisMode === 'standard'
-                        ? 'border-[#968B74] bg-[#968B74]/15'
-                        : 'border-[#333] bg-[#1a1a1a] active:border-[#968B74]/50'
-                    }`}
+                    className={`mobile-tap rounded-xl border p-4 text-center transition-all duration-200 touch-manipulation focus:outline-none ${analysisMode === 'standard'
+                        ? 'border-[#C4B091] bg-gradient-to-b from-[#968B74]/20 to-[#968B74]/5 shadow-[0_4px_15px_rgba(196,176,145,0.15)]'
+                        : 'border-[#333] bg-[#1a1a1a]'
+                      }`}
                   >
-                    <p className="text-[10px] font-black text-[#C4B091] uppercase tracking-widest">{t('app.standardLabel')}</p>
-                    <p className="text-lg font-black text-[#E0E0E0] mt-1">
-                      {costEstimates.standard.pointsCost} <span className="text-xs text-[#888] uppercase">{t('mobile.pointsLabel')}</span>
+                    <p className="text-[10px] font-black text-[#C4B091] uppercase tracking-[0.2em] mb-1">{t('app.standardLabel')}</p>
+                    <p className="text-xl font-serif text-[#E0E0E0]">
+                      {costEstimates.standard.pointsCost} <span className="text-[10px] text-[#888] uppercase font-sans tracking-widest">{t('mobile.pointsLabel')}</span>
                     </p>
                   </button>
                   <button
                     type="button"
                     onClick={() => setAnalysisMode('deep')}
-                    className={`mobile-tap rounded-xl border-2 p-4 min-h-[44px] text-left transition-all duration-200 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-[#968B74]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a] ${
-                      analysisMode === 'deep'
-                        ? 'border-[#968B74] bg-[#968B74]/15'
-                        : 'border-[#333] bg-[#1a1a1a] active:border-[#968B74]/50'
-                    }`}
+                    className={`mobile-tap rounded-xl border p-4 text-center transition-all duration-200 touch-manipulation focus:outline-none relative overflow-hidden ${analysisMode === 'deep'
+                        ? 'border-[#C4B091] bg-gradient-to-b from-[#968B74]/20 to-[#968B74]/5 shadow-[0_4px_15px_rgba(196,176,145,0.15)]'
+                        : 'border-[#333] bg-[#1a1a1a]'
+                      }`}
                   >
-                    <p className="text-[10px] font-black text-[#C4B091] uppercase tracking-widest">{t('app.deepLabel')}</p>
-                    <p className="text-lg font-black text-[#E0E0E0] mt-1">
-                      {costEstimates.deep.pointsCost} <span className="text-xs text-[#888] uppercase">{t('mobile.pointsLabel')}</span>
+                    {/* Deep mode premium hint */}
+                    <div className="absolute top-0 right-0 w-8 h-8 bg-gradient-to-bl from-[#C4B091]/20 to-transparent rounded-bl-full pointer-events-none" />
+                    <p className="text-[10px] font-black text-[#C4B091] uppercase tracking-[0.2em] mb-1 relative z-10">{t('app.deepLabel')}</p>
+                    <p className="text-xl font-serif text-[#E0E0E0] relative z-10">
+                      {costEstimates.deep.pointsCost} <span className="text-[10px] text-[#888] uppercase font-sans tracking-widest">{t('mobile.pointsLabel')}</span>
                     </p>
                   </button>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleStartAnalysis}
-                  disabled={!analysisMode}
-                  className="mobile-tap w-full py-3.5 min-h-[48px] rounded-xl bg-[#968B74] text-[#1a1a1a] text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-200 disabled:opacity-50 disabled:active:scale-100 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C4B091] focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a] active:scale-[0.98]"
-                >
-                  {t('mobile.audit')}
-                </button>
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={handleStartAnalysis}
+                    disabled={!analysisMode}
+                    className="mobile-tap w-full py-4 rounded-xl bg-gradient-to-r from-[#C4B091] to-[#968B74] text-[#111] text-[11px] font-black uppercase tracking-[0.2em] shadow-[0_4px_15px_rgba(196,176,145,0.3)] transition-all duration-200 disabled:opacity-50 disabled:shadow-none disabled:active:scale-100 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C4B091] active:scale-[0.98]"
+                  >
+                    {t('mobile.audit')}
+                  </button>
+                </div>
               </div>
             )}
           </div>
         </div>
 
         {/* Divider */}
-        <div className="relative my-6 mobile-fade-in">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-[#333]" />
-          </div>
-          <div className="relative flex justify-center">
-            <div className="bg-[#1a1a1a] px-4">
-              <div className="h-1 w-16 bg-gradient-to-r from-transparent via-[#968B74]/30 to-transparent rounded-full" />
-            </div>
-          </div>
+        <div className="relative my-8 mobile-fade-in flex items-center justify-center">
+          <div className="absolute w-full h-px bg-gradient-to-r from-transparent via-[#333] to-transparent" />
+          <div className="relative z-10 w-2 h-2 rounded-full bg-[#333] border-2 border-[#111]" />
         </div>
 
         {/* Link Audit Section */}
         <div className="relative mobile-fade-in">
-          <div className="rounded-2xl bg-[#252525] border border-[#333] p-5 sm:p-6">
-            <div className="flex items-center justify-center gap-2 mb-3">
-              <span className="h-[1px] w-8 bg-[#968B74]/40" />
-              <span className="text-[10px] font-black text-[#C4B091] uppercase tracking-[0.4em]">{t('mobile.linkAuditSection')}</span>
-              <span className="h-[1px] w-8 bg-[#968B74]/40" />
+          <div className="mobile-glass rounded-2xl p-5 sm:p-6 shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#C4B091]/20 to-transparent" />
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <span className="h-[1px] w-6 bg-gradient-to-r from-transparent to-[#968B74]/50" />
+              <span className="text-[9px] font-black text-[#C4B091] uppercase tracking-[0.4em]">{t('mobile.linkAuditSection')}</span>
+              <span className="h-[1px] w-6 bg-gradient-to-l from-transparent to-[#968B74]/50" />
             </div>
-            <h2 className="text-xl sm:text-2xl font-serif font-black text-[#E0E0E0] tracking-tight leading-tight mb-5 text-center">
+            <h2 className="text-2xl font-serif font-black text-[#E0E0E0] tracking-tight leading-tight mb-6 text-center">
               {t('mobile.analyzeArticle')}
             </h2>
 
-            <div className="rounded-xl border border-[#333] bg-[#1a1a1a] overflow-hidden mb-4">
+            <div className="rounded-xl border border-[#333] bg-[#1a1a1a] shadow-inner overflow-hidden mb-5 transition-all focus-within:border-[#968B74]/40 focus-within:shadow-[0_0_15px_rgba(196,176,145,0.1)]">
               <input
                 type="url"
                 value={linkUrl}
                 onChange={(e) => setLinkUrl(e.target.value)}
                 placeholder={t('mobile.placeholderLink')}
-                className="w-full px-4 py-3.5 min-h-[44px] text-base text-[#E0E0E0] font-medium placeholder:text-[#666] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#968B74]/40 bg-transparent"
+                className="w-full px-5 py-4 min-h-[52px] text-sm text-[#E0E0E0] font-medium placeholder:text-[#666] outline-none bg-transparent"
                 disabled={linkLoading}
               />
             </div>
@@ -306,7 +315,7 @@ const MobileAudit: React.FC = () => {
               type="button"
               onClick={handleStartLinkAnalysis}
               disabled={!linkUrl.trim() || linkLoading}
-              className="mobile-tap w-full py-3.5 min-h-[48px] rounded-xl bg-[#968B74] text-[#1a1a1a] text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-200 disabled:opacity-50 disabled:active:scale-100 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C4B091] focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a] active:scale-[0.98]"
+              className="mobile-tap w-full py-4 rounded-xl bg-gradient-to-r from-[#C4B091] to-[#968B74] text-[#111] text-[11px] font-black uppercase tracking-[0.2em] shadow-[0_4px_15px_rgba(196,176,145,0.3)] transition-all duration-200 disabled:opacity-50 disabled:shadow-none disabled:active:scale-100 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C4B091] active:scale-[0.98]"
             >
               {linkLoading ? t('mobile.analyzing') : t('mobile.auditPoints', { count: FIXED_PRICES.linkArticle })}
             </button>

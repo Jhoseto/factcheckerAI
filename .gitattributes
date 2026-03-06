@@ -1,0 +1,13 @@
+# Ignore generated and vendored files from GitHub language statistics
+dist/** linguist-generated
+docs/** linguist-generated
+public/** linguist-vendored
+TempArchiveFiles/** linguist-generated
+.lighthouseci/** linguist-generated
+playwright-report/** linguist-generated
+tests-results/** linguist-generated
+chatBot/dist/** linguist-generated
+
+# Optionally ignore specific large generated HTML files if they exist in root
+*.html linguist-detectable=false
+index.html linguist-detectable=true

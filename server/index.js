@@ -9,6 +9,8 @@
 
 import 'dotenv/config';
 import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createProxyMiddleware } from 'http-proxy-middleware';
@@ -24,6 +26,7 @@ import webhookRouter from './routes/webhook.js';
 import socialRouter from './routes/social.js';
 import transactionsRouter from './routes/transactions.js';
 import adminRouter from '../admin/server/index.js';
+import { chatBotRouter, setupChatBotSocket } from '../chatBot/server/index.js';
 import visitTrackRouter from './routes/visitTrack.js';
 import publicConfigRouter from './routes/publicConfig.js';
 import userMessagesRouter from './routes/userMessages.js';
@@ -133,9 +136,15 @@ app.use((req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Start Server
+// HTTP Server + Socket.io (for ChatBot)
 // ─────────────────────────────────────────────────────────────────────────────
-app.listen(port, '0.0.0.0', () => {
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+    cors: { origin: true, methods: ['GET', 'POST'] }
+});
+setupChatBotSocket(io);
+
+httpServer.listen(port, '0.0.0.0', () => {
     console.log(`[Server] Listening on port ${port}`);
 });
 

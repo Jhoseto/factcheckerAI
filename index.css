@@ -203,3 +203,29 @@ h1, h2, h3, .serif {
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: #222; }
 ::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+
+/* ChatBot widget — Living Graphite Satin theme */
+.chat-glass {
+  background: linear-gradient(145deg, rgba(46,46,46,0.95), rgba(37,37,37,0.95));
+  border: 1px solid rgba(150, 139, 116, 0.2);
+  box-shadow: var(--shadow-satin);
+  backdrop-filter: blur(12px);
+}
+.chat-bubble-customer {
+  background: rgba(46,46,46,0.9);
+  color: var(--bronze-light);
+  border: 1px solid rgba(150, 139, 116, 0.2);
+  @apply rounded-2xl rounded-bl-none shadow-sm;
+}
+.chat-bubble-admin {
+  background: linear-gradient(to bottom, #786C55 0%, #5E5646 100%);
+  color: #EBE5DA;
+  border: 1px solid rgba(196, 176, 145, 0.3);
+  @apply rounded-2xl rounded-br-none shadow-md;
+}
+.chat-bubble-ai {
+  background: rgba(44, 44, 44, 0.8);
+  color: #C4B091;
+  border: 1px solid rgba(150, 139, 116, 0.15);
+  @apply rounded-2xl rounded-bl-none italic;
+}

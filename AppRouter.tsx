@@ -8,6 +8,7 @@ import { useAuth } from './contexts/AuthContext';
 import { usePublicConfig } from './contexts/PublicConfigContext';
 import Navbar from './components/common/Navbar';
 import LegalFooter from './components/common/LegalFooter';
+import ChatWidget from './chatBot/src/components/ChatWidget';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
 import App from './App';
@@ -17,6 +18,7 @@ const ExpensesPage = lazy(() => import('./components/user/ExpensesPage'));
 const ArchivePage = lazy(() => import('./components/archive/ArchivePage'));
 const ReportPage = lazy(() => import('./components/report/ReportPage'));
 const AdminApp = lazy(() => import('./admin/client/index').then(m => ({ default: m.AdminApp })));
+const ChatBotAdminPage = lazy(() => import('./components/chat/ChatBotAdminPage').then(m => ({ default: m.default })));
 const TermsPage = lazy(() => import('./components/legal/TermsPage'));
 const PrivacyPage = lazy(() => import('./components/legal/PrivacyPage'));
 const RefundPage = lazy(() => import('./components/legal/RefundPage'));
@@ -78,6 +80,7 @@ const AppRouter: React.FC = () => {
             <UserMessageBanner />
             <Navbar />
             <LegalFooter />
+            <ChatWidget />
             <Suspense fallback={<PageFallback />}>
             <Routes>
                 {/* Public routes */}
@@ -112,6 +115,10 @@ const AppRouter: React.FC = () => {
                 <Route
                     path="/admin/*"
                     element={currentUser ? <AdminApp /> : <Navigate to="/login" replace />}
+                />
+                <Route
+                    path="/chat-admin"
+                    element={currentUser ? <ChatBotAdminPage /> : <Navigate to="/login" replace />}
                 />
 
                 {/* Archive - saved analyses */}

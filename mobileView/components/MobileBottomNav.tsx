@@ -65,10 +65,10 @@ const MobileBottomNav: React.FC = () => {
 
   return (
     <nav
-      className="mobile-bottom-nav fixed bottom-0 left-0 right-0 z-50 bg-[#1a1a1a] border-t border-[#333]"
+      className="mobile-bottom-nav fixed bottom-0 left-0 right-0 z-50 mobile-glass border-t border-[#968B74]/20"
       style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom, 0px))' }}
     >
-      <div className="flex items-end h-16 px-2">
+      <div className="flex items-end h-[68px] px-2 pb-1">
         {/* Left side - 2 items */}
         <div className="flex items-end justify-around flex-1">
           {leftItems.map(({ to, label, icon }) => {
@@ -77,12 +77,13 @@ const MobileBottomNav: React.FC = () => {
               <NavLink
                 key={to}
                 to={to}
-                className={`flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors touch-manipulation ${
-                  isActive ? 'text-[#C4B091]' : 'text-[#888]'
-                }`}
+                className={`mobile-tap flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors touch-manipulation ${isActive ? 'text-[#C4B091]' : 'text-[#666]'
+                  }`}
               >
-                <span className={isActive ? 'text-[#C4B091]' : ''}>{icon}</span>
-                <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>
+                <div className={`transition-transform duration-300 ${isActive ? 'scale-110 drop-shadow-[0_0_8px_rgba(196,176,145,0.4)]' : ''}`}>
+                  {icon}
+                </div>
+                <span className="text-[9px] font-bold uppercase tracking-widest">{label}</span>
               </NavLink>
             );
           })}
@@ -90,17 +91,22 @@ const MobileBottomNav: React.FC = () => {
 
         {/* Center - Home icon */}
         {homeItem && (
-          <div className="flex items-end justify-center flex-shrink-0 px-4">
+          <div className="flex items-end justify-center flex-shrink-0 px-5 mb-2 relative">
             <NavLink
               to={homeItem.to}
               aria-label={t('mobile.home')}
-              className={`flex items-end justify-center h-full transition-all touch-manipulation relative ${
-                location.pathname === homeItem.to ? 'text-[#C4B091]' : 'text-[#888]'
-              }`}
+              className={`mobile-tap flex items-center justify-center transition-all touch-manipulation relative z-10 ${location.pathname === homeItem.to ? 'text-[#1a1a1a]' : 'text-[#888]'
+                }`}
             >
-              <div className={`relative -mt-1 ${location.pathname === homeItem.to ? 'scale-110' : 'scale-100'} transition-transform duration-200`}>
-                <div className={`absolute inset-0 rounded-full ${location.pathname === homeItem.to ? 'bg-[#968B74]/20' : ''} -z-10 transition-colors duration-200`} style={{ transform: 'scale(1.5)' }}></div>
-                <span className={location.pathname === homeItem.to ? 'text-[#C4B091]' : ''}>{homeItem.icon}</span>
+              <div className={`flex items-center justify-center w-[52px] h-[52px] rounded-full transition-all duration-300 shadow-lg ${location.pathname === homeItem.to
+                  ? 'bg-gradient-to-tr from-[#968B74] to-[#C4B091] shadow-[0_4px_20px_rgba(196,176,145,0.4)] scale-105'
+                  : 'bg-[#252525] border border-[#333] hover:border-[#968B74]/50'
+                }`}>
+                {/* Clone the SVG to adjust its class based on active state without hardcoding the path */}
+                {React.cloneElement(homeItem.icon as React.ReactElement, {
+                  className: `w-7 h-7 ${location.pathname === homeItem.to ? 'text-[#1a1a1a]' : 'text-[#ccc]'}`,
+                  strokeWidth: location.pathname === homeItem.to ? 2 : 1.5
+                })}
               </div>
             </NavLink>
           </div>
@@ -114,12 +120,13 @@ const MobileBottomNav: React.FC = () => {
               <NavLink
                 key={to}
                 to={to}
-                className={`flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors touch-manipulation ${
-                  isActive ? 'text-[#C4B091]' : 'text-[#888]'
-                }`}
+                className={`mobile-tap flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors touch-manipulation ${isActive ? 'text-[#C4B091]' : 'text-[#666]'
+                  }`}
               >
-                <span className={isActive ? 'text-[#C4B091]' : ''}>{icon}</span>
-                <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>
+                <div className={`transition-transform duration-300 ${isActive ? 'scale-110 drop-shadow-[0_0_8px_rgba(196,176,145,0.4)]' : ''}`}>
+                  {icon}
+                </div>
+                <span className="text-[9px] font-bold uppercase tracking-widest">{label}</span>
               </NavLink>
             );
           })}

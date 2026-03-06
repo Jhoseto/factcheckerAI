@@ -1,4 +1,4 @@
-import{j as e}from"./motion-DMmWGCb4.js";import{u as t,m as a}from"./index-DV_ffwHv.js";import{r as o}from"./renderLegalMd-CM_Jpi49.js";import{L as s}from"./react-vendor-DfPuibdP.js";import"./firebase-DzH6GH7r.js";import"./charts-COc1iTIi.js";const i=`# ПОЛИТИКА ЗА ВРЪЩАНЕ НА СУМИ – FACTCHECKER AI\r
+import{j as r}from"./motion-BZnCyKgS.js";import{u as t,w as o}from"./index-DZOga3m_.js";import{r as a}from"./renderLegalMd-4mZxAyAc.js";import{L as s}from"./react-vendor-DfPuibdP.js";import"./firebase-DzH6GH7r.js";import"./charts-DwoTjIGi.js";const i=`# ПОЛИТИКА ЗА ВРЪЩАНЕ НА СУМИ – FACTCHECKER AI\r
 \r
 **Последна актуализация:** Март 2026 г.\r
 \r
@@ -51,7 +51,7 @@ import{j as e}from"./motion-DMmWGCb4.js";import{u as t,m as a}from"./index-DV_ff
 \r
 За въпроси, свързани с плащания и възстановяване на суми:\r
 \r
-**Костадин Серезлиев**  \r
+**Костадин Стоянов**  \r
 Имейл: **factcheckerai42@gmail.com**\r
 \r
 За въпроси, свързани с обработката на плащанията и фактурирането, може да се обърнете и директно към **Lemon Squeezy** чрез техния support портал.\r
@@ -108,8 +108,8 @@ Points have no monetary value outside the Platform and cannot be exchanged for m
 \r
 For questions related to payments and refunds:\r
 \r
-**Kostadin Serezliev**  \r
+**Kostadin Stoyanov**  \r
 Email: **factcheckerai42@gmail.com**\r
 \r
 For questions related to payment processing and billing, you may also contact **Lemon Squeezy** directly through their support portal.\r
-`,p=()=>{const{t:r}=t(),n=a.language==="en"?c:i;return e.jsx("div",{className:"min-h-screen pt-32 pb-24 px-6 md:px-12 max-md:pt-20 max-md:pb-28 max-md:px-4",children:e.jsxs("div",{className:"max-w-3xl mx-auto editorial-card p-8 md:p-12 max-md:p-6 bg-[#151515]/80 backdrop-blur-md",children:[e.jsx("div",{className:"prose prose-invert max-w-none text-[#ddd]",children:o(n)}),e.jsx("p",{className:"mt-12 pt-6 border-t border-[#333] text-center",children:e.jsx(s,{to:"/",className:"text-[9px] font-bold text-[#968B74] hover:text-[#C4B091] uppercase tracking-widest border-b border-[#968B74]/30",children:r("legal.backHome")})})]})})};export{p as default};
+`,p=()=>{const{t:e}=t(),n=o.language==="en"?c:i;return r.jsx("div",{className:"min-h-screen pt-32 pb-24 px-6 md:px-12 max-md:pt-20 max-md:pb-28 max-md:px-4",children:r.jsxs("div",{className:"max-w-3xl mx-auto editorial-card p-8 md:p-12 max-md:p-6 bg-[#151515]/80 backdrop-blur-md",children:[r.jsx("div",{className:"prose prose-invert max-w-none text-[#ddd]",children:a(n)}),r.jsx("p",{className:"mt-12 pt-6 border-t border-[#333] text-center",children:r.jsx(s,{to:"/",className:"text-[9px] font-bold text-[#968B74] hover:text-[#C4B091] uppercase tracking-widest border-b border-[#968B74]/30",children:e("legal.backHome")})})]})})};export{p as default};

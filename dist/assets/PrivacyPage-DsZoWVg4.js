@@ -1,4 +1,4 @@
-import{j as e}from"./motion-DMmWGCb4.js";import{u as a,m as t}from"./index-DV_ffwHv.js";import{r as o}from"./renderLegalMd-CM_Jpi49.js";import{L as i}from"./react-vendor-DfPuibdP.js";import"./firebase-DzH6GH7r.js";import"./charts-COc1iTIi.js";const s=`# ПОЛИТИКА ЗА ПОВЕРИТЕЛНОСТ НА FACTCHECKER AI\r
+import{j as e}from"./motion-BZnCyKgS.js";import{u as a,w as t}from"./index-DZOga3m_.js";import{r as o}from"./renderLegalMd-4mZxAyAc.js";import{L as i}from"./react-vendor-DfPuibdP.js";import"./firebase-DzH6GH7r.js";import"./charts-DwoTjIGi.js";const s=`# ПОЛИТИКА ЗА ПОВЕРИТЕЛНОСТ НА FACTCHECKER AI\r
 \r
 **Последна актуализация:** Март 2026 г.\r
 \r
@@ -6,7 +6,7 @@ import{j as e}from"./motion-DMmWGCb4.js";import{u as a,m as t}from"./index-DV_ff
 \r
 ## 1. Администратор на личните данни\r
 \r
-Администратор на личните данни, обработвани в рамките на услугата FactChecker AI („Платформата“), е **Костадин Серезлиев**, физическо лице, с адрес за кореспонденция: **България, София**. За въпроси относно личните ви данни и за упражняване на правата си можете да пишете на: **factcheckerai42@gmail.com**.\r
+Администратор на личните данни, обработвани в рамките на услугата FactChecker AI („Платформата“), е **Костадин Стоянов**, физическо лице, с адрес за кореспонденция: **България, София**. За въпроси относно личните ви данни и за упражняване на правата си можете да пишете на: **factcheckerai42@gmail.com**.\r
 \r
 Назначен Data Protection Officer (ДПО) няма. За жалби относно обработката на лични данни можете да се обърнете към Комисията за защита на личните данни (КЗЛД), България: https://cpdp.bg/.\r
 \r
@@ -101,7 +101,7 @@ import{j as e}from"./motion-DMmWGCb4.js";import{u as a,m as t}from"./index-DV_ff
 \r
 ## 9. Контакт\r
 \r
-**Костадин Серезлиев**  \r
+**Костадин Стоянов**  \r
 Адрес: България, София  \r
 Имейл: **factcheckerai42@gmail.com**\r
 \r
@@ -114,7 +114,7 @@ import{j as e}from"./motion-DMmWGCb4.js";import{u as a,m as t}from"./index-DV_ff
 \r
 ## 1. Data Controller\r
 \r
-The controller of personal data processed within the FactChecker AI service ("Platform") is **Kostadin Serezliev**, a natural person, with correspondence address: **Bulgaria, Sofia**. For questions about your personal data and to exercise your rights, write to: **factcheckerai42@gmail.com**.\r
+The controller of personal data processed within the FactChecker AI service ("Platform") is **Kostadin Stoyanov**, a natural person, with correspondence address: **Bulgaria, Sofia**. For questions about your personal data and to exercise your rights, write to: **factcheckerai42@gmail.com**.\r
 \r
 No Data Protection Officer (DPO) has been appointed. For complaints about the processing of personal data, you may contact the Commission for Personal Data Protection (CPDP), Bulgaria: https://cpdp.bg/.\r
 \r
@@ -209,7 +209,7 @@ We may update this Privacy Policy. Updates will be published on this page with a
 \r
 ## 9. Contact\r
 \r
-**Kostadin Serezliev**  \r
+**Kostadin Stoyanov**  \r
 Address: Bulgaria, Sofia  \r
 Email: **factcheckerai42@gmail.com**\r
 \r
