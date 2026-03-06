@@ -86,7 +86,7 @@ export const PRICING_TIERS = [
     bonusPoints: 0,
     totalPoints: 500,
     popular: false,
-    variantId: '1302428', // Lemon Squeezy variant ID
+    variantId: '1362618', // Lemon Squeezy variant ID
     features: [
       'Достъп до всички функции на платформата',
       'Видео и линк анализ, архив, експорт',
@@ -100,7 +100,7 @@ export const PRICING_TIERS = [
     bonusPoints: 200,
     totalPoints: 1700,
     popular: true,
-    variantId: '1302435',
+    variantId: '1362620',
     features: [
       'Достъп до всички функции на платформата',
       'Видео и линк анализ, архив, експорт',
@@ -114,7 +114,7 @@ export const PRICING_TIERS = [
     bonusPoints: 1000,
     totalPoints: 5500,
     popular: false,
-    variantId: '1302443',
+    variantId: '1362623',
     features: [
       'Достъп до всички функции на платформата',
       'Видео и линк анализ, архив, експорт',
@@ -128,7 +128,7 @@ export const PRICING_TIERS = [
     bonusPoints: 2500,
     totalPoints: 12500,
     popular: false,
-    variantId: '1302446',
+    variantId: '1362624',
     features: [
       'Достъп до всички функции на платформата',
       'Видео и линк анализ, архив, експорт',
