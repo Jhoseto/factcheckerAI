@@ -6,7 +6,7 @@
 
 ## 1. Operator and Service
 
-The provider of the FactChecker AI service (hereinafter referred to as the "Platform" or "Service") is **Kostadin Serezliev**, a natural person, with correspondence address: **Bulgaria, Sofia**. Contact: **factcheckerai42@gmail.com**.
+The provider of the FactChecker AI service (hereinafter referred to as the "Platform" or "Service") is **Kostadin Stoyanov**, a natural person, with correspondence address: **Bulgaria, Sofia**. Contact: **factcheckerai42@gmail.com**.
 
 FactChecker AI is an online platform for analysis and fact-checking of media content (YouTube videos, web articles and links, social media posts). The Service is provided through a system of "points" that users spend to submit analysis requests. Points can be received as a registration bonus or purchased through the external payment platform Lemon Squeezy.
 
@@ -114,6 +114,6 @@ If you are a consumer located in the European Union, nothing in these terms remo
 
 For questions regarding these Terms and Conditions and for legal notices, you may contact the operator at:
 
-**Kostadin Serezliev**  
+**Kostadin Stoyanov**  
 Address: Bulgaria, Sofia  
 Email: **factcheckerai42@gmail.com**

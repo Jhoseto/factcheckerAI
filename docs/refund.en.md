@@ -51,7 +51,7 @@ Points have no monetary value outside the Platform and cannot be exchanged for m
 
 For questions related to payments and refunds:
 
-**Kostadin Serezliev**  
+**Kostadin Stoyanov**  
 Email: **factcheckerai42@gmail.com**
 
 For questions related to payment processing and billing, you may also contact **Lemon Squeezy** directly through their support portal.
