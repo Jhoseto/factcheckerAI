@@ -10,7 +10,20 @@ const rateLimitMap = new Map(); // ip -> last timestamp
 const RATE_MS = 10000; // 10 sec — allow normal navigation, React Strict Mode double-mount
 
 function getIp(req) {
-    return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || req.connection?.remoteAddress || '';
+    const cf = req.headers['cf-connecting-ip']?.trim();
+    if (cf) return cf;
+    const real = req.headers['x-real-ip']?.trim();
+    if (real) return real;
+    const forwarded = req.headers['x-forwarded-for'];
+    if (forwarded) {
+        const ips = forwarded.split(',').map(s => s.trim()).filter(Boolean);
+        const ipv4 = ips.find(ip => /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip));
+        if (ipv4) return ipv4;
+        return ips[0] || '';
+    }
+    const raw = req.ip || req.connection?.remoteAddress || req.socket?.remoteAddress || '';
+    if (raw.startsWith('::ffff:')) return raw.replace(/^::ffff:/, '');
+    return raw;
 }
 
 router.post('/visit', express.json(), async (req, res) => {

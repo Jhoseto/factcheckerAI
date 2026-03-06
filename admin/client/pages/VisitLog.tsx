@@ -73,7 +73,13 @@ export const VisitLog: React.FC = () => {
                         <tbody>
                             {visits.map(v => (
                                 <tr key={v.id} className="border-b border-[#333] hover:bg-[#252525]">
-                                    <td className="py-3 px-2 text-[#ddd] font-mono text-[10px]">{v.ip || '—'}</td>
+                                    <td className="py-3 px-2 text-[#ddd] font-mono text-[10px]">
+                                        {v.ip ? (
+                                            <a href={`https://whatismyipaddress.com/ip/${encodeURIComponent(v.ip)}`} target="_blank" rel="noopener noreferrer" className="text-[#968B74] hover:text-[#C4B091] hover:underline">
+                                                {v.ip}
+                                            </a>
+                                        ) : '—'}
+                                    </td>
                                     <td className="py-3 px-2 text-[#888] text-[10px]">{v.userId ? `${v.userId.slice(0, 12)}…` : 'Анонимен'}</td>
                                     <td className="py-3 px-2 text-[#968B74] font-bold">{actionLabels[v.action || ''] || v.action}</td>
                                     <td className="py-3 px-2 text-[#888] text-[10px]">{(v.path || '/').slice(0, 30)}</td>
