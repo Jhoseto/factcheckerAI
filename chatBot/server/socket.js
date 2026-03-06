@@ -16,7 +16,8 @@ export function setupChatBotSocket(io) {
     });
 
     socket.on('send_message', async (data) => {
-      const { sessionId, sender, content, userName, fileUrl, fileType } = data;
+      const { sessionId, sender, content, userName, fileUrl, fileType, lang, handoffRequested } = data;
+      const userLang = lang === 'en' ? 'en' : 'bg';
 
       const session = db.prepare('SELECT id FROM sessions WHERE id = ?').get(sessionId);
       if (!session) {
@@ -43,17 +44,22 @@ export function setupChatBotSocket(io) {
       io.emit('admin_update', { type: 'new_message', sessionId, sender, userName });
 
       if (sender === 'customer') {
+        if (handoffRequested) {
+          db.prepare('UPDATE sessions SET handoff_requested = 1 WHERE id = ?').run(sessionId);
+          return;
+        }
+        db.prepare('UPDATE sessions SET handoff_requested = 0 WHERE id = ?').run(sessionId);
+
         const lowerContent = (content || '').toLowerCase();
         const needsHuman = lowerContent.includes('human') || lowerContent.includes('operator') || lowerContent.includes('person') || lowerContent.includes('agent');
-        const sessionData = db.prepare('SELECT handoff_requested FROM sessions WHERE id = ?').get(sessionId);
 
-        if (needsHuman || sessionData?.handoff_requested) {
-          if (needsHuman) {
-            db.prepare('UPDATE sessions SET handoff_requested = 1 WHERE id = ?').run(sessionId);
-            const handoffMsg = "I understand you'd like to speak with a human. I'm notifying our team right now. One moment please!";
-            db.prepare('INSERT INTO messages (session_id, sender, content) VALUES (?, ?, ?)').run(sessionId, 'ai', handoffMsg);
-            io.to(sessionId).emit('new_message', { sessionId, sender: 'ai', content: handoffMsg, timestamp: new Date().toISOString() });
-          }
+        if (needsHuman) {
+          db.prepare('UPDATE sessions SET handoff_requested = 1 WHERE id = ?').run(sessionId);
+          const handoffMsg = userLang === 'bg'
+            ? "Разбирам, че искате да говорите с оператор. Уведомяваме екипа си. Моля, изчакайте!"
+            : "I understand you'd like to speak with a human. I'm notifying our team right now. One moment please!";
+          db.prepare('INSERT INTO messages (session_id, sender, content) VALUES (?, ?, ?)').run(sessionId, 'ai', handoffMsg);
+          io.to(sessionId).emit('new_message', { sessionId, sender: 'ai', content: handoffMsg, timestamp: new Date().toISOString() });
           return;
         }
 
@@ -63,7 +69,10 @@ export function setupChatBotSocket(io) {
           parts: [{ text: m.content }]
         }));
 
-        const aiText = await getAIResponse(content, formattedHistory);
+        const aiText = await getAIResponse(content, formattedHistory, userLang);
+
+        const sessionNow = db.prepare('SELECT handoff_requested FROM sessions WHERE id = ?').get(sessionId);
+        if (sessionNow?.handoff_requested) return;
 
         db.prepare('INSERT INTO messages (session_id, sender, content) VALUES (?, ?, ?)').run(sessionId, 'ai', aiText);
 

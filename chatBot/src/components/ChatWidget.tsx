@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { MessageCircle, X, Send, Bot, User, Loader2, Clock, Paperclip, Globe, Star } from 'lucide-react';
+import { MessageCircle, X, Send, Bot, User, Loader2, Clock, Paperclip, Star, Headphones } from 'lucide-react';
+import { useAuth } from '../../../contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import Markdown from 'react-markdown';
@@ -14,10 +16,15 @@ function cn(...inputs: ClassValue[]) {
 const API_BASE = '/api/chat';
 
 export default function ChatWidget() {
+  const { currentUser, userProfile } = useAuth();
+  const { i18n } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState('');
   const [userName, setUserName] = useState(() => localStorage.getItem('chat_user_name') || '');
   const [tempName, setTempName] = useState('');
+  const effectiveUserName = currentUser
+    ? (userProfile?.displayName || (currentUser as any).displayName || (currentUser as any).email?.split('@')[0] || 'User')
+    : userName;
   const [messages, setMessages] = useState<any[]>([]);
   const [sessionId] = useState(() => {
     const saved = localStorage.getItem('chat_session_id');
@@ -33,8 +40,11 @@ export default function ChatWidget() {
   const [rating, setRating] = useState(0);
   const [ratingComment, setRatingComment] = useState('');
   const [isResolved, setIsResolved] = useState(false);
-  const [lang, setLang] = useState<'en' | 'bg'>('en');
+  const [chatMode, setChatMode] = useState<'ai' | 'admin'>('ai');
+  const [unreadCount, setUnreadCount] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const isOpenRef = useRef(false);
+  const notifyTitleRef = useRef('');
   const typingTimeoutRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -53,6 +63,10 @@ export default function ChatWidget() {
       submitRating: "Submit Feedback",
       feedbackPlaceholder: "Any feedback? (optional)",
       inputPlaceholder: "Type your message...",
+      helloGreeting: "Hello {name}! How can we help you today?",
+      modeAI: "AI Assistant",
+      modeAdmin: "Real Support",
+      newMessage: "New message from support",
       quickReplies: ["How does video analysis work?", "Tell me about pricing and points", "I need support", "What types of analysis do you offer?"]
     },
     bg: {
@@ -61,7 +75,7 @@ export default function ChatWidget() {
       placeholder: "Вашето име",
       btnStart: "Започни чат",
       online: "На линия и готов за помощ",
-      thinking: "AI мисли...",
+      thinking: "Подготвям отговор...",
       typing: "Операторът пише...",
       ended: "Този разговор приключи.",
       newSession: "Започни нова сесия",
@@ -69,9 +83,14 @@ export default function ChatWidget() {
       submitRating: "Изпрати обратна връзка",
       feedbackPlaceholder: "Коментар? (опционално)",
       inputPlaceholder: "Напишете съобщение...",
+      helloGreeting: "Здравейте {name}! Как можем да ви помогнем днес?",
+      modeAI: "AI асистент",
+      modeAdmin: "Реален администратор",
+      newMessage: "Ново съобщение от поддръжката",
       quickReplies: ["Как работи анализът на видео?", "Цени и точки", "Имам нужда от поддръжка", "Какви видове анализ предлагате?"]
     }
-  }[lang];
+  }[i18n.language === 'en' ? 'en' : 'bg'];
+  notifyTitleRef.current = t.newMessage;
 
   useEffect(() => {
     const newSocket = io();
@@ -81,25 +100,34 @@ export default function ChatWidget() {
 
     // Check if resolved
     fetch(`${API_BASE}/sessions?status=resolved`)
-      .then(res => res.json())
-      .then(data => {
+      .then(res => res.ok ? res.json() : [])
+      .then((data: any[]) => {
+        if (!Array.isArray(data)) return;
         const current = data.find((s: any) => s.id === sessionId);
         if (current) {
           setIsResolved(true);
           if (current.rating === null) setShowRating(true);
         }
-      });
+      })
+      .catch(() => {});
 
     // Load history
     fetch(`${API_BASE}/messages/${sessionId}`)
-      .then(res => res.json())
-      .then(data => setMessages(data));
+      .then(res => res.ok ? res.json() : [])
+      .then((data: any[]) => setMessages(Array.isArray(data) ? data : []))
+      .catch(() => setMessages([]));
 
     newSocket.on('new_message', (msg) => {
       setMessages(prev => [...prev, msg]);
       if (msg.sender === 'ai' || msg.sender === 'admin') {
         setIsTyping(false);
         setAdminTyping(false);
+      }
+      if (msg.sender === 'admin' && !isOpenRef.current) {
+        setUnreadCount(prev => prev + 1);
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          new Notification(notifyTitleRef.current, { body: (msg.content || '').slice(0, 100) + (msg.content?.length > 100 ? '...' : ''), icon: '/favicon.ico' });
+        }
       }
     });
 
@@ -115,6 +143,10 @@ export default function ChatWidget() {
   }, [sessionId]);
 
   useEffect(() => {
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
+
+  useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
@@ -128,13 +160,15 @@ export default function ChatWidget() {
       sessionId,
       sender: 'customer',
       content: finalMessage,
-      userName: userName || 'Visitor',
+      userName: effectiveUserName || 'Visitor',
       fileUrl: file?.url,
-      fileType: file?.type
+      fileType: file?.type,
+      lang: i18n.language,
+      handoffRequested: chatMode === 'admin'
     });
 
     if (!text && !file) setMessage('');
-    if (!file) setIsTyping(true);
+    if (!file) setIsTyping(chatMode === 'ai');
     
     // Stop typing indicator
     socket?.emit('typing', { sessionId, sender: 'customer', isTyping: false });
@@ -198,14 +232,14 @@ export default function ChatWidget() {
 
 
   return (
-    <div className="fixed bottom-10 right-14 z-50 font-sans">
+    <div className="fixed bottom-15 right-14 z-50 font-sans">
       <AnimatePresence>
         {isOpen && (
           <motion.div
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="chat-glass mb-4 w-[380px] h-[550px] rounded-3xl flex flex-col overflow-hidden"
+            className="chat-glass w-[380px] h-[550px] rounded-3xl flex flex-col overflow-hidden"
           >
             {/* Header */}
             <div className="bg-[#2C2C2C] p-6 flex items-center justify-between border-b border-[rgba(150,139,116,0.2)]">
@@ -223,13 +257,6 @@ export default function ChatWidget() {
               </div>
               <div className="flex items-center gap-2">
                 <button 
-                  onClick={() => setLang(lang === 'en' ? 'bg' : 'en')}
-                  className="p-2 hover:bg-[rgba(150,139,116,0.15)] rounded-full transition-colors text-[var(--bronze-light)]"
-                  title="Switch Language"
-                >
-                  <Globe size={16} />
-                </button>
-                <button 
                   onClick={clearHistory}
                   title="Clear history"
                   className="p-2 hover:bg-[rgba(150,139,116,0.15)] rounded-full transition-colors text-[var(--bronze-light)]"
@@ -245,12 +272,42 @@ export default function ChatWidget() {
               </div>
             </div>
 
+            {/* Mode Toggle */}
+            {effectiveUserName && (
+              <div className="p-2 border-b border-[rgba(150,139,116,0.2)]">
+                <div className="flex bg-[#222] rounded-2xl p-1 border border-[rgba(150,139,116,0.15)]">
+                  <button
+                    type="button"
+                    onClick={() => setChatMode('ai')}
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all",
+                      chatMode === 'ai' ? "bg-[rgba(150,139,116,0.2)] text-[var(--bronze-light)]" : "text-[var(--bronze-mid)] hover:text-[var(--bronze-light)]"
+                    )}
+                  >
+                    <Bot size={14} />
+                    {t.modeAI}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChatMode('admin')}
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all",
+                      chatMode === 'admin' ? "bg-[rgba(150,139,116,0.2)] text-[var(--bronze-light)]" : "text-[var(--bronze-mid)] hover:text-[var(--bronze-light)]"
+                    )}
+                  >
+                    <Headphones size={14} />
+                    {t.modeAdmin}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Messages */}
             <div 
               ref={scrollRef}
               className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#222]/50"
             >
-              {!userName ? (
+              {!effectiveUserName ? (
                 <div className="h-full flex flex-col items-center justify-center text-center px-4">
                   <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6 bg-[rgba(150,139,116,0.15)]">
                     <User className="text-[var(--bronze-mid)]" size={40} />
@@ -282,7 +339,7 @@ export default function ChatWidget() {
                       <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-[rgba(150,139,116,0.15)]">
                         <Bot className="text-[var(--bronze-mid)]" size={32} />
                       </div>
-                      <p className="text-[var(--bronze-mid)] text-sm">Hello {userName}! How can we help you today?</p>
+                      <p className="text-[var(--bronze-mid)] text-sm">{t.helloGreeting.replace('{name}', effectiveUserName)}</p>
                     </div>
                   )}
                   {messages.map((msg, i) => (
@@ -320,7 +377,7 @@ export default function ChatWidget() {
                       </div>
                       <div className="flex items-center gap-2 mt-1 px-1">
                         <span className="text-[10px] text-[var(--bronze-mid)]">
-                          {msg.sender === 'ai' ? 'AI Assistant' : msg.sender === 'admin' ? 'Support' : userName}
+                          {msg.sender === 'ai' ? 'AI Assistant' : msg.sender === 'admin' ? 'Support' : effectiveUserName}
                         </span>
                         {msg.timestamp && (
                           <>
@@ -383,7 +440,7 @@ export default function ChatWidget() {
                     </motion.div>
                   )}
                   
-                  {messages.length > 0 && !isTyping && !isResolved && (
+                  {messages.length > 0 && !isTyping && !isResolved && chatMode === 'ai' && (
                     <div className="flex flex-wrap gap-2 mt-4">
                       {t.quickReplies.map((reply, i) => (
                         <button
@@ -401,7 +458,7 @@ export default function ChatWidget() {
             </div>
 
             {/* Input */}
-            {userName && !isResolved && (
+            {effectiveUserName && !isResolved && (
               <div className="p-4 bg-[#2C2C2C] border-t border-[rgba(150,139,116,0.2)]">
                 <div className="flex items-center gap-2 bg-[#222] rounded-2xl p-2 pl-4 border border-[rgba(150,139,116,0.15)]">
                   <input
@@ -433,7 +490,7 @@ export default function ChatWidget() {
                   </button>
                 </div>
                 <p className="text-[10px] text-center text-[var(--bronze-mid)] mt-3">
-                  Powered by FactChecker AI & Gemini
+                  Powered by FactChecker AI
                 </p>
               </div>
             )}
@@ -452,15 +509,24 @@ export default function ChatWidget() {
         )}
       </AnimatePresence>
 
-      <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-16 h-16 rounded-full shadow-2xl flex items-center justify-center text-[#1a1a1a] transition-all border-2 border-[#C4B091] hover:brightness-110"
-        style={{ background: 'linear-gradient(to bottom, #A89F91 0%, #786C55 100%)' }}
-      >
-        {isOpen ? <X size={28} /> : <MessageCircle size={28} />}
-      </motion.button>
+      {!isOpen && (
+        <motion.button
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => { setIsOpen(true); setUnreadCount(0); if (typeof Notification !== 'undefined' && Notification.permission === 'default') Notification.requestPermission(); }}
+          className="relative w-16 h-16 rounded-full shadow-2xl flex items-center justify-center text-[#1a1a1a] transition-all border-2 border-[#C4B091] hover:brightness-110"
+          style={{ background: 'linear-gradient(to bottom, #A89F91 0%, #786C55 100%)' }}
+        >
+          <MessageCircle size={28} />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 flex items-center justify-center bg-rose-500 text-white text-[10px] font-bold rounded-full animate-pulse">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </motion.button>
+      )}
     </div>
   );
 }

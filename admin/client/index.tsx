@@ -16,6 +16,7 @@ import { VisitLog } from './pages/VisitLog';
 import { ActivityLog } from './pages/ActivityLog';
 import { Revenue } from './pages/Revenue';
 import { Settings } from './pages/Settings';
+import { ChatSupport } from './pages/ChatSupport';
 
 export const AdminApp: React.FC = () => {
     const navigate = useNavigate();
@@ -56,6 +57,7 @@ export const AdminApp: React.FC = () => {
                 <Route path="activity" element={<ActivityLog />} />
                 <Route path="revenue" element={<Revenue />} />
                 <Route path="settings" element={<Settings />} />
+                <Route path="chat" element={<ChatSupport />} />
                 <Route path="*" element={<Navigate to="/admin" replace />} />
             </Route>
         </Routes>

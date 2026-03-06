@@ -84,6 +84,7 @@ app.use('/api/track', express.json({ limit: '10kb' }), visitTrackRouter);
 app.use('/api/config', publicConfigRouter);
 app.use('/api/user-messages', userMessagesRouter);
 app.use('/api/admin', express.json({ limit: '1mb' }), adminRouter);
+app.use('/api/chat', express.json({ limit: '1mb' }), chatBotRouter);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // YouTube Proxy & Routes

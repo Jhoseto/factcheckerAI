@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { io, Socket } from 'socket.io-client';
 import { Users, MessageSquare, Send, Search, Bell, Menu, MoreVertical, CheckCircle2, Clock, X, Paperclip, Zap, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -14,6 +15,7 @@ function cn(...inputs: ClassValue[]) {
 const API_BASE = '/api/chat';
 
 export default function AdminDashboard() {
+  const { i18n } = useTranslation();
   const [sessions, setSessions] = useState<any[]>([]);
   const [activeSession, setActiveSession] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
@@ -28,7 +30,6 @@ export default function AdminDashboard() {
   const [analytics, setAnalytics] = useState<any>(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [newCanned, setNewCanned] = useState('');
-  const [lang, setLang] = useState<'en' | 'bg'>('en');
   const scrollRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -68,7 +69,7 @@ export default function AdminDashboard() {
       add: "Добави",
       newTemplate: "Нов шаблон..."
     }
-  }[lang];
+  }[i18n.language === 'en' ? 'en' : 'bg'];
 
   useEffect(() => {
     const newSocket = io();
@@ -303,12 +304,6 @@ export default function AdminDashboard() {
             FactChecker AI
           </h1>
           <div className="flex items-center gap-2">
-            <button 
-              onClick={() => setLang(lang === 'en' ? 'bg' : 'en')}
-              className="p-2 hover:bg-[rgba(150,139,116,0.15)] rounded-lg text-[var(--bronze-mid)] font-bold text-xs"
-            >
-              {lang.toUpperCase()}
-            </button>
             <button 
               onClick={() => setShowAnalytics(!showAnalytics)}
               className={cn(

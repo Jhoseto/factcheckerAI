@@ -98,6 +98,14 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ isSuperAdmin }) => {
                 >
                     Посещения
                 </NavLink>
+                <NavLink
+                    to="/admin/chat"
+                    className={({ isActive }) =>
+                        `px-4 py-2.5 text-[9px] font-bold uppercase tracking-wider rounded transition-colors ${isActive ? 'bg-[#968B74]/20 text-[#C4B091] border-l-2 border-[#968B74]' : 'text-[#888] hover:text-[#C4B091] hover:bg-[#333]'}`
+                    }
+                >
+                    Чат поддръжка
+                </NavLink>
             </aside>
             <main className="flex-1 p-8 overflow-auto ml-56">
                 <Outlet />

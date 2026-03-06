@@ -18,7 +18,6 @@ const ExpensesPage = lazy(() => import('./components/user/ExpensesPage'));
 const ArchivePage = lazy(() => import('./components/archive/ArchivePage'));
 const ReportPage = lazy(() => import('./components/report/ReportPage'));
 const AdminApp = lazy(() => import('./admin/client/index').then(m => ({ default: m.AdminApp })));
-const ChatBotAdminPage = lazy(() => import('./components/chat/ChatBotAdminPage').then(m => ({ default: m.default })));
 const TermsPage = lazy(() => import('./components/legal/TermsPage'));
 const PrivacyPage = lazy(() => import('./components/legal/PrivacyPage'));
 const RefundPage = lazy(() => import('./components/legal/RefundPage'));
@@ -118,7 +117,7 @@ const AppRouter: React.FC = () => {
                 />
                 <Route
                     path="/chat-admin"
-                    element={currentUser ? <ChatBotAdminPage /> : <Navigate to="/login" replace />}
+                    element={<Navigate to="/admin/chat" replace />}
                 />
 
                 {/* Archive - saved analyses */}
