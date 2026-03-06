@@ -1,23 +1,25 @@
-# Use official Node.js image
-FROM node:20-slim
-
-# Set working directory
+# Stage 1: Build
+FROM node:20-slim AS builder
 WORKDIR /app
 
-# Copy package files  
 COPY package*.json ./
+RUN npm install --legacy-peer-deps
 
-# Install ONLY production dependencies
+COPY . .
+RUN npm run build
+
+# Stage 2: Production
+FROM node:20-slim
+WORKDIR /app
+
+COPY package*.json ./
 RUN npm install --production --legacy-peer-deps
 
-# Copy pre-built dist folder, server, admin module, and locales (bg.json for i18n)
-COPY dist ./dist
+COPY --from=builder /app/dist ./dist
 COPY server ./server
 COPY admin ./admin
+COPY chatBot ./chatBot
 COPY locales ./locales
 
-# Expose the port
 EXPOSE 8080
-
-# Start the server
 CMD ["node", "server/index.js"]
