@@ -64,7 +64,26 @@ function escapeControlCharsInJson(text) {
     return out;
 }
 
-/** Parse JSON from Gemini response: strip markdown, then parse (with one fallback for control chars). */
+/** Extract the outermost {...} object from text using bracket counting. */
+function extractJsonObject(text) {
+    const start = text.indexOf('{');
+    if (start === -1) return null;
+    let depth = 0, inString = false, escape = false;
+    for (let i = start; i < text.length; i++) {
+        const ch = text[i];
+        if (escape) { escape = false; continue; }
+        if (ch === '\\' && inString) { escape = true; continue; }
+        if (ch === '"') { inString = !inString; continue; }
+        if (!inString) {
+            if (ch === '{') depth++;
+            else if (ch === '}') { depth--; if (depth === 0) return text.slice(start, i + 1); }
+        }
+    }
+    // Unclosed — return everything from start (truncated response; let JSON.parse decide)
+    return text.slice(start);
+}
+
+/** Parse JSON from Gemini response: strip markdown → parse → escape control chars → bracket extract. */
 function parseJsonRobust(rawText) {
     if (!rawText || typeof rawText !== 'string') return { ok: false, error: 'empty' };
     let t = rawText.trim();
@@ -73,11 +92,19 @@ function parseJsonRobust(rawText) {
     else t = t.replace(/```json\s*/g, '').replace(/\s*```/g, '').trim();
     if (!t.length) return { ok: false, error: 'empty' };
 
+    // Attempt 1: direct parse
+    try { return { ok: true, parsed: JSON.parse(t) }; } catch (_) { }
+    // Attempt 2: escape control chars
+    try { return { ok: true, parsed: JSON.parse(escapeControlCharsInJson(t)) }; } catch (_) { }
+    // Attempt 3: bracket-counting extraction (handles trailing garbage / partial markdown)
     try {
-        return { ok: true, parsed: JSON.parse(t) };
+        const extracted = extractJsonObject(t);
+        if (extracted) return { ok: true, parsed: JSON.parse(extracted) };
     } catch (_) { }
+    // Attempt 4: bracket extraction + control char escape
     try {
-        return { ok: true, parsed: JSON.parse(escapeControlCharsInJson(t)) };
+        const extracted = extractJsonObject(t);
+        if (extracted) return { ok: true, parsed: JSON.parse(escapeControlCharsInJson(extracted)) };
     } catch (_) { }
     return { ok: false, error: 'parse failed' };
 }
@@ -813,9 +840,10 @@ finalInvestigativeReport: comprehensive synthesis. Never leave arrays empty. Nev
                 const researchPrompt = lang === 'en'
                     ? 'Watch this video carefully. Then use Google Search to verify every factual claim made in the video — especially political facts, statistics, names, dates, and recent events. For each claim: state what was said, search for evidence, and give a verdict (true/false/misleading). Also identify the top manipulation techniques used. Be thorough and factual.'
                     : 'Гледай внимателно видеото. След това използвай Google Search за да провериш всяко фактическо твърдение — особено политически факти, статистики, имена, дати и актуални събития. За всяко твърдение: опиши какво е казано, потърси доказателства и дай присъда (вярно/невярно/подвеждащо). Идентифицирай и топ манипулативни техники.';
-                const stage1Contents = [{ role: 'user', parts: videoUrl
-                    ? [{ fileData: { fileUri: videoUrl } }, { text: researchPrompt }]
-                    : [{ text: researchPrompt }]
+                const stage1Contents = [{
+                    role: 'user', parts: videoUrl
+                        ? [{ fileData: { fileUri: videoUrl } }, { text: researchPrompt }]
+                        : [{ text: researchPrompt }]
                 }];
                 console.log('[Standard+Search] Stage1 — research prompt with Google Search');
                 const stage1Response = await ai.models.generateContent({
@@ -836,7 +864,7 @@ finalInvestigativeReport: comprehensive synthesis. Never leave arrays empty. Nev
                 if (typeof stage1Response.text === 'string') stage1Text = stage1Response.text;
                 else if (stage1Response.candidates?.[0]?.content?.parts) {
                     stage1Text = stage1Response.candidates[0].content.parts
-                            .map(p => (p && typeof p === 'object' && p.text != null) ? String(p.text) : '').join('');
+                        .map(p => (p && typeof p === 'object' && p.text != null) ? String(p.text) : '').join('');
                 }
                 stage1Text = stage1Text || '';
                 console.log('[Standard+Search] Stage1 research chars:', stage1Text.length);
@@ -846,9 +874,10 @@ finalInvestigativeReport: comprehensive synthesis. Never leave arrays empty. Nev
                 const stage2Prompt = prompt + (stage1Text
                     ? '\n\n=== GOOGLE SEARCH RESEARCH (use this to populate all fields accurately) ===\n' + stage1Text.substring(0, 15000) + '\n=== END RESEARCH ==='
                     : '');
-                const stage2Contents = [{ role: 'user', parts: videoUrl
-                    ? [{ fileData: { fileUri: videoUrl } }, { text: stage2Prompt }]
-                    : [{ text: stage2Prompt }]
+                const stage2Contents = [{
+                    role: 'user', parts: videoUrl
+                        ? [{ fileData: { fileUri: videoUrl } }, { text: stage2Prompt }]
+                        : [{ text: stage2Prompt }]
                 }];
                 console.log('[Standard+Search] Stage2 — JSON schema pass, prompt chars:', stage2Prompt.length);
                 const stage2Response = await ai.models.generateContent({
@@ -869,10 +898,48 @@ finalInvestigativeReport: comprehensive synthesis. Never leave arrays empty. Nev
                 if (typeof stage2Response.text === 'string') fullText = stage2Response.text;
                 else if (stage2Response.candidates?.[0]?.content?.parts) {
                     fullText = stage2Response.candidates[0].content.parts
-                            .map(p => (p && typeof p === 'object' && p.text != null) ? String(p.text) : '').join('');
+                        .map(p => (p && typeof p === 'object' && p.text != null) ? String(p.text) : '').join('');
                 }
                 fullText = fullText || '';
                 console.log('[Standard+Search] Stage2 JSON chars:', fullText.length, '| starts with {:', fullText.trimStart().startsWith('{'));
+
+                // Retry stage2 if JSON parse fails (e.g. output too large / malformed)
+                const s2check = validateJsonResponse(fullText, serviceType || 'video');
+                if (!s2check.valid && (s2check.code === 'AI_JSON_PARSE_ERROR')) {
+                    console.warn('[Standard+Search] Stage2 parse failed — retrying with compact prompt');
+                    sendSSE('progress', { status: getProgressMsg(lang, 'retry') });
+                    const compactPrompt = (lang === 'en'
+                        ? 'Based on the video and research below, return a compact valid JSON analysis. Focus on summary, overallAssessment, factualClaims (top 5), manipulationTechniques (top 5), and detailedMetrics. Keep all text fields SHORT (1-2 sentences max).'
+                        : 'Въз основа на видеото и изследването по-долу, върни компактен валиден JSON анализ. Фокусирай се върху summary, overallAssessment, factualClaims (топ 5), manipulationTechniques (топ 5) и detailedMetrics. Дръж всички текстови полета КРАТКИ (1-2 изречения максимум).')
+                        + (stage1Text ? '\n\nRESEARCH:\n' + stage1Text.substring(0, 8000) : '');
+                    const retryContents = [{
+                        role: 'user', parts: videoUrl
+                            ? [{ fileData: { fileUri: videoUrl } }, { text: compactPrompt }]
+                            : [{ text: compactPrompt }]
+                    }];
+                    const retryResp = await ai.models.generateContent({
+                        model: model || 'gemini-2.5-flash',
+                        contents: retryContents,
+                        config: {
+                            systemInstruction: enhancedSystemInstruction,
+                            temperature: 0.5,
+                            maxOutputTokens: 20000,
+                            responseMimeType: 'application/json',
+                            responseSchema: VIDEO_RESPONSE_SCHEMA,
+                            mediaResolution: 'MEDIA_RESOLUTION_LOW',
+                            httpOptions: { timeout: 180000 }
+                        }
+                    });
+                    accumulateUsage(retryResp.usageMetadata);
+                    streamUsage = retryResp.usageMetadata || streamUsage;
+                    if (typeof retryResp.text === 'string') fullText = retryResp.text;
+                    else if (retryResp.candidates?.[0]?.content?.parts) {
+                        fullText = retryResp.candidates[0].content.parts
+                            .map(p => (p && typeof p === 'object' && p.text != null) ? String(p.text) : '').join('');
+                    }
+                    fullText = fullText || '';
+                    console.log('[Standard+Search] Stage2 retry chars:', fullText.length);
+                }
             } else {
                 // NO tools: fast streaming with responseSchema
                 const stdConfig = {
