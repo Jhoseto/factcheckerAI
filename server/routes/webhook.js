@@ -7,9 +7,22 @@
 
 import express from 'express';
 import crypto from 'crypto';
-import { addPointsToUser } from '../services/firebaseAdmin.js';
+import { addPointsToUser, getFirestore } from '../services/firebaseAdmin.js';
+
+// Fallback: variant_id → points when custom_data.points is missing (sync with config/pricingConfig.ts)
+const VARIANT_TO_POINTS = {
+    '1362624': 500,   // starter
+    '1362623': 1700,  // standard
+    '1362620': 5500,  // professional
+    '1362618': 12500, // enterprise
+};
 
 const router = express.Router();
+
+// GET — for verifying endpoint is reachable (Lemon Squeezy sends POST)
+router.get('/webhook', (req, res) => {
+    res.json({ ok: true, message: 'Lemon Squeezy webhook endpoint. Use POST for events.' });
+});
 
 router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
     try {
@@ -56,21 +69,43 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
             const orderId = String(event.data.id);
             const isTestMode = !!attributes.test_mode;
 
-            // Lemon Squeezy: custom data is in meta.custom_data (see docs)
+            // Lemon Squeezy: custom_data in meta (primary) or nested in attributes
             const customData = event.meta?.custom_data
+                || event.meta?.custom_data
                 || attributes.checkout_data?.custom
                 || attributes.checkout_data
-                || attributes.first_order_item?.custom_data
+                || (attributes.first_order_item && typeof attributes.first_order_item === 'object' ? attributes.first_order_item.custom_data : null)
                 || {};
 
-            const rawUserId = customData.userId ?? customData.user_id ?? customData.uid ?? customData.firebase_uid ?? '';
-            const userId = String(rawUserId).trim();
-            const points = parseInt(customData.points, 10) || Number(customData.points) || 0;
+            let rawUserId = customData.userId ?? customData.user_id ?? customData.uid ?? customData.firebase_uid ?? '';
+            let userId = String(rawUserId).trim();
+            let points = parseInt(customData.points, 10) || Number(customData.points) || 0;
+
+            // Fallback: points from variant_id when custom_data.points missing
+            if (points <= 0) {
+                const variantId = String(attributes.first_order_item?.variant_id ?? event.data?.attributes?.first_order_item?.variant_id ?? '').trim();
+                if (variantId && VARIANT_TO_POINTS[variantId]) {
+                    points = VARIANT_TO_POINTS[variantId];
+                    console.log(`[Webhook] Points from variant_id fallback: ${variantId} → ${points}`);
+                }
+            }
+
+            // Fallback: userId from email lookup when custom_data missing (last resort)
+            if (!userId && points > 0) {
+                const orderEmail = (attributes.user_email || '').trim().toLowerCase();
+                if (orderEmail) {
+                    const usersSnap = await getFirestore().collection('users').where('email', '==', orderEmail).limit(1).get();
+                    if (!usersSnap.empty) {
+                        userId = usersSnap.docs[0].id;
+                        console.log(`[Webhook] userId from email lookup: ${orderEmail} → ${userId}`);
+                    }
+                }
+            }
 
             if (!userId || points <= 0) {
-                console.error(`[Webhook] ❌ Missing userId or points. event_name=%s orderId=%s meta.custom_data=%s`,
-                    eventName, orderId, JSON.stringify(event.meta?.custom_data));
-                return res.json({ received: true, warning: 'Missing userId or points' });
+                console.error(`[Webhook] ❌ Missing userId or points. orderId=%s customData=%s meta=%s`,
+                    orderId, JSON.stringify(customData), JSON.stringify(event.meta));
+                return res.status(500).json({ error: 'Missing userId or points', received: true });
             }
 
             const txOptions = isTestMode

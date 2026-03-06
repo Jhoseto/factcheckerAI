@@ -1,5 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { Routes, Route, Navigate, useSearchParams, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { trackVisit } from './services/visitTracker';
 import { AnnouncementBanner } from './components/common/AnnouncementBanner';
 import { UserMessageBanner } from './components/common/UserMessageBanner';
@@ -32,14 +32,24 @@ const PageFallback = () => (
 );
 
 const AppRouter: React.FC = () => {
-    const { currentUser, loading } = useAuth();
+    const { currentUser, loading, refreshProfile } = useAuth();
     const { newRegistrationEnabled } = usePublicConfig();
     const location = useLocation();
+    const navigate = useNavigate();
     const [searchParams] = useSearchParams();
 
     useEffect(() => {
         if (!loading) trackVisit(location.pathname || '/', 'page_view');
-    }, [loading]); // only on initial load, not on every route change
+    }, [loading]);
+
+    // Refresh profile when returning from successful payment
+    useEffect(() => {
+        if (loading || !currentUser) return;
+        if (searchParams.get('payment') === 'success') {
+            refreshProfile();
+            navigate(location.pathname || '/', { replace: true });
+        }
+    }, [loading, currentUser, searchParams.get('payment'), refreshProfile, navigate, location.pathname]);
     const forceMobile = searchParams.get('mobile') === '1';
     const [isNarrow, setIsNarrow] = useState(typeof window !== 'undefined' && window.innerWidth <= MOBILE_BREAKPOINT);
 

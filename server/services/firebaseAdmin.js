@@ -138,6 +138,27 @@ export async function addPointsToUser(userId, points, orderId = null, options = 
         }
     }
 
+    // Ensure user doc exists (e.g. Auth user who never triggered loadUserProfile)
+    const userRefByUid = db.collection('users').doc(uid);
+    const existingUser = await userRefByUid.get();
+    if (!existingUser.exists) {
+        try {
+            const authUser = await admin.auth().getUser(uid);
+            await userRefByUid.set({
+                uid,
+                email: authUser.email || '',
+                displayName: authUser.displayName || 'User',
+                photoURL: authUser.photoURL || null,
+                pointsBalance: 0,
+                createdAt: new Date().toISOString()
+            });
+            console.log(`[Firebase Admin] Created missing user doc for ${uid}`);
+        } catch (authErr) {
+            console.error(`[Firebase Admin] User ${uid} not in Auth, cannot add points:`, authErr.message);
+            throw new Error(`User ${uid} not found`);
+        }
+    }
+
     try {
         await db.runTransaction(async (transaction) => {
             if (orderId) {
@@ -148,7 +169,6 @@ export async function addPointsToUser(userId, points, orderId = null, options = 
                 }
             }
 
-            const userRefByUid = db.collection('users').doc(uid);
             const userDoc = await transaction.get(userRefByUid);
             if (!userDoc.exists) {
                 throw new Error(`User ${uid} not found in Firestore`);

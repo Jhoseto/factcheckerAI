@@ -25,7 +25,7 @@ router.post('/checkout', async (req, res) => {
         }
 
         const origin = req.headers.origin || req.headers.referer || `${req.protocol}://${req.get('host')}`;
-        const redirectUrl = origin.replace(/\/$/, '') + '/';
+        const redirectUrl = origin.replace(/\/$/, '') + '/?payment=success';
 
         const checkout = await fetch('https://api.lemonsqueezy.com/v1/checkouts', {
             method: 'POST',
