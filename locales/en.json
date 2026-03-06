@@ -250,6 +250,7 @@
     "processing": "Processing...",
     "paymentError": "Payment error. Please try again.",
     "checkoutError": "Error creating payment",
+    "emailRequired": "Email is required for purchase. Please add an email to your account settings.",
     "secureSsl": "Secure SSL",
     "encryptedPayments": "Encrypted payments",
     "instantActivation": "Instant Activation",

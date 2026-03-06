@@ -25,6 +25,11 @@ const PricingPage: React.FC = () => {
             navigate('/login');
             return;
         }
+        const email = (currentUser.email || '').trim();
+        if (!email) {
+            alert(t('pricing.emailRequired'));
+            return;
+        }
         setLoading(tier.id);
         try {
             const token = await currentUser.getIdToken();
