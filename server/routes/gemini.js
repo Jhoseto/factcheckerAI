@@ -402,7 +402,7 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                 const jsonRuleShort = 'CRITICAL: Respond with exactly one valid JSON object. Start with {, end with }. No markdown. Never truncate.';
                 const todayStr = new Date().toISOString().slice(0, 10);
                 const dateInstr = serviceType === 'linkArticle'
-                    ? 'IMPORTANT: Today is ' + todayStr + '. Use Google Search to verify ALL current facts, political positions, and recent events. Do NOT rely on training data alone for time-sensitive facts — especially: current heads of state, election results, recent appointments, ongoing conflicts.'
+                    ? `IMPORTANT: Today is ${todayStr}. Use Google Search to verify ALL current facts. You MUST completely trust the Google Search results over your internal training data. Do not reject claims as "no credible reports exist" just because they occurred after your knowledge cutoff limit. If the provided article and search results describe a recent or ongoing event (like a war or political event), analyze it as a current factual event.`
                     : '';
                 const sysInstr = (systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON.')
                     + '\n\n' + getLanguageInstruction(lang)
@@ -623,7 +623,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             'Keep ALL schema fields populated (summary, overallAssessment, detailedMetrics, factualClaims, manipulationTechniques, etc.); only shorten long text strings if needed to avoid truncation. Always close all brackets and quotes.'
         ].join(' ');
         const todayStr = new Date().toISOString().slice(0, 10);
-        const dateNote = `IMPORTANT: Today's date is ${todayStr}. When verifying facts, always consider the current date — do not assume your training knowledge is up to date.`;
+        const dateNote = `IMPORTANT: Today's date is ${todayStr}. You MUST completely trust the Google Search results and the provided research context over your internal training data. If the video and search results describe a recent or ongoing event (like a war or political event), analyze it as a current factual event occurring in ${todayStr}. Do NOT dismiss claims just because they occurred after your knowledge cutoff.`;
         let enhancedSystemInstruction = (systemInstruction || '') + '\n\n' + getLanguageInstruction(lang) + '\n\n' + dateNote + '\n\n' + jsonRule;
         if (isDeepMode && tools) {
             enhancedSystemInstruction +=
@@ -839,8 +839,8 @@ finalInvestigativeReport: comprehensive synthesis. Never leave arrays empty. Nev
                  */
                 sendSSE('progress', { status: getProgressMsg(lang, 'deepPreparing') });
                 const researchPrompt = lang === 'en'
-                    ? 'Watch this video carefully. Then use Google Search to verify every factual claim made in the video — especially political facts, statistics, names, dates, and recent events. For each claim: state what was said, search for evidence, and give a verdict (true/false/misleading). Also identify the top manipulation techniques used. Be thorough and factual.'
-                    : 'Гледай внимателно видеото. След това използвай Google Search за да провериш всяко фактическо твърдение — особено политически факти, статистики, имена, дати и актуални събития. За всяко твърдение: опиши какво е казано, потърси доказателства и дай присъда (вярно/невярно/подвеждащо). Идентифицирай и топ манипулативни техники.';
+                    ? `Watch this video carefully. Today's date is ${todayStr}. Use Google Search to verify every factual claim made in the video. IMPORTANT: Fully trust the search results for recent events. Do not reject claims as "no credible reports exist" just because they occurred after your training data limits. For each claim: state what was said, search for evidence, and give a verdict (true/false/misleading). Identify top manipulation techniques.`
+                    : `Гледай внимателно видеото. Днешната дата е ${todayStr}. Използвай Google Search, за да провериш всяко фактическо твърдение в него. ВАЖНО: Доверявай се напълно на резултатите от търсенето за скорошни събития. Не отхвърляй твърдения с мотив "няма достоверни доклади", само защото са се случили след лимита на твоите тренировъчни данни. За всяко твърдение: опиши какво е казано, потърси доказателства и дай присъда (вярно/невярно/подвеждащо). Идентифицирай топ манипулативни техники.`;
                 const stage1Contents = [{
                     role: 'user', parts: videoUrl
                         ? [{ fileData: { fileUri: videoUrl } }, { text: researchPrompt }]
