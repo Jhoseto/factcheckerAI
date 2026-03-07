@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { VideoAnalysis } from '../../../types';
 import MetricBlock from '../MetricBlock';
@@ -28,6 +28,11 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
     const [activeTab, setActiveTab] = useState<'summary' | 'claims' | 'manipulation' | 'profile' | 'rhetoric' | 'comments' | 'report'>('summary');
     const linkReportDisplayText = analysis.summary.finalInvestigativeReport || '';
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+    const tabContentRef = React.useRef<HTMLElement>(null);
+
+    useEffect(() => {
+        tabContentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, [activeTab]);
 
     const handleShare = async () => {
         if (!analysis.id) return;
@@ -163,7 +168,7 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                     <div className="flex flex-wrap gap-x-6 gap-y-2">{linkTabsContent}</div>
                 </nav>
                 <div className="h-[52px]" aria-hidden />
-                <section className="min-h-[400px] pt-2 pb-8">
+                <section ref={tabContentRef} className="min-h-[400px] pt-2 pb-8">
                     {activeTab === 'summary' && (
                         <div className="space-y-10 animate-fadeIn">
                             {/* Header Card */}

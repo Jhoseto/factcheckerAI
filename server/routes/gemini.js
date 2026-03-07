@@ -21,6 +21,7 @@ import {
     calculateVideoCostInPoints,
     getFixedPrice
 } from '../config/pricing.js';
+import { MODELS } from '../config/models.js';
 import { logActivity } from '../../admin/server/activityLogger.js';
 const router = express.Router();
 
@@ -64,26 +65,7 @@ function escapeControlCharsInJson(text) {
     return out;
 }
 
-/** Extract the outermost {...} object from text using bracket counting. */
-function extractJsonObject(text) {
-    const start = text.indexOf('{');
-    if (start === -1) return null;
-    let depth = 0, inString = false, escape = false;
-    for (let i = start; i < text.length; i++) {
-        const ch = text[i];
-        if (escape) { escape = false; continue; }
-        if (ch === '\\' && inString) { escape = true; continue; }
-        if (ch === '"') { inString = !inString; continue; }
-        if (!inString) {
-            if (ch === '{') depth++;
-            else if (ch === '}') { depth--; if (depth === 0) return text.slice(start, i + 1); }
-        }
-    }
-    // Unclosed — return everything from start (truncated response; let JSON.parse decide)
-    return text.slice(start);
-}
-
-/** Parse JSON from Gemini response: strip markdown → parse → escape control chars → bracket extract. */
+/** Parse JSON from Gemini response: strip markdown, then parse (with one fallback for control chars). */
 function parseJsonRobust(rawText) {
     if (!rawText || typeof rawText !== 'string') return { ok: false, error: 'empty' };
     let t = rawText.trim();
@@ -92,19 +74,11 @@ function parseJsonRobust(rawText) {
     else t = t.replace(/```json\s*/g, '').replace(/\s*```/g, '').trim();
     if (!t.length) return { ok: false, error: 'empty' };
 
-    // Attempt 1: direct parse
-    try { return { ok: true, parsed: JSON.parse(t) }; } catch (_) { }
-    // Attempt 2: escape control chars
-    try { return { ok: true, parsed: JSON.parse(escapeControlCharsInJson(t)) }; } catch (_) { }
-    // Attempt 3: bracket-counting extraction (handles trailing garbage / partial markdown)
     try {
-        const extracted = extractJsonObject(t);
-        if (extracted) return { ok: true, parsed: JSON.parse(extracted) };
+        return { ok: true, parsed: JSON.parse(t) };
     } catch (_) { }
-    // Attempt 4: bracket extraction + control char escape
     try {
-        const extracted = extractJsonObject(t);
-        if (extracted) return { ok: true, parsed: JSON.parse(escapeControlCharsInJson(extracted)) };
+        return { ok: true, parsed: JSON.parse(escapeControlCharsInJson(t)) };
     } catch (_) { }
     return { ok: false, error: 'parse failed' };
 }
@@ -174,37 +148,7 @@ const POINT_DETAILS_ITEM = {
     required: ['point', 'details']
 };
 
-// Lean claim item — only the minimum required by the UI transform
-const CLAIM_ITEM = {
-    type: 'object',
-    properties: {
-        claim: { type: 'string' },
-        verdict: { type: 'string' },
-        evidence: { type: 'string' },
-        context: { type: 'string' },
-        speaker: { type: 'string' },
-        timestamp: { type: 'string' }
-    },
-    required: ['claim', 'verdict']
-};
-
-const MANIPULATION_ITEM = {
-    type: 'object',
-    properties: {
-        technique: { type: 'string' },
-        description: { type: 'string' },
-        example: { type: 'string' },
-        impact: { type: 'string' },
-        counterArgument: { type: 'string' },
-        timestamp: { type: 'string' }
-    },
-    required: ['technique', 'description']
-};
-
-// Lean VIDEO_RESPONSE_SCHEMA — only enforces critical fields.
-// Gemini's 400 "too many states" error is caused by schemas with:
-//   - many properties, large maxItems, nested enums, nested typed arrays.
-// Solution: constrain only required fields; all other fields come back as free JSON.
+// JSON Schema for structured output — detailed nested structure for WoW analysis
 const VIDEO_RESPONSE_SCHEMA = {
     type: 'object',
     required: ['summary', 'overallAssessment'],
@@ -212,26 +156,73 @@ const VIDEO_RESPONSE_SCHEMA = {
         summary: { type: 'string' },
         overallAssessment: { type: 'string' },
         detailedMetrics: { type: 'object' },
-        factualClaims: { type: 'array', items: CLAIM_ITEM },
-        claims: { type: 'array', items: CLAIM_ITEM },
-        manipulationTechniques: { type: 'array', items: MANIPULATION_ITEM },
+        factualClaims: {
+            type: 'array',
+            maxItems: 30,
+            items: {
+                type: 'object',
+                properties: {
+                    claim: { type: 'string', description: 'Full claim as stated' },
+                    verdict: { type: 'string', enum: ['TRUE', 'MOSTLY_TRUE', 'MIXED', 'MOSTLY_FALSE', 'FALSE', 'UNVERIFIABLE'] },
+                    evidence: { type: 'string' },
+                    logicalAnalysis: { type: 'string' },
+                    factualVerification: { type: 'string' },
+                    comparison: { type: 'string' },
+                    context: { type: 'string' },
+                    sources: { type: 'array', items: { type: 'string' } },
+                    speaker: { type: 'string' },
+                    timestamp: { type: 'string' }
+                },
+                required: ['claim', 'verdict']
+            }
+        },
+        claims: {
+            type: 'array',
+            maxItems: 30,
+            items: {
+                type: 'object',
+                properties: {
+                    claim: { type: 'string' },
+                    verdict: { type: 'string', enum: ['TRUE', 'MOSTLY_TRUE', 'MIXED', 'MOSTLY_FALSE', 'FALSE', 'UNVERIFIABLE'] },
+                    evidence: { type: 'string' }
+                },
+                required: ['claim', 'verdict']
+            }
+        },
+        quotes: { type: 'array', items: { type: 'object' }, maxItems: 10 },
+        manipulationTechniques: {
+            type: 'array',
+            maxItems: 20,
+            items: {
+                type: 'object',
+                properties: {
+                    technique: { type: 'string' },
+                    description: { type: 'string' },
+                    example: { type: 'string' },
+                    impact: { type: 'string' },
+                    counterArgument: { type: 'string' },
+                    timestamp: { type: 'string' },
+                    severity: { type: 'number' }
+                },
+                required: ['technique', 'description']
+            }
+        },
         finalInvestigativeReport: { type: 'string' },
-        quotes: { type: 'array', items: { type: 'object' } },
-        visualAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
-        bodyLanguageAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
-        vocalAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
-        deceptionAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
-        humorAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
-        psychologicalProfile: { type: 'array', items: POINT_DETAILS_ITEM },
-        culturalSymbolicAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
-        geopoliticalContext: { type: 'array', items: { type: 'object' } },
-        historicalParallel: { type: 'array', items: { type: 'object' } },
-        psychoLinguisticAnalysis: { type: 'array', items: { type: 'object' } },
-        strategicIntent: { type: 'array', items: { type: 'object' } },
-        narrativeArchitecture: { type: 'array', items: { type: 'object' } },
-        technicalForensics: { type: 'array', items: { type: 'object' } },
-        socialImpactPrediction: { type: 'array', items: { type: 'object' } },
-        recommendations: { type: 'array', items: { type: 'object' } },
+        geopoliticalContext: { type: 'array', items: { type: 'object' }, maxItems: 5 },
+        historicalParallel: { type: 'array', items: { type: 'object' }, maxItems: 5 },
+        psychoLinguisticAnalysis: { type: 'array', items: { type: 'object' }, maxItems: 5 },
+        strategicIntent: { type: 'array', items: { type: 'object' }, maxItems: 5 },
+        narrativeArchitecture: { type: 'array', items: { type: 'object' }, maxItems: 5 },
+        technicalForensics: { type: 'array', items: { type: 'object' }, maxItems: 5 },
+        socialImpactPrediction: { type: 'array', items: { type: 'object' }, maxItems: 5 },
+        visualAnalysis: { type: 'array', items: POINT_DETAILS_ITEM, maxItems: 5 },
+        bodyLanguageAnalysis: { type: 'array', items: POINT_DETAILS_ITEM, maxItems: 5 },
+        vocalAnalysis: { type: 'array', items: POINT_DETAILS_ITEM, maxItems: 5 },
+        deceptionAnalysis: { type: 'array', items: POINT_DETAILS_ITEM, maxItems: 5 },
+        humorAnalysis: { type: 'array', items: POINT_DETAILS_ITEM, maxItems: 5 },
+        psychologicalProfile: { type: 'array', items: POINT_DETAILS_ITEM, maxItems: 5 },
+        culturalSymbolicAnalysis: { type: 'array', items: POINT_DETAILS_ITEM, maxItems: 5 },
+        recommendations: { type: 'array', items: { type: 'object' }, maxItems: 10 },
         biasIndicators: { type: 'object' }
     }
 };
@@ -399,17 +390,11 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                     }
                 }
             } else {
-                const jsonRuleShort = 'CRITICAL: Respond with exactly one valid JSON object. Start with {, end with }. No markdown. Never truncate.';
-                const todayStr = new Date().toISOString().slice(0, 10);
-                const dateInstr = serviceType === 'linkArticle'
-                    ? `IMPORTANT: Today is ${todayStr}. Use Google Search to verify ALL current facts. You MUST completely trust the Google Search results over your internal training data. Do not reject claims as "no credible reports exist" just because they occurred after your knowledge cutoff limit. If the provided article and search results describe a recent or ongoing event (like a war or political event), analyze it as a current factual event.`
-                    : '';
-                const sysInstr = (systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON.')
-                    + '\n\n' + getLanguageInstruction(lang)
-                    + (dateInstr ? '\n\n' + dateInstr : '')
-                    + '\n\n' + jsonRuleShort;
+                const jsonRuleShort = 'CRITICAL: Respond with exactly one valid JSON object. Start with {, end with }. No markdown. Escape " in strings as \\". Never truncate.';
+                const sysInstr = (systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON.') + '\n\n' + getLanguageInstruction(lang) + '\n\n' + jsonRuleShort;
+                const modelName = serviceType === 'linkArticle' ? MODELS.LINK_ANALYSIS : MODELS.VIDEO_STANDARD;
                 const response = await ai.models.generateContent({
-                    model: model || 'gemini-2.5-flash',
+                    model: model || modelName,
                     contents,
                     config: {
                         systemInstruction: sysInstr,
@@ -455,14 +440,7 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
         if (!lastValidation.valid && serviceType === 'linkArticle' && tools) {
             console.log('[LinkArticle] Fallback: retrying without googleSearch tools');
             const jsonRuleShort = 'CRITICAL: Respond with exactly one valid JSON object. Start with {, end with }. No markdown. Escape " in strings as \\". Never truncate.';
-            const todayStr = new Date().toISOString().slice(0, 10);
-            const dateInstr = serviceType === 'linkArticle'
-                ? 'IMPORTANT: Today is ' + todayStr + '. Use Google Search to verify ALL current facts, political positions, and recent events. Do NOT rely on training data for facts that may have changed — especially: current heads of state, election results, recent appointments, ongoing wars/conflicts.'
-                : '';
-            const sysInstr = (systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON.')
-                + '\n\n' + getLanguageInstruction(lang)
-                + (dateInstr ? '\n\n' + dateInstr : '')
-                + '\n\n' + jsonRuleShort;
+            const sysInstr = (systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON.') + '\n\n' + getLanguageInstruction(lang) + '\n\n' + jsonRuleShort;
             const fallbackResponse = await ai.models.generateContent({
                 model: model || 'gemini-2.5-flash',
                 contents,
@@ -608,7 +586,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
         const contents = [{
             role: 'user',
             parts: videoUrl
-                ? [{ fileData: { fileUri: videoUrl } }, { text: prompt }]
+                ? [{ fileData: { mimeType: 'video/mp4', fileUri: videoUrl } }, { text: prompt }]
                 : [{ text: prompt }]
         }];
 
@@ -622,14 +600,12 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             'Never truncate: always output the full JSON and close every bracket.',
             'Keep ALL schema fields populated (summary, overallAssessment, detailedMetrics, factualClaims, manipulationTechniques, etc.); only shorten long text strings if needed to avoid truncation. Always close all brackets and quotes.'
         ].join(' ');
-        const todayStr = new Date().toISOString().slice(0, 10);
-        const dateNote = `IMPORTANT: Today's date is ${todayStr}. You MUST completely trust the Google Search results and the provided research context over your internal training data. If the video and search results describe a recent or ongoing event (like a war or political event), analyze it as a current factual event occurring in ${todayStr}. Do NOT dismiss claims just because they occurred after your knowledge cutoff.`;
-        let enhancedSystemInstruction = (systemInstruction || '') + '\n\n' + getLanguageInstruction(lang) + '\n\n' + dateNote + '\n\n' + jsonRule;
+        let enhancedSystemInstruction = (systemInstruction || '') + '\n\n' + getLanguageInstruction(lang) + '\n\n' + jsonRule;
         if (isDeepMode && tools) {
             enhancedSystemInstruction +=
                 ' After tool use, respond with one complete JSON object only; integrate all tool results into it.';
         } else if (!systemInstruction) {
-            enhancedSystemInstruction = 'You are a professional fact-checker. Your response must be valid JSON only.\n\n' + getLanguageInstruction(lang) + '\n\n' + dateNote + '\n\n' + jsonRule;
+            enhancedSystemInstruction = 'You are a professional fact-checker. Your response must be valid JSON only.\n\n' + getLanguageInstruction(lang) + '\n\n' + jsonRule;
         }
 
         let fullText = '';
@@ -660,34 +636,11 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
                 httpOptions: { timeout: 600000 } // 10 min for video + search
             };
 
-            console.log('[Deep] Stage1 starting — videoUrl:', videoUrl ? videoUrl.substring(0, 80) : 'none', '| model:', model || 'gemini-2.5-flash', '| hasTools:', !!tools);
-            let response;
-            const stage1MaxRetries = 3;
-            for (let s1attempt = 0; s1attempt < stage1MaxRetries; s1attempt++) {
-                try {
-                    if (s1attempt > 0) {
-                        console.log('[Deep] Stage1 retry', s1attempt, '— waiting 3s...');
-                        sendSSE('progress', { status: getProgressMsg(lang, 'deepPreparing') });
-                        await new Promise(r => setTimeout(r, 3000));
-                    }
-                    response = await ai.models.generateContent({
-                        model: model || 'gemini-2.5-flash',
-                        contents,
-                        config: toolConfig
-                    });
-                    break; // success
-                } catch (stage1Err) {
-                    const msg = stage1Err?.message || '';
-                    const isTransient = msg.includes('fetch failed') || msg.includes('ECONNRESET') || msg.includes('ETIMEDOUT') || msg.includes('socket hang up');
-                    console.error('[Deep] Stage1 attempt', s1attempt + 1, 'FAILED —', msg);
-                    if (isTransient && s1attempt < stage1MaxRetries - 1) {
-                        console.log('[Deep] Stage1 transient error — will retry');
-                        continue;
-                    }
-                    console.error('[Deep] Stage1 FINAL FAIL — videoUrl:', videoUrl);
-                    throw stage1Err;
-                }
-            }
+            const response = await ai.models.generateContent({
+                model: model || 'gemini-2.5-flash',
+                contents,
+                config: toolConfig
+            });
             accumulateUsage(response.usageMetadata);
             streamUsage = response.usageMetadata || streamUsage;
 
@@ -711,44 +664,23 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             }
             console.log('[Gemini Stream] Deep stage1 rawText length:', rawText?.length || 0, 'parts:', parts?.length || 0);
 
-            // Build contents for final JSON step.
-            // IMPORTANT: Do NOT send raw stage-1 parts as { role: 'model' } — they contain
-            // grounding metadata objects that the API rejects in multi-turn history, which
-            // causes Gemini to ignore the video when generating the final JSON.
-            // Instead: fresh single-turn request = video + prompt that embeds stage-1 text.
-            const stage1Summary = rawText && rawText.trim().length > 50
-                ? rawText.trim().substring(0, 12000) // cap to avoid token overflow
-                : null;
-            const hasGrounding = !!stage1Summary;
-            console.log('[Deep] Stage1 result — hasGrounding:', hasGrounding, '| rawText chars:', rawText?.length || 0, '| parts:', parts?.length || 0);
+            // Build conversation for final JSON step (model's analysis as context)
+            let currentContents = [...contents];
+            let hasGrounding = rawText && rawText.trim().length > 50 && parts?.length;
+            if (hasGrounding) {
+                currentContents = [...currentContents, { role: 'model', parts }];
+            }
 
-            // Final JSON step — schema-validated, no tools (API restriction).
-            // Fresh single-turn requests: video included directly + stage-1 research injected as text.
-            const MULTIMODAL_INSTRUCTION = 'DIRECT VIDEO ANALYSIS REQUIRED: Watch and listen to the video carefully. Analyze these fields from the video itself — visualAnalysis (environment, objects, symbols, camera angles, lighting), bodyLanguageAnalysis (posture, gestures, microexpressions, eye contact per speaker), vocalAnalysis (tone, pitch, pace, hesitations, emphasis), deceptionAnalysis (credibility score, deception indicators, cognitive load), humorAnalysis (type of humor, purpose, manipulative vs genuine), psychologicalProfile (personality traits, power dynamics, manipulation tactics per speaker), culturalSymbolicAnalysis (cultural references, dog whistles, archetypes, symbols). Each item: {"point": "...", "details": "..."}. Minimum 2 items per array. Do NOT leave these empty.';
-
-            const groundingBlock = stage1Summary
-                ? `\n\nGOOGLE SEARCH RESEARCH (use for factual verification):\n${stage1Summary}\n`
-                : '';
-
-            const promptMain = `You are analyzing the video attached to this message. Return a complete fact-check as valid JSON.${groundingBlock}
-
-STEPS:
-1. For factualClaims: use the Google Search research above to verify each claim. Each item needs: claim, verdict, evidence, context (full context around the claim — what was said before/after, how it fits the discussion), sources, speaker, timestamp, logicalAnalysis, factualVerification, comparison.
-2. For manipulationTechniques: technique, description, example, impact, counterArgument, timestamp, severity.
-3. ${MULTIMODAL_INSTRUCTION}
-4. Populate: finalInvestigativeReport (min 15 paragraphs), summary (8+ sentences), overallAssessment (ACCURATE/MOSTLY_ACCURATE/MIXED/MISLEADING/FALSE), detailedMetrics, geopoliticalContext, historicalParallel, psychoLinguisticAnalysis, strategicIntent, narrativeArchitecture, technicalForensics, socialImpactPrediction — all as [{point, details}].
-5. Aim for 5+ factualClaims, 3+ manipulationTechniques, 2+ items per multimodal array. Never truncate. Always close all brackets.`;
-
-            const promptRetry = `Complete the analysis of the attached video. Return valid JSON with ALL fields.${groundingBlock}
-factualClaims (claim, verdict, evidence, context — full context around each claim), manipulationTechniques (technique, description, example, impact, counterArgument).
-${MULTIMODAL_INSTRUCTION}
-finalInvestigativeReport: comprehensive synthesis. Never leave arrays empty. Never truncate.`;
-
-            const makeContents = (promptText) => videoUrl
-                ? [{ role: 'user', parts: [{ fileData: { fileUri: videoUrl } }, { text: promptText }] }]
-                : [{ role: 'user', parts: [{ text: promptText }] }];
-
-            const stage2Contents = [makeContents(promptMain), makeContents(promptRetry)];
+            // Final JSON step — schema-validated, no tools (API restriction)
+            const jsonPromptsWithContext = [
+                'Return the complete analysis as valid JSON. Use the schema. Extract ALL findings from the conversation above. factualClaims: each item must have claim, verdict, evidence. manipulationTechniques: each item must have technique, description, example, impact, counterArgument. visualAnalysis, bodyLanguageAnalysis, vocalAnalysis, deceptionAnalysis, humorAnalysis, psychologicalProfile, culturalSymbolicAnalysis: each item must have point and details. Populate finalInvestigativeReport with a full report (at least 10 paragraphs). Do not leave arrays empty if the conversation contains relevant content. Aim for at least 5 factualClaims and 3 manipulationTechniques when content exists. Prioritize completeness over brevity. Always close all brackets and quotes. Never truncate mid-string.',
+                'Extract ALL findings from the conversation. Include factualClaims (claim, verdict, evidence), manipulationTechniques (technique, description, example, impact, counterArgument), multimodal arrays (point, details). Populate finalInvestigativeReport fully. Do not leave arrays empty when relevant content exists. Prioritize completeness. Ensure complete valid JSON. Never truncate.'
+            ];
+            const jsonPromptsNoContext = [
+                'Analyze the video and return the complete fact-check analysis as valid JSON. Use the schema. factualClaims: each item must have claim, verdict, evidence. manipulationTechniques: each item must have technique, description, example, impact, counterArgument. visualAnalysis, bodyLanguageAnalysis, vocalAnalysis, deceptionAnalysis, humorAnalysis, psychologicalProfile, culturalSymbolicAnalysis: each item must have point and details. Populate finalInvestigativeReport with a full report (at least 10 paragraphs). No web search results — base analysis on video content only. Do not leave arrays empty if the video contains relevant content. Aim for at least 5 factualClaims and 3 manipulationTechniques when content exists. Prioritize completeness over brevity. Always close all brackets and quotes. Never truncate.',
+                'Extract ALL findings from the video. Include factualClaims (claim, verdict, evidence), manipulationTechniques (technique, description, example, impact, counterArgument), multimodal arrays (point, details). Populate finalInvestigativeReport fully. Do not leave arrays empty when relevant content exists. Prioritize completeness. Ensure complete valid JSON. Never truncate.'
+            ];
+            const jsonPrompts = hasGrounding ? jsonPromptsWithContext : jsonPromptsNoContext;
             const finalConfig = {
                 ...toolConfig,
                 tools: undefined,
@@ -763,13 +695,12 @@ finalInvestigativeReport: comprehensive synthesis. Never leave arrays empty. Nev
                     await new Promise(r => setTimeout(r, 1500));
                 }
                 sendSSE('progress', { status: getProgressMsg(lang, 'finalJson') });
-                console.log('[Deep] Stage2 attempt', attempt + 1, '— sending', videoUrl ? 'video+prompt' : 'text-only', '| grounding block chars:', groundingBlock.length);
+                const jsonPrompt = { role: 'user', parts: [{ text: jsonPrompts[attempt] }] };
                 const finalResponse = await ai.models.generateContent({
                     model: model || 'gemini-2.5-flash',
-                    contents: stage2Contents[attempt] || stage2Contents[0],
+                    contents: [...currentContents, jsonPrompt],
                     config: finalConfig
                 });
-                console.log('[Deep] Stage2 attempt', attempt + 1, '— raw response candidates:', finalResponse.candidates?.length, '| finishReason:', finalResponse.candidates?.[0]?.finishReason);
                 accumulateUsage(finalResponse.usageMetadata);
                 streamUsage = finalResponse.usageMetadata || streamUsage;
 
@@ -783,39 +714,14 @@ finalInvestigativeReport: comprehensive synthesis. Never leave arrays empty. Nev
                         .join('');
                 }
                 fullText = fullText || '';
-                console.log('[Deep] Stage2 attempt', attempt + 1, '— fullText chars:', fullText.length, '| starts with {:', fullText.trimStart().startsWith('{'));
 
                 const v = validateJsonResponse(fullText, serviceType || 'video');
-                if (v.valid) {
-                    // Log field summary on success
-                    const p = v.parsed || {};
-                    console.log('[Deep] Stage2 SUCCESS — fields summary:', {
-                        summary: p.summary ? p.summary.length + ' chars' : 'MISSING',
-                        overallAssessment: p.overallAssessment || 'MISSING',
-                        factualClaims: p.factualClaims?.length ?? 'MISSING',
-                        manipulationTechniques: p.manipulationTechniques?.length ?? 'MISSING',
-                        visualAnalysis: p.visualAnalysis?.length ?? 'MISSING',
-                        bodyLanguageAnalysis: p.bodyLanguageAnalysis?.length ?? 'MISSING',
-                        vocalAnalysis: p.vocalAnalysis?.length ?? 'MISSING',
-                        deceptionAnalysis: p.deceptionAnalysis?.length ?? 'MISSING',
-                        humorAnalysis: p.humorAnalysis?.length ?? 'MISSING',
-                        psychologicalProfile: p.psychologicalProfile?.length ?? 'MISSING',
-                        culturalSymbolicAnalysis: p.culturalSymbolicAnalysis?.length ?? 'MISSING',
-                        finalInvestigativeReport: p.finalInvestigativeReport ? p.finalInvestigativeReport.length + ' chars' : 'MISSING',
-                    });
-                    break;
-                }
+                if (v.valid) break;
                 if (attempt < 2 && (v.code === 'AI_JSON_PARSE_ERROR' || v.code === 'AI_INCOMPLETE_RESPONSE')) {
                     const p = v.parsed || {};
-                    console.warn('[Deep] Stage2 attempt', attempt + 1, 'FAILED:', v.code, '| partial fields:', {
-                        factualClaims: p.factualClaims?.length ?? 'none',
-                        manipulationTechniques: p.manipulationTechniques?.length ?? 'none',
-                        visualAnalysis: p.visualAnalysis?.length ?? 'none',
-                        bodyLanguageAnalysis: p.bodyLanguageAnalysis?.length ?? 'none',
-                    });
+                    console.warn('[Gemini Stream] Deep attempt', attempt + 1, 'failed:', v.code, '| factualClaims:', p.factualClaims?.length, 'claims:', p.claims?.length, 'manipulationTechniques:', p.manipulationTechniques?.length);
                     continue;
                 }
-                console.warn('[Deep] Stage2 attempt', attempt + 1, 'FAILED (no retry):', v.code);
                 break;
             }
 
@@ -828,176 +734,65 @@ finalInvestigativeReport: comprehensive synthesis. Never leave arrays empty. Nev
 
         } else {
             // STANDARD MODE: streaming first, retry with non-streaming on validation failure
-            // When tools (Google Search) are active: use non-streaming generateContent for speed.
-            // Streaming + tools is very slow (multiple search rounds during stream). Non-streaming is 3-4x faster.
-            if (tools) {
-                /*
-                 * STANDARD + GOOGLE SEARCH: proper two-stage flow
-                 * Stage 1: focused research prompt + video + Google Search → gather real-time facts
-                 * Stage 2: video + stage-1 findings → JSON output via responseSchema
-                 * This mirrors deep mode but without multimodal analysis tabs.
-                 */
-                sendSSE('progress', { status: getProgressMsg(lang, 'deepPreparing') });
-                const researchPrompt = lang === 'en'
-                    ? `Watch this video carefully. Today's date is ${todayStr}. Use Google Search to verify every factual claim made in the video. IMPORTANT: Fully trust the search results for recent events. Do not reject claims as "no credible reports exist" just because they occurred after your training data limits. For each claim: state what was said, search for evidence, and give a verdict (true/false/misleading). Identify top manipulation techniques.`
-                    : `Гледай внимателно видеото. Днешната дата е ${todayStr}. Използвай Google Search, за да провериш всяко фактическо твърдение в него. ВАЖНО: Доверявай се напълно на резултатите от търсенето за скорошни събития. Не отхвърляй твърдения с мотив "няма достоверни доклади", само защото са се случили след лимита на твоите тренировъчни данни. За всяко твърдение: опиши какво е казано, потърси доказателства и дай присъда (вярно/невярно/подвеждащо). Идентифицирай топ манипулативни техники.`;
-                const stage1Contents = [{
-                    role: 'user', parts: videoUrl
-                        ? [{ fileData: { fileUri: videoUrl } }, { text: researchPrompt }]
-                        : [{ text: researchPrompt }]
-                }];
-                console.log('[Standard+Search] Stage1 — research prompt with Google Search');
-                const stage1Response = await ai.models.generateContent({
-                    model: model || 'gemini-2.5-flash',
-                    contents: stage1Contents,
-                    config: {
-                        systemInstruction: enhancedSystemInstruction,
-                        temperature: 0.5,
-                        maxOutputTokens: 40000,
-                        mediaResolution: 'MEDIA_RESOLUTION_LOW',
-                        tools,
-                        httpOptions: { timeout: 300000 }
-                    }
-                });
-                accumulateUsage(stage1Response.usageMetadata);
-                streamUsage = stage1Response.usageMetadata || streamUsage;
-                let stage1Text = '';
-                if (typeof stage1Response.text === 'string') stage1Text = stage1Response.text;
-                else if (stage1Response.candidates?.[0]?.content?.parts) {
-                    stage1Text = stage1Response.candidates[0].content.parts
-                        .map(p => (p && typeof p === 'object' && p.text != null) ? String(p.text) : '').join('');
-                }
-                stage1Text = stage1Text || '';
-                console.log('[Standard+Search] Stage1 research chars:', stage1Text.length);
+            const stdConfig = {
+                systemInstruction: enhancedSystemInstruction,
+                temperature: 0.7,
+                maxOutputTokens: 63536,
+                responseMimeType: 'application/json',
+                responseSchema: VIDEO_RESPONSE_SCHEMA,
+                mediaResolution: 'MEDIA_RESOLUTION_LOW',
+                abortSignal: abortController.signal,
+                httpOptions: { timeout: 300000 } // 5 min for video
+            };
+            const stream = await ai.models.generateContentStream({
+                model: model || 'gemini-2.5-flash',
+                contents,
+                config: stdConfig
+            });
 
-                // Stage 2: Format into JSON using schema, injecting stage 1 research as context
-                sendSSE('progress', { status: getProgressMsg(lang, 'finalJson') });
-                const stage2Prompt = prompt + (stage1Text
-                    ? '\n\n=== GOOGLE SEARCH RESEARCH (use this to populate all fields accurately) ===\n' + stage1Text.substring(0, 15000) + '\n=== END RESEARCH ==='
-                    : '');
-                const stage2Contents = [{
-                    role: 'user', parts: videoUrl
-                        ? [{ fileData: { fileUri: videoUrl } }, { text: stage2Prompt }]
-                        : [{ text: stage2Prompt }]
-                }];
-                console.log('[Standard+Search] Stage2 — JSON schema pass, prompt chars:', stage2Prompt.length);
-                const stage2Response = await ai.models.generateContent({
-                    model: model || 'gemini-2.5-flash',
-                    contents: stage2Contents,
-                    config: {
-                        systemInstruction: enhancedSystemInstruction,
-                        temperature: 0.7,
-                        maxOutputTokens: 63536,
-                        responseMimeType: 'application/json',
-                        responseSchema: VIDEO_RESPONSE_SCHEMA,
-                        mediaResolution: 'MEDIA_RESOLUTION_LOW',
-                        httpOptions: { timeout: 300000 }
-                    }
-                });
-                accumulateUsage(stage2Response.usageMetadata);
-                streamUsage = stage2Response.usageMetadata || streamUsage;
-                if (typeof stage2Response.text === 'string') fullText = stage2Response.text;
-                else if (stage2Response.candidates?.[0]?.content?.parts) {
-                    fullText = stage2Response.candidates[0].content.parts
-                        .map(p => (p && typeof p === 'object' && p.text != null) ? String(p.text) : '').join('');
+            for await (const chunk of stream) {
+                if (chunk.functionCalls && chunk.functionCalls.length > 0) {
+                    functionCallCount += chunk.functionCalls.length;
+                    sendSSE('progress', { status: getProgressMsg(lang, 'googleSearch', functionCallCount) });
+                    continue;
                 }
-                fullText = fullText || '';
-                console.log('[Standard+Search] Stage2 JSON chars:', fullText.length, '| starts with {:', fullText.trimStart().startsWith('{'));
 
-                // Retry stage2 if JSON parse fails (e.g. output too large / malformed)
-                const s2check = validateJsonResponse(fullText, serviceType || 'video');
-                if (!s2check.valid && (s2check.code === 'AI_JSON_PARSE_ERROR')) {
-                    console.warn('[Standard+Search] Stage2 parse failed — retrying with compact prompt');
-                    sendSSE('progress', { status: getProgressMsg(lang, 'retry') });
-                    const compactPrompt = (lang === 'en'
-                        ? 'Based on the video and research below, return a compact valid JSON analysis. Focus on summary, overallAssessment, factualClaims (top 5), manipulationTechniques (top 5), and detailedMetrics. Keep all text fields SHORT (1-2 sentences max).'
-                        : 'Въз основа на видеото и изследването по-долу, върни компактен валиден JSON анализ. Фокусирай се върху summary, overallAssessment, factualClaims (топ 5), manipulationTechniques (топ 5) и detailedMetrics. Дръж всички текстови полета КРАТКИ (1-2 изречения максимум).')
-                        + (stage1Text ? '\n\nRESEARCH:\n' + stage1Text.substring(0, 8000) : '');
-                    const retryContents = [{
-                        role: 'user', parts: videoUrl
-                            ? [{ fileData: { fileUri: videoUrl } }, { text: compactPrompt }]
-                            : [{ text: compactPrompt }]
-                    }];
-                    const retryResp = await ai.models.generateContent({
-                        model: model || 'gemini-2.5-flash',
-                        contents: retryContents,
-                        config: {
-                            systemInstruction: enhancedSystemInstruction,
-                            temperature: 0.5,
-                            maxOutputTokens: 20000,
-                            responseMimeType: 'application/json',
-                            responseSchema: VIDEO_RESPONSE_SCHEMA,
-                            mediaResolution: 'MEDIA_RESOLUTION_LOW',
-                            httpOptions: { timeout: 180000 }
-                        }
-                    });
-                    accumulateUsage(retryResp.usageMetadata);
-                    streamUsage = retryResp.usageMetadata || streamUsage;
-                    if (typeof retryResp.text === 'string') fullText = retryResp.text;
-                    else if (retryResp.candidates?.[0]?.content?.parts) {
-                        fullText = retryResp.candidates[0].content.parts
-                            .map(p => (p && typeof p === 'object' && p.text != null) ? String(p.text) : '').join('');
+                const chunkText = chunk.text || '';
+                if (chunkText) {
+                    fullText += chunkText;
+                    chunkCount++;
+                    if (chunkCount % 5 === 0) {
+                        sendSSE('progress', { status: getProgressMsg(lang, 'analyzing', Math.round(fullText.length / 1024)) });
                     }
-                    fullText = fullText || '';
-                    console.log('[Standard+Search] Stage2 retry chars:', fullText.length);
                 }
-            } else {
-                // NO tools: fast streaming with responseSchema
-                const stdConfig = {
-                    systemInstruction: enhancedSystemInstruction,
-                    temperature: 0.7,
-                    maxOutputTokens: 63536,
-                    responseMimeType: 'application/json',
-                    responseSchema: VIDEO_RESPONSE_SCHEMA,
-                    mediaResolution: 'MEDIA_RESOLUTION_LOW',
-                    abortSignal: abortController.signal,
-                    httpOptions: { timeout: 300000 }
-                };
-                const stream = await ai.models.generateContentStream({
-                    model: model || 'gemini-2.5-flash',
+                if (chunk.usageMetadata) {
+                    accumulateUsage(chunk.usageMetadata);
+                    streamUsage = chunk.usageMetadata;
+                }
+            }
+
+            // Retry with non-streaming if validation fails (more reliable for complete response)
+            let stdValidation = validateJsonResponse(fullText, serviceType || 'video');
+            if (!stdValidation.valid && (stdValidation.code === 'AI_JSON_PARSE_ERROR' || stdValidation.code === 'AI_INCOMPLETE_RESPONSE')) {
+                sendSSE('progress', { status: getProgressMsg(lang, 'retry') });
+                const modelName = MODELS.VIDEO_STANDARD;
+                const nonStreamResponse = await ai.models.generateContent({
+                    model: model || modelName,
                     contents,
                     config: stdConfig
                 });
-                for await (const chunk of stream) {
-                    if (chunk.functionCalls && chunk.functionCalls.length > 0) {
-                        functionCallCount += chunk.functionCalls.length;
-                        sendSSE('progress', { status: getProgressMsg(lang, 'googleSearch', functionCallCount) });
-                        continue;
-                    }
-                    const chunkText = chunk.text || '';
-                    if (chunkText) {
-                        fullText += chunkText;
-                        chunkCount++;
-                        if (chunkCount % 5 === 0) {
-                            sendSSE('progress', { status: getProgressMsg(lang, 'analyzing', Math.round(fullText.length / 1024)) });
-                        }
-                    }
-                    if (chunk.usageMetadata) {
-                        accumulateUsage(chunk.usageMetadata);
-                        streamUsage = chunk.usageMetadata;
-                    }
+                accumulateUsage(nonStreamResponse.usageMetadata);
+                streamUsage = nonStreamResponse.usageMetadata || streamUsage;
+                fullText = '';
+                if (typeof nonStreamResponse.text === 'string') fullText = nonStreamResponse.text;
+                else if (typeof nonStreamResponse.text === 'function') { try { fullText = nonStreamResponse.text(); } catch (_) { } }
+                else if (nonStreamResponse.text != null && typeof nonStreamResponse.text.then === 'function') { try { fullText = await nonStreamResponse.text; } catch (_) { } }
+                if (!fullText && nonStreamResponse.candidates?.[0]?.content?.parts) {
+                    fullText = nonStreamResponse.candidates[0].content.parts
+                        .map(p => (p && typeof p === 'object' && p.text != null) ? String(p.text) : '')
+                        .join('');
                 }
-                // Retry with non-streaming if validation fails
-                const stdValidation = validateJsonResponse(fullText, serviceType || 'video');
-                if (!stdValidation.valid && (stdValidation.code === 'AI_JSON_PARSE_ERROR' || stdValidation.code === 'AI_INCOMPLETE_RESPONSE')) {
-                    sendSSE('progress', { status: getProgressMsg(lang, 'retry') });
-                    const nonStreamResponse = await ai.models.generateContent({
-                        model: model || 'gemini-2.5-flash',
-                        contents,
-                        config: stdConfig
-                    });
-                    accumulateUsage(nonStreamResponse.usageMetadata);
-                    streamUsage = nonStreamResponse.usageMetadata || streamUsage;
-                    fullText = '';
-                    if (typeof nonStreamResponse.text === 'string') fullText = nonStreamResponse.text;
-                    else if (typeof nonStreamResponse.text === 'function') { try { fullText = nonStreamResponse.text(); } catch (_) { } }
-                    else if (nonStreamResponse.text != null && typeof nonStreamResponse.text.then === 'function') { try { fullText = await nonStreamResponse.text; } catch (_) { } }
-                    if (!fullText && nonStreamResponse.candidates?.[0]?.content?.parts) {
-                        fullText = nonStreamResponse.candidates[0].content.parts
-                            .map(p => (p && typeof p === 'object' && p.text != null) ? String(p.text) : '').join('');
-                    }
-                    fullText = fullText || '';
-                }
+                fullText = fullText || '';
             }
         }
 

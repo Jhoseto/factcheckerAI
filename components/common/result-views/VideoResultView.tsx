@@ -285,6 +285,11 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
     const [isExporting, setIsExporting] = useState(false);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const fullReportRef = React.useRef<HTMLElement>(null);
+    const tabContentRef = React.useRef<HTMLElement>(null);
+
+    useEffect(() => {
+        tabContentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, [activeTab]);
 
     const handleShare = async () => {
         if (!analysis.id) return;
@@ -473,7 +478,7 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
                 </nav>
                 <div className="h-[52px]" aria-hidden />
 
-                <section className="min-h-[400px] pt-2 pb-8">
+                <section ref={tabContentRef} className="min-h-[400px] pt-2 pb-8">
                     {activeTab === 'summary' && (
                         <div className="space-y-8 animate-fadeIn">
                             <div className="editorial-card p-6 md:p-8 border-l-4 border-l-[#968B74] space-y-4">

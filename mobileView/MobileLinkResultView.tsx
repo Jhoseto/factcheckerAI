@@ -53,6 +53,10 @@ const MobileLinkResultView: React.FC<MobileLinkResultViewProps> = ({ analysis, r
     };
   }, [allTabs.length]);
 
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activeTab]);
+
   const scrollTabs = (direction: 'left' | 'right') => {
     if (!tabsScrollRef.current) return;
     const scrollAmount = 200;

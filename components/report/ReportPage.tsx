@@ -77,6 +77,12 @@ const ReportPage: React.FC = () => {
     }, [id, location.state]);
 
     useEffect(() => {
+        if (analysis && !loading && !error) {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }, [analysis, loading, error]);
+
+    useEffect(() => {
         if (!currentUser || !type) return;
         getAnalysisCountByType(currentUser.uid, type).then((used) => {
             setSlotUsage({ used, max: SLOT_LIMITS[type] });
