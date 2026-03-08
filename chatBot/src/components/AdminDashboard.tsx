@@ -145,14 +145,23 @@ export default function AdminDashboard() {
       }
     };
 
+    const handleConnect = () => {
+      if (activeSessionRef.current) {
+        console.log('[AdminDashboard] Socket reconnected, joining active session:', activeSessionRef.current.id);
+        socket.emit('join_session', activeSessionRef.current.id);
+      }
+    };
+
     socket.on('new_message', handleNewMessage);
     socket.on('admin_update', handleAdminUpdate);
     socket.on('user_typing', handleUserTyping);
+    socket.on('connect', handleConnect);
 
     return () => {
       socket.off('new_message', handleNewMessage);
       socket.off('admin_update', handleAdminUpdate);
       socket.off('user_typing', handleUserTyping);
+      socket.off('connect', handleConnect);
     };
   }, [socket, loadData, fetchMessages]);
 

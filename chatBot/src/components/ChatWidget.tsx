@@ -109,7 +109,7 @@ export default function ChatWidget() {
           if (current.rating === null) setShowRating(true);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
 
     // Load history
     fetch(`${API_BASE}/messages/${sessionId}`)
@@ -117,8 +117,18 @@ export default function ChatWidget() {
       .then((data: any[]) => setMessages(Array.isArray(data) ? data : []))
       .catch(() => setMessages([]));
 
+    newSocket.on('connect', () => {
+      console.log('[ChatWidget] Socket connected, joining session:', sessionId);
+      newSocket.emit('join_session', sessionId);
+    });
+
     newSocket.on('new_message', (msg) => {
-      setMessages(prev => [...prev, msg]);
+      setMessages(prev => {
+        // Prevent duplicate if we already added it via "Local Echo" or if it's already there
+        const exists = prev.some(m => m.id === msg.id || (m.timestamp === msg.timestamp && m.content === msg.content && m.sender === msg.sender));
+        if (exists) return prev;
+        return [...prev, msg];
+      });
       if (msg.sender === 'ai' || msg.sender === 'admin') {
         setIsTyping(false);
         setAdminTyping(false);
@@ -156,6 +166,17 @@ export default function ChatWidget() {
     const finalMessage = text || message;
     if (!finalMessage.trim() && !file && !socket) return;
 
+    const tempMsg = {
+      sessionId,
+      sender: 'customer',
+      content: finalMessage,
+      fileUrl: file?.url,
+      fileType: file?.type,
+      timestamp: new Date().toISOString()
+    };
+
+    setMessages(prev => [...prev, tempMsg]);
+
     socket?.emit('send_message', {
       sessionId,
       sender: 'customer',
@@ -169,7 +190,7 @@ export default function ChatWidget() {
 
     if (!text && !file) setMessage('');
     if (!file) setIsTyping(chatMode === 'ai');
-    
+
     // Stop typing indicator
     socket?.emit('typing', { sessionId, sender: 'customer', isTyping: false });
   };
@@ -198,7 +219,7 @@ export default function ChatWidget() {
     if (!socket) return;
 
     socket.emit('typing', { sessionId, sender: 'customer', isTyping: true });
-    
+
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
       socket.emit('typing', { sessionId, sender: 'customer', isTyping: false });
@@ -256,14 +277,14 @@ export default function ChatWidget() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button 
+                <button
                   onClick={clearHistory}
                   title="Clear history"
                   className="p-2 hover:bg-[rgba(150,139,116,0.15)] rounded-full transition-colors text-[var(--bronze-light)]"
                 >
                   <Clock size={16} />
                 </button>
-                <button 
+                <button
                   onClick={() => setIsOpen(false)}
                   className="p-2 hover:bg-[rgba(150,139,116,0.15)] rounded-full transition-colors text-[var(--bronze-light)]"
                 >
@@ -303,7 +324,7 @@ export default function ChatWidget() {
             )}
 
             {/* Messages */}
-            <div 
+            <div
               ref={scrollRef}
               className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#222]/50"
             >
@@ -354,8 +375,8 @@ export default function ChatWidget() {
                     >
                       <div className={cn(
                         "px-4 py-3 text-sm",
-                        msg.sender === 'customer' ? "chat-bubble-admin" : 
-                        msg.sender === 'ai' ? "chat-bubble-ai" : "chat-bubble-customer"
+                        msg.sender === 'customer' ? "chat-bubble-admin" :
+                          msg.sender === 'ai' ? "chat-bubble-ai" : "chat-bubble-customer"
                       )}>
                         {msg.fileUrl && (
                           <div className="mb-2">
@@ -402,9 +423,9 @@ export default function ChatWidget() {
                       {t.thinking}
                     </div>
                   )}
-                  
+
                   {showRating && (
-                    <motion.div 
+                    <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       className="bg-[#2a2a2a] p-4 rounded-2xl border border-[rgba(150,139,116,0.2)] shadow-sm space-y-3"
@@ -439,7 +460,7 @@ export default function ChatWidget() {
                       </button>
                     </motion.div>
                   )}
-                  
+
                   {messages.length > 0 && !isTyping && !isResolved && chatMode === 'ai' && (
                     <div className="flex flex-wrap gap-2 mt-4">
                       {t.quickReplies.map((reply, i) => (
@@ -467,7 +488,7 @@ export default function ChatWidget() {
                     onChange={handleFileUpload}
                     className="hidden"
                   />
-                  <button 
+                  <button
                     onClick={() => fileInputRef.current?.click()}
                     className="p-2 text-[var(--bronze-mid)] hover:text-[var(--bronze-light)] transition-colors"
                   >
@@ -497,7 +518,7 @@ export default function ChatWidget() {
             {isResolved && !showRating && (
               <div className="p-6 text-center bg-[#2C2C2C] border-t border-[rgba(150,139,116,0.2)]">
                 <p className="text-sm text-[var(--bronze-mid)] italic">{t.ended}</p>
-                <button 
+                <button
                   onClick={clearHistory}
                   className="mt-2 text-xs text-[var(--bronze-light)] font-bold hover:underline"
                 >

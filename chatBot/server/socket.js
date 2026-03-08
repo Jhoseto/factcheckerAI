@@ -6,7 +6,10 @@ import { getAIResponse } from './gemini.js';
 
 export function setupChatBotSocket(io) {
   io.on('connection', (socket) => {
+    console.log(`[ChatSocket] Client connected: ${socket.id}`);
+
     socket.on('join_session', (sessionId) => {
+      console.log(`[ChatSocket] Socket ${socket.id} joining session: ${sessionId}`);
       socket.join(sessionId);
     });
 
@@ -35,6 +38,7 @@ export function setupChatBotSocket(io) {
         const result = db.prepare('INSERT INTO messages (session_id, sender, content, file_url, file_type) VALUES (?, ?, ?, ?, ?)').run(sessionId, sender, content, fileUrl, fileType);
         db.prepare('UPDATE sessions SET last_message = ? WHERE id = ?').run(content || (fileUrl ? '[Attachment]' : ''), sessionId);
 
+        console.log(`[ChatSocket] Broadcasters to room ${sessionId}: customer message`);
         io.to(sessionId).emit('new_message', {
           id: result.lastInsertRowid,
           sessionId,
