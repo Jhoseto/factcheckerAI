@@ -99,16 +99,16 @@ export const calculateCostInPoints = (
   // Cost in Points (100 points = 1 EUR)
   const costPoints = costEUR * 100;
 
-  // User Price = 2 * Cost (Base Multiplier) → x2 profit for Standard
-  let userPoints = Math.ceil(costPoints * 2);
+  // User Price = 1.3 * Cost (Base Multiplier) → x1.3 profit for Standard
+  let userPoints = Math.ceil(costPoints * 1.3);
 
-  // IF Deep Analysis: x1.5 additional → total x3 profit
+  // IF Deep Analysis: additional multiplier to reach x1.6 total
   if (isDeep) {
-    userPoints = Math.ceil(userPoints * 1.5);
+    userPoints = Math.ceil(costPoints * 1.6);
   }
 
   // Minimum floor
-  // Standard: 5 points. Deep: 10 points.
-  const minPoints = isDeep ? 10 : 5;
+  // Standard: 3 points. Deep: 8 points.
+  const minPoints = isDeep ? 8 : 3;
   return Math.max(minPoints, userPoints);
 };

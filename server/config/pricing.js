@@ -33,24 +33,24 @@ const POINTS_PER_EUR = 100;
 // МНОЖИТЕЛИ ЗА ПЕЧАЛБА
 // ─────────────────────────────────────────────────────────────────────────────
 const PROFIT_MULTIPLIERS = {
-  standard: 2.0,  // x2 — Стандартен видео анализ
-  deep: 3.0,      // x3 — Задълбочен видео анализ
+  standard: 1.8,  // x2.0 за по-добра стратегия
+  deep: 2.5,      // x3.0 (по искане на потребителя: ~90 точки за голям анализ)
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // МИНИМАЛНИ ЦЕНИ (floor)
 // ─────────────────────────────────────────────────────────────────────────────
 const MIN_POINTS = {
-  videoStandard: 5,
-  videoDeep: 10,
+  videoStandard: 3, // Намалено от 5
+  videoDeep: 8,     // Намалено от 10
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ФИКСИРАНИ ЦЕНИ (в точки)
 // ─────────────────────────────────────────────────────────────────────────────
 const FIXED_PRICES = {
-  linkArticle: 12,        // Анализ на уеб статия / новина
-  compareMode: 5,         // Допълнителна такса за Compare Mode
+  linkArticle: 10,        // Намалено от 12
+  compareMode: 4,         // Намалено от 5
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -87,16 +87,14 @@ function calculateVideoCostInPoints(promptTokens, candidatesTokens, isDeep = fal
  * Оценява прогнозните точки за видео анализ преди старта
  */
 function estimateVideoCostInPoints(durationSeconds, isDeep = false, model = DEFAULT_MODEL) {
-  // Синхронизирано с costEstimationService.ts:
-  // Входящи (Input): Видео (LOW res) + Аудио + Промпт.
-  // Използваме 150 токена/сек за по-голяма сигурност спрямо 100-111 в FE.
-  const videoTokens = Math.floor(durationSeconds * 150);
-  const promptOverhead = isDeep ? 6000 : 2500;
+  // Вече доказано: Видеото генерира средно 250 токена/сек (Input)
+  const videoTokens = Math.floor(durationSeconds * 250);
+  const promptOverhead = isDeep ? 8000 : 3000;
   const inputTokens = videoTokens + promptOverhead;
 
   // Изходящи (Output): 
-  // Стандартен: ~6K (съдържание + мислене). Дълбок: ~28K (съдържание + мислене).
-  const outputTokens = isDeep ? 28000 : 6000;
+  // Стандартен: ~5K. Дълбок: ~45K (с всички допълнителни мултимодални полета)
+  const outputTokens = isDeep ? 45000 : 5000;
 
   const pricing = GEMINI_API_PRICING[model] ?? GEMINI_API_PRICING[DEFAULT_MODEL];
   const inputCostUSD = (inputTokens / 1_000_000) * pricing.inputPerMillion;

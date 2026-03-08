@@ -20,7 +20,8 @@ import { getMaxAnalysesPerDay, getAnalysesCountToday } from '../services/configS
 import {
     calculateVideoCostInPoints,
     estimateVideoCostInPoints,
-    getFixedPrice
+    getFixedPrice,
+    GEMINI_API_PRICING
 } from '../config/pricing.js';
 import { MODELS } from '../config/models.js';
 import { logActivity } from '../../admin/server/activityLogger.js';
@@ -947,12 +948,14 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
 
         // ── Log Real Token Costs to Server Console ────────────────────────────
         try {
-            // Gemini 1.5 / 2.5 Flash Pricing Tiers
-            // Media (Video/Audio) is converted to tokens (Video: ~263 tokens/sec, Audio: 32 tokens/sec)
-            // and included in the promptTokenCount.
+            // Gemini 1.5 / 2.5 Flash Pricing
+            // Media (Video/Audio) is included in promptTokenCount.
+            const pricing = GEMINI_API_PRICING[model] || GEMINI_API_PRICING['gemini-2.5-flash'];
             const isOver128k = promptTokens > 128000;
-            const inputRate = isOver128k ? 0.15 : 0.075;
-            const outputRate = isOver128k ? 0.60 : 0.30;
+
+            // Note: Pricing tier logic (x2 if > 128k)
+            const inputRate = isOver128k ? pricing.inputPerMillion * 2 : pricing.inputPerMillion;
+            const outputRate = isOver128k ? pricing.outputPerMillion * 2 : pricing.outputPerMillion;
 
             const promptCostUsd = (promptTokens / 1000000) * inputRate;
             const candidatesCostUsd = (candidatesTokens / 1000000) * outputRate;

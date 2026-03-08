@@ -65,28 +65,22 @@ export const calculateCostEstimate = (
 ): CostEstimate => {
     const minutes = durationSeconds / 60;
 
-    // Input tokens: video (~100 tokens/sec at LOW res) + prompt
-    // Deep prompt is ~6K tokens, standard is ~2K tokens
-    const videoTokens = Math.floor(durationSeconds * 100);
-    const promptOverhead = mode === 'deep' ? 6000 : 2000;
+    // Input tokens: video (~250 tokens/sec at LOW res) + prompt
+    // Deep prompt is ~8K tokens, standard is ~3K tokens
+    const videoTokens = Math.floor(durationSeconds * 250);
+    const promptOverhead = mode === 'deep' ? 8000 : 3000;
     const inputTokens = videoTokens + promptOverhead;
 
     // Output tokens: content + thinking tokens
-    // Standard: ~8K base content + ~150/min, plus ~4K thinking tokens
-    // Deep: ~18K base content + ~250/min (much more detailed), plus ~8K thinking tokens
+    // Standard: ~5K total (including thinking)
+    // Deep: ~45K total (detailed JSON + 7 multimodal fields + thinking)
     let outputTokens: number;
     if (mode === 'deep') {
-        // Deep analysis produces massive output: detailed JSON with 7 multimodal fields,
-        // full transcription, extensive claims, quotes, manipulations, plus a huge final report
-        const contentTokens = Math.floor(18000 + (minutes * 250));
-        const thinkingTokens = Math.floor(8000 + (minutes * 100)); // 2.5 Flash thinking overhead
-        outputTokens = Math.min(contentTokens + thinkingTokens, 65536); // Cap at maxOutputTokens
+        outputTokens = 45000;
     } else {
-        // Standard is much lighter now after prompt reduction
-        const contentTokens = Math.floor(3000 + (minutes * 100));
-        const thinkingTokens = Math.floor(1500 + (minutes * 50));
-        outputTokens = Math.min(contentTokens + thinkingTokens, 15000);
+        outputTokens = 5000;
     }
+    outputTokens = Math.min(outputTokens, 65536);
 
     const estimatedTokens = inputTokens + outputTokens;
 
