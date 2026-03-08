@@ -119,7 +119,10 @@ export default function AdminDashboard() {
     const handleNewMessage = (msg: any) => {
       if (activeSessionRef.current && msg.sessionId === activeSessionRef.current.id) {
         setMessages(prev => {
-          const exists = prev.some(m => m.id === msg.id || (m.timestamp === msg.timestamp && m.content === msg.content));
+          const exists = prev.some(m => {
+            if (m.id && msg.id) return m.id === msg.id;
+            return m.timestamp === msg.timestamp && m.content === msg.content;
+          });
           if (exists) return prev;
           return [...prev, msg];
         });
@@ -130,6 +133,9 @@ export default function AdminDashboard() {
       loadData();
       if (activeSessionRef.current && data.sessionId === activeSessionRef.current.id) {
         fetchMessages(activeSessionRef.current.id);
+        if (data.sender === 'customer') {
+          fetch(`${API_BASE}/sessions/${data.sessionId}/read`, { method: 'POST' });
+        }
       }
     };
 
@@ -405,7 +411,7 @@ export default function AdminDashboard() {
                   {customerTyping[session.id] ? (
                     <span className="text-[var(--bronze-light)] font-medium italic">{t.typing}</span>
                   ) : (
-                    `ID: ${session.id}`
+                    session.last_message || `ID: ${session.id}`
                   )}
                 </p>
               </div>

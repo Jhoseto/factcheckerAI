@@ -42,7 +42,8 @@ const migrations = [
   { column: 'is_read', type: 'INTEGER DEFAULT 1' },
   { column: 'handoff_requested', type: 'INTEGER DEFAULT 0' },
   { column: 'rating', type: 'INTEGER' },
-  { column: 'rating_comment', type: 'TEXT' }
+  { column: 'rating_comment', type: 'TEXT' },
+  { column: 'last_message', type: 'TEXT' }
 ];
 
 migrations.forEach(m => {
@@ -51,7 +52,7 @@ migrations.forEach(m => {
   } catch (e) {
     try {
       db.exec(`ALTER TABLE sessions ADD COLUMN ${m.column} ${m.type}`);
-    } catch (err) {}
+    } catch (err) { }
   }
 });
 
@@ -66,7 +67,7 @@ msgMigrations.forEach(m => {
   } catch (e) {
     try {
       db.exec(`ALTER TABLE messages ADD COLUMN ${m.column} ${m.type}`);
-    } catch (err) {}
+    } catch (err) { }
   }
 });
 

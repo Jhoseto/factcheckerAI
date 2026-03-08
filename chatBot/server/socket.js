@@ -32,9 +32,11 @@ export function setupChatBotSocket(io) {
           }
         }
 
-        db.prepare('INSERT INTO messages (session_id, sender, content, file_url, file_type) VALUES (?, ?, ?, ?, ?)').run(sessionId, sender, content, fileUrl, fileType);
+        const result = db.prepare('INSERT INTO messages (session_id, sender, content, file_url, file_type) VALUES (?, ?, ?, ?, ?)').run(sessionId, sender, content, fileUrl, fileType);
+        db.prepare('UPDATE sessions SET last_message = ? WHERE id = ?').run(content || (fileUrl ? '[Attachment]' : ''), sessionId);
 
         io.to(sessionId).emit('new_message', {
+          id: result.lastInsertRowid,
           sessionId,
           sender,
           content,
@@ -43,7 +45,15 @@ export function setupChatBotSocket(io) {
           timestamp: new Date().toISOString()
         });
 
-        io.emit('admin_update', { type: 'new_message', sessionId, sender, userName });
+        io.emit('admin_update', {
+          type: 'new_message',
+          sessionId,
+          sender,
+          userName,
+          content: content?.slice(0, 200),
+          handoffRequested: !!handoffRequested,
+          timestamp: new Date().toISOString()
+        });
 
         if (sender === 'customer') {
           if (handoffRequested) {
@@ -60,8 +70,9 @@ export function setupChatBotSocket(io) {
             const handoffMsg = userLang === 'bg'
               ? "Разбирам, че искате да говорите с оператор. Уведомяваме екипа си. Моля, изчакайте!"
               : "I understand you'd like to speak with a human. I'm notifying our team right now. One moment please!";
-            db.prepare('INSERT INTO messages (session_id, sender, content) VALUES (?, ?, ?)').run(sessionId, 'ai', handoffMsg);
-            io.to(sessionId).emit('new_message', { sessionId, sender: 'ai', content: handoffMsg, timestamp: new Date().toISOString() });
+            const aiResult = db.prepare('INSERT INTO messages (session_id, sender, content) VALUES (?, ?, ?)').run(sessionId, 'ai', handoffMsg);
+            db.prepare('UPDATE sessions SET last_message = ? WHERE id = ?').run(handoffMsg, sessionId);
+            io.to(sessionId).emit('new_message', { id: aiResult.lastInsertRowid, sessionId, sender: 'ai', content: handoffMsg, timestamp: new Date().toISOString() });
             return;
           }
 
@@ -78,9 +89,11 @@ export function setupChatBotSocket(io) {
           const sessionNow = db.prepare('SELECT handoff_requested FROM sessions WHERE id = ?').get(sessionId);
           if (sessionNow?.handoff_requested) return;
 
-          db.prepare('INSERT INTO messages (session_id, sender, content) VALUES (?, ?, ?)').run(sessionId, 'ai', aiText);
+          const aiResult = db.prepare('INSERT INTO messages (session_id, sender, content) VALUES (?, ?, ?)').run(sessionId, 'ai', aiText);
+          db.prepare('UPDATE sessions SET last_message = ? WHERE id = ?').run(aiText, sessionId);
 
           io.to(sessionId).emit('new_message', {
+            id: aiResult.lastInsertRowid,
             sessionId,
             sender: 'ai',
             content: aiText,
@@ -92,7 +105,9 @@ export function setupChatBotSocket(io) {
             type: 'new_message',
             sessionId,
             sender: 'ai',
-            userName: `AI (to ${sessionInfo?.user_name || 'Guest'})`
+            userName: `AI (to ${sessionInfo?.user_name || 'Guest'})`,
+            content: aiText?.slice(0, 200),
+            timestamp: new Date().toISOString()
           });
         }
       } catch (err) {

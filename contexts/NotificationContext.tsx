@@ -84,22 +84,26 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         setSocket(newSocket);
 
         newSocket.on('admin_update', (data) => {
-            if (data.type === 'new_message' && data.sender !== 'admin') {
+            if (data.type === 'new_message' && data.sender === 'customer') {
+                const isHandoff = data.handoffRequested;
                 const notification: ChatNotification = {
                     id: Date.now(),
                     sessionId: data.sessionId,
-                    userName: data.userName || (data.sender === 'ai' ? 'AI Assistant' : 'Guest'),
-                    message: data.content || 'New message received!',
+                    userName: data.userName || 'Guest',
+                    message: isHandoff ? `🆘 [HUMAN REQUEST] ${data.content || 'Needs help!'}` : (data.content || 'New message received!'),
                     timestamp: Date.now()
                 };
 
                 setNotifications(prev => [...prev, notification]);
                 playNotificationSound();
-                showBrowserNotification(notification.userName, notification.message);
+                showBrowserNotification(
+                    isHandoff ? `🆘 ${notification.userName}` : notification.userName,
+                    notification.message
+                );
 
                 setTimeout(() => {
                     setNotifications(prev => prev.filter(n => n.id !== notification.id));
-                }, 10000);
+                }, 15000); // 15s visibility
             }
         });
 
