@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { io, Socket } from 'socket.io-client';
 import { Users, MessageSquare, Send, Search, Bell, Menu, MoreVertical, CheckCircle2, Clock, X, Paperclip, Zap, Loader2 } from 'lucide-react';
@@ -72,65 +72,89 @@ export default function AdminDashboard() {
     }
   }[i18n.language === 'en' ? 'en' : 'bg'];
 
+  const loadData = useCallback(() => {
+    const url = new URL(`${API_BASE}/sessions`, window.location.origin);
+    url.searchParams.set('status', status);
+    if (search) url.searchParams.set('search', search);
+
+    fetch(url.toString())
+      .then(res => res.json())
+      .then(data => setSessions(data));
+
+    fetch(`${API_BASE}/canned-responses`)
+      .then(res => res.json())
+      .then(data => setCannedResponses(data));
+
+    fetch(`${API_BASE}/analytics`)
+      .then(res => res.json())
+      .then(data => setAnalytics(data));
+  }, [status, search]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
   useEffect(() => {
     const newSocket = io();
     setSocket(newSocket);
-
-    const loadData = () => {
-      const url = new URL(`${API_BASE}/sessions`, window.location.origin);
-      url.searchParams.set('status', status);
-      if (search) url.searchParams.set('search', search);
-
-      fetch(url.toString())
-        .then(res => res.json())
-        .then(data => setSessions(data));
-
-      fetch(`${API_BASE}/canned-responses`)
-        .then(res => res.json())
-        .then(data => setCannedResponses(data));
-
-      fetch(`${API_BASE}/analytics`)
-        .then(res => res.json())
-        .then(data => setAnalytics(data));
-    };
-
-    loadData();
-
-    newSocket.on('user_typing', (data) => {
-      if (data.sender === 'customer') {
-        setCustomerTyping(prev => ({ ...prev, [data.sessionId]: data.isTyping }));
-      }
-    });
-
-    newSocket.on('admin_update', (data) => {
-      loadData();
-      if (activeSession && data.sessionId === activeSession.id) {
-        fetchMessages(activeSession.id);
-      }
-    });
-
-    newSocket.on('new_message', (msg) => {
-      if (activeSession && msg.sessionId === activeSession.id) {
-        setMessages(prev => [...prev, msg]);
-      }
-    });
-
     return () => {
       newSocket.close();
     };
-  }, [activeSession, status, search]);
+  }, []);
+
+  const activeSessionRef = useRef(activeSession);
+  useEffect(() => {
+    activeSessionRef.current = activeSession;
+  }, [activeSession]);
+
+  const fetchMessages = useCallback((sessionId: string) => {
+    fetch(`${API_BASE}/messages/${sessionId}`)
+      .then(res => res.json())
+      .then(data => setMessages(data));
+  }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNewMessage = (msg: any) => {
+      if (activeSessionRef.current && msg.sessionId === activeSessionRef.current.id) {
+        setMessages(prev => {
+          const exists = prev.some(m => m.id === msg.id || (m.timestamp === msg.timestamp && m.content === msg.content));
+          if (exists) return prev;
+          return [...prev, msg];
+        });
+      }
+    };
+
+    const handleAdminUpdate = (data: any) => {
+      loadData();
+      if (activeSessionRef.current && data.sessionId === activeSessionRef.current.id) {
+        fetchMessages(activeSessionRef.current.id);
+      }
+    };
+
+    const handleUserTyping = (data: any) => {
+      if (data.sender === 'customer') {
+        setCustomerTyping(prev => ({ ...prev, [data.sessionId]: data.isTyping }));
+      }
+    };
+
+    socket.on('new_message', handleNewMessage);
+    socket.on('admin_update', handleAdminUpdate);
+    socket.on('user_typing', handleUserTyping);
+
+    return () => {
+      socket.off('new_message', handleNewMessage);
+      socket.off('admin_update', handleAdminUpdate);
+      socket.off('user_typing', handleUserTyping);
+    };
+  }, [socket, loadData, fetchMessages]);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
-
-  const fetchMessages = (sessionId: string) => {
-    fetch(`${API_BASE}/messages/${sessionId}`)
-      .then(res => res.json())
-      .then(data => setMessages(data));
-  };
 
   const handleSessionSelect = (session: any) => {
     setActiveSession(session);
@@ -148,9 +172,9 @@ export default function AdminDashboard() {
 
   const handleSend = (text?: string, file?: { url: string, type: string }) => {
     const finalReply = text || reply;
-    if (!finalReply.trim() && !file && !activeSession && !socket) return;
+    if (!activeSession || !socket || (!finalReply.trim() && !file)) return;
 
-    socket?.emit('send_message', {
+    socket.emit('send_message', {
       sessionId: activeSession.id,
       sender: 'admin',
       content: finalReply,
@@ -162,7 +186,7 @@ export default function AdminDashboard() {
     setShowCanned(false);
 
     // Stop typing indicator
-    socket?.emit('typing', { sessionId: activeSession.id, sender: 'admin', isTyping: false });
+    socket.emit('typing', { sessionId: activeSession.id, sender: 'admin', isTyping: false });
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -222,13 +246,7 @@ export default function AdminDashboard() {
         .then(() => {
           setActiveSession(null);
           setMessages([]);
-          // Refresh sessions list
-          const url = new URL(`${API_BASE}/sessions`, window.location.origin);
-          url.searchParams.set('status', status);
-          if (search) url.searchParams.set('search', search);
-          fetch(url.toString())
-            .then(res => res.json())
-            .then(data => setSessions(data));
+          loadData();
         });
     }
   };
@@ -379,7 +397,7 @@ export default function AdminDashboard() {
                   </h3>
                   <div className="flex flex-col items-end gap-1">
                     <span className="text-[10px] text-[var(--bronze-mid)] shrink-0">
-                      {format(new Date(session.last_active), 'HH:mm')}
+                      {session.last_active ? format(new Date(session.last_active), 'HH:mm') : '--:--'}
                     </span>
                   </div>
                 </div>
@@ -487,7 +505,7 @@ export default function AdminDashboard() {
                     </span>
                     <span className="text-[10px] text-[var(--bronze-dark)]">•</span>
                     <span className="text-[10px] text-[var(--bronze-mid)]">
-                      {format(new Date(msg.timestamp), 'HH:mm')}
+                      {msg.timestamp ? format(new Date(msg.timestamp), 'HH:mm') : '--:--'}
                     </span>
                   </div>
                 </div>

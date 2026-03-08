@@ -50,7 +50,7 @@ ${PRICING_KNOWLEDGE}`;
   try {
     const ai = getAIInstance();
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-1.5-flash',
       contents: [
         ...history,
         { role: 'user', parts: [{ text: message }] }
