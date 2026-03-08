@@ -7,7 +7,7 @@ import { getAuth, signInWithEmailAndPassword } from '@firebase/auth';
 
 // Firebase config from .env
 const firebaseConfig = {
-    apiKey: 'AIzaSyAkWfQM6ndBOaRFD92peLapWdgCwX5M9Tk',
+    apiKey: process.env.GEMINI_API_KEY,
     authDomain: 'factcheckerai-d376d.firebaseapp.com',
     projectId: 'factcheckerai-d376d',
 };
