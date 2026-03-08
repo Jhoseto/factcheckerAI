@@ -6,7 +6,7 @@ import { auth } from './firebase';
 
 const API_BASE = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) || '';
 let lastTrack = 0;
-const DEBOUNCE_MS = 8000;
+const DEBOUNCE_MS = 5000;
 
 export async function trackVisit(path: string, action: 'page_view' | 'login' = 'page_view') {
     const now = Date.now();

@@ -7,7 +7,7 @@ import { verifyToken } from '../services/firebaseAdmin.js';
 
 const router = express.Router();
 const rateLimitMap = new Map(); // ip -> last timestamp
-const RATE_MS = 10000; // 10 sec — allow normal navigation, React Strict Mode double-mount
+const RATE_MS = 5000; // 5 sec — allow normal navigation, React Strict Mode double-mount
 
 function getIp(req) {
     const cf = req.headers['cf-connecting-ip']?.trim();

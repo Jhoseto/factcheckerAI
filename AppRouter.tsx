@@ -40,7 +40,7 @@ const AppRouter: React.FC = () => {
 
     useEffect(() => {
         if (!loading) trackVisit(location.pathname || '/', 'page_view');
-    }, [loading]);
+    }, [loading, location.pathname]);
 
     // Refresh profile when returning from successful payment
     useEffect(() => {
@@ -91,62 +91,62 @@ const AppRouter: React.FC = () => {
             <LegalFooter />
             <ChatWidget />
             <Suspense fallback={<PageFallback />}>
-            <Routes>
-                {/* Public routes */}
-                <Route
-                    path="/login"
-                    element={currentUser ? <Navigate to="/" replace /> : <Login />}
-                />
-                <Route
-                    path="/register"
-                    element={currentUser ? <Navigate to="/" replace /> : !newRegistrationEnabled ? <Navigate to="/login?reg=disabled" replace /> : <Register />}
-                />
+                <Routes>
+                    {/* Public routes */}
+                    <Route
+                        path="/login"
+                        element={currentUser ? <Navigate to="/" replace /> : <Login />}
+                    />
+                    <Route
+                        path="/register"
+                        element={currentUser ? <Navigate to="/" replace /> : !newRegistrationEnabled ? <Navigate to="/login?reg=disabled" replace /> : <Register />}
+                    />
 
-                {/* Main app - PUBLIC, authentication checked on analysis action */}
-                <Route
-                    path="/"
-                    element={<App />}
-                />
+                    {/* Main app - PUBLIC, authentication checked on analysis action */}
+                    <Route
+                        path="/"
+                        element={<App />}
+                    />
 
-                {/* Pricing - requires authentication */}
-                <Route
-                    path="/pricing"
-                    element={currentUser ? <PricingPage /> : <Navigate to="/login" replace />}
-                />
+                    {/* Pricing - requires authentication */}
+                    <Route
+                        path="/pricing"
+                        element={currentUser ? <PricingPage /> : <Navigate to="/login" replace />}
+                    />
 
-                {/* Expenses & History - requires authentication */}
-                <Route
-                    path="/expenses"
-                    element={currentUser ? <ExpensesPage /> : <Navigate to="/login" replace />}
-                />
+                    {/* Expenses & History - requires authentication */}
+                    <Route
+                        path="/expenses"
+                        element={currentUser ? <ExpensesPage /> : <Navigate to="/login" replace />}
+                    />
 
-                {/* Admin Panel - requires authentication + admin claim */}
-                <Route
-                    path="/admin/*"
-                    element={currentUser ? <AdminApp /> : <Navigate to="/login" replace />}
-                />
-                <Route
-                    path="/chat-admin"
-                    element={<Navigate to="/admin/chat" replace />}
-                />
+                    {/* Admin Panel - requires authentication + admin claim */}
+                    <Route
+                        path="/admin/*"
+                        element={currentUser ? <AdminApp /> : <Navigate to="/login" replace />}
+                    />
+                    <Route
+                        path="/chat-admin"
+                        element={<Navigate to="/admin/chat" replace />}
+                    />
 
-                {/* Archive - saved analyses */}
-                <Route
-                    path="/archive"
-                    element={currentUser ? <ArchivePage /> : <Navigate to="/login" replace />}
-                />
+                    {/* Archive - saved analyses */}
+                    <Route
+                        path="/archive"
+                        element={currentUser ? <ArchivePage /> : <Navigate to="/login" replace />}
+                    />
 
-                {/* Shared Report - Publicly accessible */}
-                <Route path="/analysis-result" element={<ReportPage />} />
-                <Route path="/report/:id" element={<ReportPage />} />
+                    {/* Shared Report - Publicly accessible */}
+                    <Route path="/analysis-result" element={<ReportPage />} />
+                    <Route path="/report/:id" element={<ReportPage />} />
 
-                <Route path="/terms" element={<TermsPage />} />
-                <Route path="/privacy" element={<PrivacyPage />} />
-                <Route path="/refund-policy" element={<RefundPage />} />
+                    <Route path="/terms" element={<TermsPage />} />
+                    <Route path="/privacy" element={<PrivacyPage />} />
+                    <Route path="/refund-policy" element={<RefundPage />} />
 
-                {/* Fallback */}
-                <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
+                    {/* Fallback */}
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
             </Suspense>
         </>
     );
