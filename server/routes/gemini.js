@@ -149,6 +149,7 @@ const POINT_DETAILS_ITEM = {
 };
 
 // JSON Schema for structured output — detailed nested structure for WoW analysis
+// NOTE: maxItems is NOT supported by Gemini structured output API — causes INVALID_ARGUMENT 400 errors
 const VIDEO_RESPONSE_SCHEMA = {
     type: 'object',
     required: ['summary', 'overallAssessment'],
@@ -158,7 +159,6 @@ const VIDEO_RESPONSE_SCHEMA = {
         detailedMetrics: { type: 'object' },
         factualClaims: {
             type: 'array',
-            maxItems: 30,
             items: {
                 type: 'object',
                 properties: {
@@ -178,7 +178,6 @@ const VIDEO_RESPONSE_SCHEMA = {
         },
         claims: {
             type: 'array',
-            maxItems: 30,
             items: {
                 type: 'object',
                 properties: {
@@ -189,10 +188,9 @@ const VIDEO_RESPONSE_SCHEMA = {
                 required: ['claim', 'verdict']
             }
         },
-        quotes: { type: 'array', items: { type: 'object' }, maxItems: 10 },
+        quotes: { type: 'array', items: { type: 'object' } },
         manipulationTechniques: {
             type: 'array',
-            maxItems: 20,
             items: {
                 type: 'object',
                 properties: {
@@ -208,21 +206,21 @@ const VIDEO_RESPONSE_SCHEMA = {
             }
         },
         finalInvestigativeReport: { type: 'string' },
-        geopoliticalContext: { type: 'array', items: { type: 'object' }, maxItems: 5 },
-        historicalParallel: { type: 'array', items: { type: 'object' }, maxItems: 5 },
-        psychoLinguisticAnalysis: { type: 'array', items: { type: 'object' }, maxItems: 5 },
-        strategicIntent: { type: 'array', items: { type: 'object' }, maxItems: 5 },
-        narrativeArchitecture: { type: 'array', items: { type: 'object' }, maxItems: 5 },
-        technicalForensics: { type: 'array', items: { type: 'object' }, maxItems: 5 },
-        socialImpactPrediction: { type: 'array', items: { type: 'object' }, maxItems: 5 },
-        visualAnalysis: { type: 'array', items: POINT_DETAILS_ITEM, maxItems: 5 },
-        bodyLanguageAnalysis: { type: 'array', items: POINT_DETAILS_ITEM, maxItems: 5 },
-        vocalAnalysis: { type: 'array', items: POINT_DETAILS_ITEM, maxItems: 5 },
-        deceptionAnalysis: { type: 'array', items: POINT_DETAILS_ITEM, maxItems: 5 },
-        humorAnalysis: { type: 'array', items: POINT_DETAILS_ITEM, maxItems: 5 },
-        psychologicalProfile: { type: 'array', items: POINT_DETAILS_ITEM, maxItems: 5 },
-        culturalSymbolicAnalysis: { type: 'array', items: POINT_DETAILS_ITEM, maxItems: 5 },
-        recommendations: { type: 'array', items: { type: 'object' }, maxItems: 10 },
+        geopoliticalContext: { type: 'array', items: { type: 'object' } },
+        historicalParallel: { type: 'array', items: { type: 'object' } },
+        psychoLinguisticAnalysis: { type: 'array', items: { type: 'object' } },
+        strategicIntent: { type: 'array', items: { type: 'object' } },
+        narrativeArchitecture: { type: 'array', items: { type: 'object' } },
+        technicalForensics: { type: 'array', items: { type: 'object' } },
+        socialImpactPrediction: { type: 'array', items: { type: 'object' } },
+        visualAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
+        bodyLanguageAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
+        vocalAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
+        deceptionAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
+        humorAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
+        psychologicalProfile: { type: 'array', items: POINT_DETAILS_ITEM },
+        culturalSymbolicAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
+        recommendations: { type: 'array', items: { type: 'object' } },
         biasIndicators: { type: 'object' }
     }
 };
@@ -684,8 +682,10 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             const finalConfig = {
                 ...toolConfig,
                 tools: undefined,
+                maxOutputTokens: 32768, // Reduced — with thinkingBudget:0, 32768 is sufficient for full JSON
                 responseMimeType: 'application/json',
                 responseSchema: VIDEO_RESPONSE_SCHEMA,
+                thinkingConfig: { thinkingBudget: 0 }, // Disable thinking to avoid using tokens on reasoning
                 httpOptions: { timeout: 300000 } // 5 min for JSON step
             };
 
@@ -737,10 +737,11 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             const stdConfig = {
                 systemInstruction: enhancedSystemInstruction,
                 temperature: 0.7,
-                maxOutputTokens: 63536,
+                maxOutputTokens: 32768, // Reduced from 63536 — with thinkingBudget:0, 32768 is sufficient; 63536 causes truncated JSON
                 responseMimeType: 'application/json',
                 responseSchema: VIDEO_RESPONSE_SCHEMA,
                 mediaResolution: 'MEDIA_RESOLUTION_LOW',
+                thinkingConfig: { thinkingBudget: 0 }, // Disable thinking: without this, gemini-2.5-flash uses 7000+ thinking tokens, leaving too few for output
                 abortSignal: abortController.signal,
                 httpOptions: { timeout: 300000 } // 5 min for video
             };
