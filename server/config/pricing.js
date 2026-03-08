@@ -84,6 +84,34 @@ function calculateVideoCostInPoints(promptTokens, candidatesTokens, isDeep = fal
 }
 
 /**
+ * Оценява прогнозните точки за видео анализ преди старта
+ */
+function estimateVideoCostInPoints(durationSeconds, isDeep = false, model = DEFAULT_MODEL) {
+  // Синхронизирано с costEstimationService.ts:
+  // Входящи (Input): Видео (LOW res) + Аудио + Промпт.
+  // Използваме 150 токена/сек за по-голяма сигурност спрямо 100-111 в FE.
+  const videoTokens = Math.floor(durationSeconds * 150);
+  const promptOverhead = isDeep ? 6000 : 2500;
+  const inputTokens = videoTokens + promptOverhead;
+
+  // Изходящи (Output): 
+  // Стандартен: ~6K (съдържание + мислене). Дълбок: ~28K (съдържание + мислене).
+  const outputTokens = isDeep ? 28000 : 6000;
+
+  const pricing = GEMINI_API_PRICING[model] ?? GEMINI_API_PRICING[DEFAULT_MODEL];
+  const inputCostUSD = (inputTokens / 1_000_000) * pricing.inputPerMillion;
+  const outputCostUSD = (outputTokens / 1_000_000) * pricing.outputPerMillion;
+  const totalCostUSD = inputCostUSD + outputCostUSD;
+
+  const totalCostEUR = totalCostUSD * USD_TO_EUR_RATE;
+  const profitMultiplier = isDeep ? PROFIT_MULTIPLIERS.deep : PROFIT_MULTIPLIERS.standard;
+  const finalPoints = Math.ceil(totalCostEUR * POINTS_PER_EUR * profitMultiplier);
+
+  const minPoints = isDeep ? MIN_POINTS.videoDeep : MIN_POINTS.videoStandard;
+  return Math.max(minPoints, finalPoints);
+}
+
+/**
  * Връща фиксираната цена за даден тип услуга
  */
 function getFixedPrice(serviceType) {
@@ -111,6 +139,7 @@ export {
   FIXED_PRICES,
   BATCH_DISCOUNT,
   calculateVideoCostInPoints,
+  estimateVideoCostInPoints,
   getFixedPrice,
   logBilling,
 };

@@ -218,7 +218,8 @@ const transformGeminiResponse = (
   videoTitle?: string,
   videoAuthor?: string,
   fullMetadata?: YouTubeVideoMetadata,
-  transcription?: TranscriptionLine[]
+  transcription?: TranscriptionLine[],
+  mode: AnalysisMode = 'standard'
 ): VideoAnalysis => {
   const responseLang = getApiLang();
 
@@ -283,15 +284,15 @@ const transformGeminiResponse = (
     confidence: c.confidence || (c.verdict === 'TRUE' ? 0.9 : c.verdict === 'FALSE' ? 0.1 : 0.5),
     veracity: mapVerdict(c.verdict) as 'вярно' | 'предимно вярно' | 'частично вярно' | 'подвеждащо' | 'невярно' | 'непроверимо',
     verdict: (c.verdict?.toUpperCase?.() || 'UNVERIFIABLE') as string,
-    explanation: (c.logicalAnalysis || '') + (c.factualVerification ? (responseLang === 'en' ? '\n\nFactual verification: ' : '\n\nФактическа проверка: ') + c.factualVerification : '') + (c.comparison ? (responseLang === 'en' ? '\n\nComparison: ' : '\n\nСравнение: ') + c.comparison : '') || c.evidence || (responseLang === 'en' ? 'No information available' : 'Няма налична информация'),
-    missingContext: (c.context || '') + (Array.isArray(c.sources) && c.sources.length > 0 ? (responseLang === 'en' ? '\n\nSources: ' : '\n\nИзточници: ') + c.sources.join(', ') : '') || ''
+    explanation: c.explanation || c.logicalAnalysis || c.evidence || (responseLang === 'en' ? 'No information available' : 'Няма налична информация'),
+    missingContext: c.missingContext || c.context || ''
   }));
 
   const transformedManipulations = manipulations.map((m: any, idx: number) => ({
     technique: m.technique || (responseLang === 'en' ? 'Unknown technique' : 'Неизвестна'),
     timestamp: m.timestamp || '00:00',
-    logic: (m.description || m.logic || '') + (m.example ? (responseLang === 'en' ? '\n\nExample: ' : '\n\nПример: ') + m.example : ''),
-    effect: m.impact || (responseLang === 'en' ? 'Impact on the audience' : 'Въздействие върху аудиторията'),
+    logic: m.logic || m.description || '',
+    effect: m.effect || m.impact || (responseLang === 'en' ? 'Impact on the audience' : 'Въздействие върху аудиторията'),
     severity: m.severity || (0.5 + (idx * 0.1)),
     counterArgument: m.counterArgument || (responseLang === 'en' ? 'Verify primary sources.' : 'Проверка на първоизточници.')
   }));
@@ -308,81 +309,22 @@ const transformGeminiResponse = (
     ? `\n\n**Метаданни на видеоклипа:**\n- **Заглавие:** ${fullMetadata.title}\n- **Автор:** ${fullMetadata.author}\n- **Продължителност:** ${fullMetadata.durationFormatted}\n- **ID:** ${fullMetadata.videoId}`
     : (videoTitle ? `\n\n**Метаданни:**\n- **Заглавие:** ${videoTitle}\n- **Автор:** ${videoAuthor || 'Неизвестен'}` : '');
 
-  const constructedReport = (rawResponse?.finalInvestigativeReport) || (responseLang === 'en' ? `
-# FINAL INVESTIGATIVE REPORT
-
-## Executive Summary
-${rawResponse?.summary || 'No summary available.'}
-
-## Key Findings and Fact Checks
-${(allClaims || []).slice(0, 10).map((c: any) => `
-### "${c.claim || c.quote}"${c.speaker ? ` - ${c.speaker}` : ''}${c.timestamp ? ` [${c.timestamp}]` : ''}
-
-**Verdict:** ${c.verdict || 'UNVERIFIABLE'}
-
-**Evidence and verification:**
-${c.evidence || c.factualVerification || 'No information available'}
-
-${c.comparison ? `**Comparison with other sources:**\n${c.comparison}\n` : ''}
-${c.logicalAnalysis ? `**Logical analysis:**\n${c.logicalAnalysis}\n` : ''}
-${Array.isArray(c.sources) && c.sources.length > 0 ? `**Sources:** ${c.sources.join(', ')}\n` : ''}
-`).join('\n---\n')}
-
-${manipulations.length > 0 ? `
-## Discovered Manipulation Techniques
-
-${manipulations.map((m: any) => `
-### ${m.technique}${m.speaker ? ` (used by ${m.speaker})` : ''} [${m.timestamp || '00:00'}]
-
-${m.description || ''}
-
-${m.example ? `**Concrete example:**\n"${m.example}"\n` : ''}
-${m.impact ? `**Impact on the audience:**\n${m.impact}\n` : ''}
-${m.counterArgument ? `**How to protect yourself:**\n${m.counterArgument}\n` : ''}
-`).join('\n---\n')}
-` : ''}
-
-## Geopolitical Context and Historical Parallels
-${rawResponse?.geopoliticalContext || 'Not applicable'}
-
-${rawResponse?.historicalParallel ? `\n### Historical Precedents\n${rawResponse.historicalParallel}\n` : ''}
-
-## Psycholinguistic Analysis
-${rawResponse?.psychoLinguisticAnalysis || 'No data'}
-
-## Strategic Intent
-${rawResponse?.strategicIntent || 'No data'}
-
-## Narrative Architecture
-${rawResponse?.narrativeArchitecture || 'No data'}
-
-## Technical Forensics
-${rawResponse?.technicalForensics || 'No data'}
-
-## Social Impact
-${rawResponse?.socialImpactPrediction || 'No data'}
-
-## Conclusion and Recommendations
-${rawResponse?.recommendations || 'Critical evaluation of the presented information is recommended.'}
-
-${metadataSection}
-`.trim() : `
+  const constructedReport = (rawResponse?.finalInvestigativeReport) || `
 # ФИНАЛЕН РАЗСЛЕДВАЩ ДОКЛАД
 
 ## Изпълнително резюме
-${rawResponse?.summary || 'Няма налично резюме.'}
+${rawResponse?.summary?.overallSummary || rawResponse?.summary || 'Няма налично резюме.'}
 
 ## Ключови констатации и фактически проверки
-${(allClaims || []).slice(0, 10).map((c: any) => `
+${(claims || []).slice(0, 10).map((c: any) => `
 ### "${c.claim || c.quote}"${c.speaker ? ` - ${c.speaker}` : ''}${c.timestamp ? ` [${c.timestamp}]` : ''}
 
 **Вердикт:** ${c.verdict || 'UNVERIFIABLE'}
 
-**Доказателства и проверка:**
-${c.evidence || c.factualVerification || 'Няма налична информация'}
+**Доказателства и логически одит:**
+${c.explanation || c.evidence || c.factualVerification || 'Няма налична информация'}
 
-${c.comparison ? `**Сравнение с други източници:**\n${c.comparison}\n` : ''}
-${c.logicalAnalysis ? `**Логически анализ:**\n${c.logicalAnalysis}\n` : ''}
+${c.missingContext ? `**Липсващ контекст:**\n${c.missingContext}\n` : ''}
 ${Array.isArray(c.sources) && c.sources.length > 0 ? `**Източници:** ${c.sources.join(', ')}\n` : ''}
 `).join('\n---\n')}
 
@@ -392,39 +334,40 @@ ${manipulations.length > 0 ? `
 ${manipulations.map((m: any) => `
 ### ${m.technique}${m.speaker ? ` (използвана от ${m.speaker})` : ''} [${m.timestamp || '00:00'}]
 
-${m.description || ''}
+${m.logic || m.description || ''}
 
 ${m.example ? `**Конкретен пример:**\n"${m.example}"\n` : ''}
-${m.impact ? `**Въздействие върху аудиторията:**\n${m.impact}\n` : ''}
+${m.effect || m.impact ? `**Въздействие върху аудиторията:**\n${m.effect || m.impact}\n` : ''}
 ${m.counterArgument ? `**Как да се защитим:**\n${m.counterArgument}\n` : ''}
 `).join('\n---\n')}
 ` : ''}
 
 ## Геополитически контекст и исторически паралели
-${rawResponse?.geopoliticalContext || 'Неприложимо'}
+${toSummaryString(rawResponse?.geopoliticalContext, 'Неприложимо')}
 
-${rawResponse?.historicalParallel ? `\n### Исторически прецеденти\n${rawResponse.historicalParallel}\n` : ''}
+${rawResponse?.historicalParallel ? `\n### Исторически прецеденти\n${toSummaryString(rawResponse.historicalParallel, 'Няма данни')}\n` : ''}
 
 ## Психолингвистичен анализ
-${rawResponse?.psychoLinguisticAnalysis || 'Няма данни'}
+${toSummaryString(rawResponse?.psychoLinguisticAnalysis, 'Няма данни')}
 
 ## Стратегическо намерение
-${rawResponse?.strategicIntent || 'Няма данни'}
+${toSummaryString(rawResponse?.strategicIntent, 'Няма данни')}
 
 ## Наративна архитектура
-${rawResponse?.narrativeArchitecture || 'Няма данни'}
+${toSummaryString(rawResponse?.narrativeArchitecture, 'Няма данни')}
 
 ## Техническа експертиза
-${rawResponse?.technicalForensics || 'Няма данни'}
+${toSummaryString(rawResponse?.technicalForensics, 'Няма данни')}
 
 ## Социално въздействие
-${rawResponse?.socialImpactPrediction || 'Няма данни'}
+${toSummaryString(rawResponse?.socialImpactPrediction || rawResponse?.recommendations, 'Няма данни')}
 
 ## Заключение и препоръки
-${rawResponse?.recommendations || 'Препоръчва се критично осмисляне на представената информация.'}
+${toSummaryString(rawResponse?.recommendations, 'Препоръчва се критично осмисляне на представената информация.')}
+
 
 ${metadataSection}
-`.trim());
+`.trim();
 
   return {
     id: crypto.randomUUID(),
@@ -444,8 +387,8 @@ ${metadataSection}
       credibilityIndex: credibilityIndex,
       manipulationIndex: manipulationIndex,
       unverifiablePercent: 0.1,
-      finalClassification: mapAssessment(rawResponse?.overallAssessment),
-      overallSummary: (rawResponse?.summary || 'Анализът е завършен.') + metadataSection,
+      finalClassification: mapAssessment(rawResponse?.summary?.finalClassification || rawResponse?.overallAssessment),
+      overallSummary: (rawResponse?.summary?.overallSummary || rawResponse?.summary || 'Анализът е завършен.') + metadataSection,
       totalDuration: fullMetadata?.durationFormatted || 'N/A',
       detailedStats: rawResponse?.detailedMetrics ? {
         factualAccuracy: rawResponse.detailedMetrics.factualAccuracy ?? credibilityIndex,
@@ -484,7 +427,7 @@ ${metadataSection}
       dataPointsProcessed: (claims?.length || 0) * 10
     },
     pointsCost: 0, // Will be set by caller
-    analysisMode: model.includes('2.5') ? 'standard' : 'deep',
+    analysisMode: mode,
 
     // Multimodal analysis fields (deep analysis only) — Gemini returns arrays of { point, details }; convert to string for UI
     visualAnalysis: formatMultimodalField(rawResponse?.visualAnalysis),
@@ -542,8 +485,7 @@ export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTub
 
     const transcription: TranscriptionLine[] = [];
 
-    const parsed = transformGeminiResponse(rawResponse, model, videoMetadata?.title, videoMetadata?.author, videoMetadata, transcription);
-    parsed.analysisMode = mode;
+    const parsed = transformGeminiResponse(rawResponse, model, videoMetadata?.title, videoMetadata?.author, videoMetadata, transcription, mode);
 
     const usage: APIUsage = {
       promptTokens: data.usageMetadata?.promptTokenCount || 0,
@@ -679,7 +621,7 @@ export const synthesizeReport = async (analysis: VideoAnalysis): Promise<string>
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
+      'Authorization': `Bearer ${token} `
     },
     body: JSON.stringify({ prompt, lang: getApiLang() })
   });

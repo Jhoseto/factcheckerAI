@@ -82,9 +82,10 @@ export const calculateCostEstimate = (
         const thinkingTokens = Math.floor(8000 + (minutes * 100)); // 2.5 Flash thinking overhead
         outputTokens = Math.min(contentTokens + thinkingTokens, 65536); // Cap at maxOutputTokens
     } else {
-        const contentTokens = Math.floor(8000 + (minutes * 150));
-        const thinkingTokens = Math.floor(4000 + (minutes * 50));
-        outputTokens = Math.min(contentTokens + thinkingTokens, 20000); // Cap at maxOutputTokens
+        // Standard is much lighter now after prompt reduction
+        const contentTokens = Math.floor(3000 + (minutes * 100));
+        const thinkingTokens = Math.floor(1500 + (minutes * 50));
+        outputTokens = Math.min(contentTokens + thinkingTokens, 15000);
     }
 
     const estimatedTokens = inputTokens + outputTokens;

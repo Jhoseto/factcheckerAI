@@ -19,6 +19,7 @@ import {
 import { getMaxAnalysesPerDay, getAnalysesCountToday } from '../services/configService.js';
 import {
     calculateVideoCostInPoints,
+    estimateVideoCostInPoints,
     getFixedPrice
 } from '../config/pricing.js';
 import { MODELS } from '../config/models.js';
@@ -150,94 +151,117 @@ const POINT_DETAILS_ITEM = {
 
 // JSON Schema for structured output — detailed nested structure for WoW analysis
 // NOTE: maxItems is NOT supported by Gemini structured output API — causes INVALID_ARGUMENT 400 errors
-const VIDEO_RESPONSE_SCHEMA = {
-    type: 'object',
-    required: ['summary', 'overallAssessment'],
-    properties: {
-        summary: { type: 'string' },
-        overallAssessment: { type: 'string' },
-        detailedMetrics: { type: 'object' },
-        factualClaims: {
-            type: 'array',
-            items: {
+const VIDEO_PROPERTIES = {
+    summary: {
+        type: 'object',
+        required: ['overallSummary', 'credibilityIndex', 'manipulationIndex', 'totalDuration', 'detailedStats'],
+        properties: {
+            overallSummary: { type: 'string' },
+            credibilityIndex: { type: 'number' },
+            manipulationIndex: { type: 'number' },
+            unverifiablePercent: { type: 'number' },
+            finalClassification: { type: 'string' },
+            recommendations: { type: 'string' },
+            totalDuration: { type: 'string' },
+            detailedStats: {
                 type: 'object',
                 properties: {
-                    claim: { type: 'string', description: 'Full claim as stated' },
-                    verdict: { type: 'string', enum: ['TRUE', 'MOSTLY_TRUE', 'MIXED', 'MOSTLY_FALSE', 'FALSE', 'UNVERIFIABLE'] },
-                    evidence: { type: 'string' },
-                    logicalAnalysis: { type: 'string' },
-                    factualVerification: { type: 'string' },
-                    comparison: { type: 'string' },
-                    context: { type: 'string' },
-                    sources: { type: 'array', items: { type: 'string' } },
-                    speaker: { type: 'string' },
-                    timestamp: { type: 'string' }
-                },
-                required: ['claim', 'verdict']
+                    factualAccuracy: { type: 'number' },
+                    logicalSoundness: { type: 'number' },
+                    emotionalBias: { type: 'number' },
+                    propagandaScore: { type: 'number' },
+                    sourceReliability: { type: 'number' },
+                    subjectivityScore: { type: 'number' },
+                    objectivityScore: { type: 'number' },
+                    biasIntensity: { type: 'number' }
+                }
             }
-        },
-        claims: {
-            type: 'array',
-            items: {
-                type: 'object',
-                properties: {
-                    claim: { type: 'string' },
-                    verdict: { type: 'string', enum: ['TRUE', 'MOSTLY_TRUE', 'MIXED', 'MOSTLY_FALSE', 'FALSE', 'UNVERIFIABLE'] },
-                    evidence: { type: 'string' }
-                },
-                required: ['claim', 'verdict']
-            }
-        }, // Added comma here
-        quotes: {
-            type: 'array',
-            items: {
-                type: 'object',
-                properties: {
-                    quote: { type: 'string' },
-                    speaker: { type: 'string' },
-                    timestamp: { type: 'string' },
-                    context: { type: 'string' },
-                    importance: { type: 'string', enum: ['high', 'medium', 'low'] },
-                    analysis: { type: 'string' }
-                },
-                required: ['quote', 'analysis']
-            }
-        },
-        manipulationTechniques: {
-            type: 'array',
-            items: {
-                type: 'object',
-                properties: {
-                    technique: { type: 'string' },
-                    description: { type: 'string' },
-                    example: { type: 'string' },
-                    impact: { type: 'string' },
-                    counterArgument: { type: 'string' },
-                    timestamp: { type: 'string' },
-                    severity: { type: 'number' }
-                },
-                required: ['technique', 'description']
-            }
-        },
-        finalInvestigativeReport: { type: 'string' },
-        geopoliticalContext: { type: 'array', items: POINT_DETAILS_ITEM },
-        historicalParallel: { type: 'array', items: POINT_DETAILS_ITEM },
-        psychoLinguisticAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
-        strategicIntent: { type: 'array', items: POINT_DETAILS_ITEM },
-        narrativeArchitecture: { type: 'array', items: POINT_DETAILS_ITEM },
-        technicalForensics: { type: 'array', items: POINT_DETAILS_ITEM },
-        socialImpactPrediction: { type: 'array', items: POINT_DETAILS_ITEM },
-        visualAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
-        bodyLanguageAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
-        vocalAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
-        deceptionAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
-        humorAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
-        psychologicalProfile: { type: 'array', items: POINT_DETAILS_ITEM },
-        culturalSymbolicAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
-        recommendations: { type: 'array', items: POINT_DETAILS_ITEM },
-        biasIndicators: { type: 'object' }
-    }
+        }
+    },
+    claims: {
+        type: 'array',
+        items: {
+            type: 'object',
+            properties: {
+                claim: { type: 'string' },
+                quote: { type: 'string' },
+                formulation: { type: 'string' },
+                category: { type: 'string' },
+                verdict: { type: 'string', enum: ['TRUE', 'MOSTLY_TRUE', 'MIXED', 'MOSTLY_FALSE', 'FALSE', 'UNVERIFIABLE'] },
+                veracity: { type: 'string' },
+                explanation: { type: 'string' },
+                missingContext: { type: 'string' },
+                confidence: { type: 'number' },
+                speaker: { type: 'string' },
+                timestamp: { type: 'string' }
+            },
+            required: ['claim', 'verdict', 'explanation', 'quote']
+        }
+    },
+    quotes: {
+        type: 'array',
+        items: {
+            type: 'object',
+            properties: {
+                quote: { type: 'string' },
+                speaker: { type: 'string' },
+                timestamp: { type: 'string' },
+                context: { type: 'string' },
+                importance: { type: 'string', enum: ['high', 'medium', 'low'] },
+                analysis: { type: 'string' }
+            },
+            required: ['quote', 'analysis']
+        }
+    },
+    manipulations: {
+        type: 'array',
+        items: {
+            type: 'object',
+            properties: {
+                technique: { type: 'string' },
+                timestamp: { type: 'string' },
+                logic: { type: 'string' },
+                effect: { type: 'string' },
+                severity: { type: 'number' },
+                counterArgument: { type: 'string' }
+            },
+            required: ['technique', 'logic', 'effect']
+        }
+    },
+    finalInvestigativeReport: { type: 'string' },
+    geopoliticalContext: { type: 'array', items: POINT_DETAILS_ITEM },
+    historicalParallel: { type: 'array', items: POINT_DETAILS_ITEM },
+    psychoLinguisticAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
+    strategicIntent: { type: 'array', items: POINT_DETAILS_ITEM },
+    narrativeArchitecture: { type: 'array', items: POINT_DETAILS_ITEM },
+    technicalForensics: { type: 'array', items: POINT_DETAILS_ITEM },
+    socialImpactPrediction: { type: 'array', items: POINT_DETAILS_ITEM },
+    visualAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
+    bodyLanguageAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
+    vocalAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
+    deceptionAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
+    humorAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
+    psychologicalProfile: { type: 'array', items: POINT_DETAILS_ITEM },
+    culturalSymbolicAnalysis: { type: 'array', items: POINT_DETAILS_ITEM },
+    recommendations: { type: 'array', items: POINT_DETAILS_ITEM },
+    biasIndicators: { type: 'object' }
 };
+
+const VIDEO_STANDARD_SCHEMA = {
+    type: 'object',
+    required: ['summary', 'claims', 'manipulations'],
+    properties: VIDEO_PROPERTIES
+};
+
+const VIDEO_DEEP_SCHEMA = {
+    type: 'object',
+    required: [
+        'summary', 'claims', 'manipulations', 'visualAnalysis', 'bodyLanguageAnalysis',
+        'vocalAnalysis', 'deceptionAnalysis', 'humorAnalysis', 'psychologicalProfile', 'culturalSymbolicAnalysis'
+    ],
+    properties: VIDEO_PROPERTIES
+};
+
 
 const LINK_RESPONSE_SCHEMA = {
     type: 'object',
@@ -316,9 +340,14 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
 
         // ── Pre-flight balance check ──────────────────────────────────────────
         const currentBalance = await getUserPoints(userId);
-        const minRequired = isFixedPrice
-            ? getFixedPrice(serviceType)
-            : (isDeepMode ? 10 : 5);
+        let minRequired;
+        if (isFixedPrice) {
+            minRequired = getFixedPrice(serviceType);
+        } else {
+            const duration = req.body.metadata?.videoDuration || req.body.metadata?.duration || 0;
+            const estimated = estimateVideoCostInPoints(duration, isDeepMode);
+            minRequired = Math.ceil(estimated * 1.2); // 20% safety buffer
+        }
 
         if (currentBalance < minRequired) {
             return res.status(403).json({
@@ -367,14 +396,10 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
         // ── Generate with retry for incomplete responses ──────────────────────────
         let responseText = '';
         let usage = null;
+        let lastAttemptUsage = null;
         let totalPromptTokens = 0;
         let totalCandidatesTokens = 0;
-        const accumulateUsage = (u) => {
-            if (u) {
-                totalPromptTokens += u.promptTokenCount || 0;
-                totalCandidatesTokens += u.candidatesTokenCount || 0;
-            }
-        };
+
         // Extra retries only for link analysis (larger JSON); video stays at 1 to avoid long waits
         const maxRetries = (serviceType === 'linkArticle') ? 2 : 1;
         let lastValidation = null;
@@ -388,7 +413,7 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                         systemInstruction: (systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON. Complete ALL fields in the response.') + '\n\n' + getLanguageInstruction(lang),
                         temperature: 0.7,
                         maxOutputTokens: isDeepMode ? 65536 : 20000,
-                        ...(tools ? {} : { responseMimeType: 'application/json', responseSchema: VIDEO_RESPONSE_SCHEMA }),
+                        ...(tools ? {} : { responseMimeType: 'application/json', responseSchema: isDeepMode ? VIDEO_DEEP_SCHEMA : VIDEO_STANDARD_SCHEMA }),
                         mediaResolution: 'MEDIA_RESOLUTION_LOW',
                         tools
                     }
@@ -397,8 +422,7 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                 for await (const chunk of stream) {
                     if (chunk.text) responseText += chunk.text;
                     if (chunk.usageMetadata) {
-                        accumulateUsage(chunk.usageMetadata);
-                        usage = chunk.usageMetadata;
+                        lastAttemptUsage = chunk.usageMetadata;
                     }
                 }
             } else {
@@ -412,13 +436,12 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                         systemInstruction: sysInstr,
                         temperature: 0.7,
                         maxOutputTokens: 65536, // Gemini 2.5 Flash supports up to 64K output tokens
-                        ...(tools ? {} : { responseMimeType: 'application/json', responseSchema: serviceType === 'linkArticle' ? LINK_RESPONSE_SCHEMA : VIDEO_RESPONSE_SCHEMA }),
+                        ...(tools ? {} : { responseMimeType: 'application/json', responseSchema: serviceType === 'linkArticle' ? LINK_RESPONSE_SCHEMA : (isDeepMode ? VIDEO_DEEP_SCHEMA : VIDEO_STANDARD_SCHEMA) }),
                         tools
                     }
                 });
                 responseText = response.text || '';
-                accumulateUsage(response.usageMetadata);
-                usage = response.usageMetadata || { promptTokenCount: 0, candidatesTokenCount: 0 };
+                lastAttemptUsage = response.usageMetadata || { promptTokenCount: 0, candidatesTokenCount: 0 };
             }
 
             // ── Log raw response for debugging ──────────────────────────────────
@@ -430,6 +453,12 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
             // ── Validate response ─────────────────────────────────────────────────
             lastValidation = validateJsonResponse(responseText, serviceType || 'video');
             if (lastValidation.valid) {
+                // SUCCESS: Record the usage from this attempt
+                if (lastAttemptUsage) {
+                    totalPromptTokens = lastAttemptUsage.promptTokenCount || 0;
+                    totalCandidatesTokens = lastAttemptUsage.candidatesTokenCount || 0;
+                    usage = lastAttemptUsage;
+                }
                 // Quality gate for link analysis — reject empty results
                 if (serviceType === 'linkArticle' && lastValidation.parsed) {
                     const p = lastValidation.parsed;
@@ -464,7 +493,10 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                     responseSchema: LINK_RESPONSE_SCHEMA
                 }
             });
-            accumulateUsage(fallbackResponse.usageMetadata);
+            if (fallbackResponse.usageMetadata) {
+                totalPromptTokens = fallbackResponse.usageMetadata.promptTokenCount || 0;
+                totalCandidatesTokens = fallbackResponse.usageMetadata.candidatesTokenCount || 0;
+            }
             const fallbackText = fallbackResponse.text || '';
             if (fallbackText.length > 100) {
                 lastValidation = validateJsonResponse(fallbackText, 'link');
@@ -547,7 +579,7 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/gemini/generate-stream — SSE Streaming for video analysis
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/generate-stream', async (req, res) => {
+router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, res) => {
     req.setTimeout(900000);
     res.setTimeout(900000);
 
@@ -575,28 +607,28 @@ router.post('/generate-stream', async (req, res) => {
 
     try {
         const ai = getAI();
-        let userId = req.userId || 'test_user';
-        const { model, prompt, systemInstruction, videoUrl, isBatch, enableGoogleSearch, mode, serviceType, lang } = req.body;
+        const userId = req.userId;
+        const { model, prompt, systemInstruction, videoUrl, isBatch, enableGoogleSearch, mode, serviceType, lang, metadata: reqMetadata } = req.body;
+        const metadata = reqMetadata || {};
 
         const isFixedPrice = serviceType && serviceType !== 'video';
         const isDeepMode = mode === 'deep';
 
         // ── Pre-flight balance check ──────────────────────────────────────────
-        // LOCAL BYPASS FOR TESTING
-        let currentBalance = 1000;
-
-        if (!req.userId && req.headers.host && req.headers.host.includes('localhost')) {
-            console.warn('[TESTING] Bypassing auth & points check for localhost request');
+        const currentBalance = await getUserPoints(userId);
+        let minRequired;
+        if (isFixedPrice) {
+            minRequired = getFixedPrice(serviceType);
         } else {
-            currentBalance = await getUserPoints(userId);
-            const minRequired = isFixedPrice
-                ? getFixedPrice(serviceType)
-                : (isDeepMode ? 10 : 5);
-            if (currentBalance < minRequired) {
-                sendSSE('error', { error: 'Insufficient points', code: 'INSUFFICIENT_POINTS', currentBalance });
-                endStream();
-                return;
-            }
+            const duration = metadata.videoDuration || metadata.duration || 0;
+            const estimated = estimateVideoCostInPoints(duration, isDeepMode);
+            minRequired = Math.ceil(estimated * 1.2); // 20% safety buffer
+        }
+
+        if (currentBalance < minRequired) {
+            sendSSE('error', { error: 'Insufficient points', code: 'INSUFFICIENT_POINTS', currentBalance });
+            endStream();
+            return;
         }
 
         // ── Build request ─────────────────────────────────────────────────────
@@ -616,7 +648,7 @@ router.post('/generate-stream', async (req, res) => {
             'Start with { and end with }. No markdown (no ```), no text before or after.',
             'Inside string values: escape double quotes as \\", and escape newlines as \\n.',
             'Never truncate: always output the full JSON and close every bracket.',
-            'Keep ALL schema fields populated (summary, overallAssessment, detailedMetrics, factualClaims, manipulationTechniques, etc.); only shorten long text strings if needed to avoid truncation. Always close all brackets and quotes.'
+            'Keep ALL schema fields populated (summary, claims, manipulations, etc.); only shorten long text strings if needed to avoid truncation. Always close all brackets and quotes.'
         ].join(' ');
         let enhancedSystemInstruction = (systemInstruction || '') + '\n\n' + getLanguageInstruction(lang) + '\n\n' + jsonRule;
         if (isDeepMode && tools) {
@@ -630,14 +662,10 @@ router.post('/generate-stream', async (req, res) => {
         let streamUsage = null;
         let chunkCount = 0;
         let functionCallCount = 0;
+        let researchUsage = null;
+        let finalUsage = null;
         let totalPromptTokens = 0;
         let totalCandidatesTokens = 0;
-        const accumulateUsage = (u) => {
-            if (u) {
-                totalPromptTokens += u.promptTokenCount || 0;
-                totalCandidatesTokens += u.candidatesTokenCount || 0;
-            }
-        };
 
         if (isDeepMode && tools) {
             // DEEP MODE: 1) generateContent with googleSearch (Google does search on its servers)
@@ -659,7 +687,7 @@ router.post('/generate-stream', async (req, res) => {
                 contents,
                 config: toolConfig
             });
-            accumulateUsage(response.usageMetadata);
+            researchUsage = response.usageMetadata;
             streamUsage = response.usageMetadata || streamUsage;
 
             const parts = response.candidates?.[0]?.content?.parts;
@@ -686,23 +714,21 @@ router.post('/generate-stream', async (req, res) => {
             let currentContents = [...contents];
             let hasGrounding = rawText && rawText.trim().length > 50;
             if (hasGrounding) {
-                // Instead of passing back the raw parts with all the heavy Google Search toolcall history, 
-                // we only inject the model's textual analysis output. This prevents the context 
-                // from exploding to 330k+ tokens and forcing the model to generate massive JSON that breaks limits.
+                const videoContextStr = metadata.title ? `VIDEO METADATA (Reference Point):\n- Title: ${metadata.title}\n- Author: ${metadata.author || 'Unknown'}\n- Uploaded/Published: ${metadata.date || 'Refer to content'}\n\n` : '';
+                // Pass research as established ground truth
                 currentContents.push({
                     role: 'user',
-                    parts: [{ text: `Here is your preliminary research of the video:\n\n${rawText.substring(0, 15000)}` }]
+                    parts: [{ text: `${videoContextStr}ESTABLISHED RESEARCH DATA (TRUSTED SOURCE):\n\n${rawText.substring(0, 60000)}\n\nINSTRUCTION: You MUST use the data above to populate the "explanation" and "missingContext" fields for all claims. If a specific claim is not directly mentioned in the research, perform a Logical Audit based on the video context and your general expertise. DO NOT use placeholder text like "No information available". Every single claim MUST have a detailed explanation. EVALUATE temporal claims (like "today") based on logical deduction from the video content (events, news items, visual cues) to determine the actual recording time.` }]
                 });
             }
 
-            // Final JSON step — schema-validated, no tools (API restriction)
             const jsonPromptsWithContext = [
-                'Return the complete analysis as JSON using the exact schema. CRITICAL: Analyze the video fresh. Use search only as supplementary facts. Populate EVERY array (visualAnalysis, bodyLanguageAnalysis, deceptionAnalysis, humorAnalysis, etc). Create 1-2 VERY SHORT items for every multimodal array. Keep finalInvestigativeReport extremely concise (max 2-3 paragraphs). Ensure valid JSON. Never leave arrays empty.',
-                'Perform an EXHAUSTIVE video analysis and format as valid JSON. Populate all behavioral metrics with 1-2 VERY COMPACT items. Keep the final report under 3 paragraphs. Do NOT skip any category. Never truncate.'
+                'Return the complete analysis as JSON using the exact schema. INTEGRATE your research into the "explanation" and "logic" fields. BE EXTREMELY LOGICAL AND DETAILED. Do not use generic statements. Populate EVERY array. Keep finalInvestigativeReport concise. Ensure valid JSON. Never leave arrays empty.',
+                'Perform an EXHAUSTIVE video analysis based on your research and format as valid JSON. Populate all fields with high-quality evidence. No placeholders.'
             ];
             const jsonPromptsNoContext = [
-                'Analyze the VIDEO entirely fresh and return complete fact-check analysis as JSON. Populate EVERY array (visualAnalysis, bodyLanguageAnalysis, etc) with exactly 1-2 short points. Keep finalInvestigativeReport short (under 3 paragraphs). Always close brackets and quotes. Never truncate.',
-                'Format as valid JSON. Analyze the video for all behavioral metrics. Generate 1-2 short items for each array. Do NOT skip any category. Be extremely concise to avoid JSON truncation.'
+                'Analyze the VIDEO and return complete fact-check analysis as JSON. Populate EVERY array (visualAnalysis, bodyLanguageAnalysis, etc). Be extremely concise to avoid JSON truncation.',
+                'Format as valid JSON. Analyze the video for all behavioral metrics. No placeholders. Generate 1-2 items per array.'
             ];
             const jsonPrompts = hasGrounding ? jsonPromptsWithContext : jsonPromptsNoContext;
             const finalConfig = {
@@ -710,7 +736,7 @@ router.post('/generate-stream', async (req, res) => {
                 tools: undefined,
                 maxOutputTokens: 65536, // Restored to 65536 for maximum response size
                 responseMimeType: 'application/json',
-                responseSchema: VIDEO_RESPONSE_SCHEMA,
+                responseSchema: VIDEO_DEEP_SCHEMA,
                 thinkingConfig: { thinkingBudget: 0 }, // Disable thinking to avoid using tokens on reasoning
                 httpOptions: { timeout: 300000 } // 5 min for JSON step
             };
@@ -727,7 +753,7 @@ router.post('/generate-stream', async (req, res) => {
                     contents: [...currentContents, jsonPrompt],
                     config: finalConfig
                 });
-                accumulateUsage(finalResponse.usageMetadata);
+                finalUsage = finalResponse.usageMetadata;
                 streamUsage = finalResponse.usageMetadata || streamUsage;
 
                 fullText = '';
@@ -751,6 +777,16 @@ router.post('/generate-stream', async (req, res) => {
                 break;
             }
 
+            // Sum up Deep mode stages
+            if (researchUsage) {
+                totalPromptTokens += researchUsage.promptTokenCount || 0;
+                totalCandidatesTokens += researchUsage.candidatesTokenCount || 0;
+            }
+            if (finalUsage) {
+                totalPromptTokens += finalUsage.promptTokenCount || 0;
+                totalCandidatesTokens += finalUsage.candidatesTokenCount || 0;
+            }
+
             // Simulate streaming the result back to the UI
             const chunkSize = 2000;
             for (let i = 0; i < fullText.length; i += chunkSize) {
@@ -765,7 +801,7 @@ router.post('/generate-stream', async (req, res) => {
                 temperature: 0.7,
                 maxOutputTokens: 65536, // Restored to 65536 for maximum response size
                 responseMimeType: 'application/json',
-                responseSchema: VIDEO_RESPONSE_SCHEMA,
+                responseSchema: VIDEO_STANDARD_SCHEMA,
                 mediaResolution: 'MEDIA_RESOLUTION_LOW',
                 thinkingConfig: { thinkingBudget: 0 }, // Disable thinking: without this, gemini-2.5-flash uses 7000+ thinking tokens, leaving too few for output
                 abortSignal: abortController.signal,
@@ -793,7 +829,7 @@ router.post('/generate-stream', async (req, res) => {
                     }
                 }
                 if (chunk.usageMetadata) {
-                    accumulateUsage(chunk.usageMetadata);
+                    finalUsage = chunk.usageMetadata;
                     streamUsage = chunk.usageMetadata;
                 }
             }
@@ -808,7 +844,7 @@ router.post('/generate-stream', async (req, res) => {
                     contents,
                     config: stdConfig
                 });
-                accumulateUsage(nonStreamResponse.usageMetadata);
+                finalUsage = nonStreamResponse.usageMetadata;
                 streamUsage = nonStreamResponse.usageMetadata || streamUsage;
                 fullText = '';
                 if (typeof nonStreamResponse.text === 'string') fullText = nonStreamResponse.text;
@@ -820,6 +856,12 @@ router.post('/generate-stream', async (req, res) => {
                         .join('');
                 }
                 fullText = fullText || '';
+            }
+
+            // Standard mode: just the final usage from stream
+            if (finalUsage) {
+                totalPromptTokens = finalUsage.promptTokenCount || 0;
+                totalCandidatesTokens = finalUsage.candidatesTokenCount || 0;
             }
         }
 
@@ -873,7 +915,6 @@ router.post('/generate-stream', async (req, res) => {
 
         const textToSend = validation.parsed ? JSON.stringify(validation.parsed) : fullText;
         const description = serviceType === 'linkArticle' ? 'Анализ на статия (Линк)' : serviceType === 'text' ? 'Текстов анализ' : isDeepMode ? 'Дълбок видео анализ' : 'Стандартен видео анализ';
-        const metadata = req.body.metadata || {};
         if (serviceType === 'video' || !serviceType) {
             metadata.videoTitle = metadata.title || metadata.videoTitle;
             metadata.videoAuthor = metadata.author || metadata.videoAuthor;
