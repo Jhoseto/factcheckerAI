@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import html2canvas from 'html2canvas';
 import { VideoAnalysis } from '../../../types';
@@ -348,54 +348,54 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
 
     const sidebarContent = (
         <>
-                {i18n.language !== analysisLang && (
-                    <div className="mb-4 px-3 py-2 border border-[#968B74]/30 bg-[#968B74]/10 rounded-sm text-[8px] text-[#C4B091] uppercase tracking-wider leading-relaxed">
-                        {t('report.contentLangNote', { lang: analysisLang === 'bg' ? 'BG' : 'EN' })}
-                    </div>
+            {i18n.language !== analysisLang && (
+                <div className="mb-4 px-3 py-2 border border-[#968B74]/30 bg-[#968B74]/10 rounded-sm text-[8px] text-[#C4B091] uppercase tracking-wider leading-relaxed">
+                    {t('report.contentLangNote', { lang: analysisLang === 'bg' ? 'BG' : 'EN' })}
+                </div>
+            )}
+            <div className="grid grid-cols-2 lg:grid-cols-1 gap-5">
+                <MetricBlock label={t('analysis.credibilityIndex')} value={analysis.summary.credibilityIndex} color="emerald" />
+                <MetricBlock label={t('analysis.manipulationIndex')} value={analysis.summary.manipulationIndex} color="orange" />
+            </div>
+            <div className="editorial-card p-5 border-l-2 border-l-[#968B74] mt-4 mb-4">
+                <p className="text-[8px] font-black text-[#666] uppercase tracking-widest mb-2">{t('analysis.classification')}</p>
+                <span className="text-[#C4B091] font-black text-sm md:text-base block leading-tight uppercase tracking-tighter">{analysis.summary.finalClassification}</span>
+            </div>
+            <div className="p-5 bg-[#252525] border border-[#333] rounded-sm">
+                <p className="text-[7px] font-black text-[#968B74] uppercase tracking-widest mb-2">{t('analysis.priceOfAnalysis')}</p>
+                <p className="text-lg font-black text-bronze-gradient">{(analysis.pointsCost ?? 0).toLocaleString('bg-BG')} {t('common.points')}</p>
+            </div>
+            <div className="flex flex-col gap-4">
+                {!isSaved && onSaveToArchive && (
+                    <button
+                        onClick={onSaveToArchive}
+                        disabled={slotUsage ? slotUsage.used >= slotUsage.max : false}
+                        className={slotUsage && slotUsage.used >= slotUsage.max ? 'px-5 py-3.5 text-[10px] font-black uppercase tracking-widest w-full rounded-sm bg-[#333] text-[#555] cursor-not-allowed border border-[#333]' : 'btn-luxury-solid px-5 py-3.5 text-[10px] font-black uppercase tracking-widest w-full rounded-sm'}
+                    >
+                        {slotUsage && slotUsage.used >= slotUsage.max ? t('common.noSlots') : t('common.saveToArchiveSlots', { used: slotUsage?.used ?? 0, max: slotUsage?.max ?? 0 })}
+                    </button>
                 )}
-                <div className="grid grid-cols-2 lg:grid-cols-1 gap-5">
-                    <MetricBlock label={t('analysis.credibilityIndex')} value={analysis.summary.credibilityIndex} color="emerald" />
-                    <MetricBlock label={t('analysis.manipulationIndex')} value={analysis.summary.manipulationIndex} color="orange" />
-                </div>
-                <div className="editorial-card p-5 border-l-2 border-l-[#968B74] mt-4 mb-4">
-                    <p className="text-[8px] font-black text-[#666] uppercase tracking-widest mb-2">{t('analysis.classification')}</p>
-                    <span className="text-[#C4B091] font-black text-sm md:text-base block leading-tight uppercase tracking-tighter">{analysis.summary.finalClassification}</span>
-                </div>
-                <div className="p-5 bg-[#252525] border border-[#333] rounded-sm">
-                    <p className="text-[7px] font-black text-[#968B74] uppercase tracking-widest mb-2">{t('analysis.priceOfAnalysis')}</p>
-                    <p className="text-lg font-black text-bronze-gradient">{(analysis.pointsCost ?? 0).toLocaleString('bg-BG')} {t('common.points')}</p>
-                </div>
-                <div className="flex flex-col gap-4">
-                    {!isSaved && onSaveToArchive && (
-                        <button
-                            onClick={onSaveToArchive}
-                            disabled={slotUsage ? slotUsage.used >= slotUsage.max : false}
-                            className={slotUsage && slotUsage.used >= slotUsage.max ? 'px-5 py-3.5 text-[10px] font-black uppercase tracking-widest w-full rounded-sm bg-[#333] text-[#555] cursor-not-allowed border border-[#333]' : 'btn-luxury-solid px-5 py-3.5 text-[10px] font-black uppercase tracking-widest w-full rounded-sm'}
-                        >
-                            {slotUsage && slotUsage.used >= slotUsage.max ? t('common.noSlots') : t('common.saveToArchiveSlots', { used: slotUsage?.used ?? 0, max: slotUsage?.max ?? 0 })}
-                        </button>
-                    )}
-                    <div className="w-full relative group">
-                        <button
-                            onClick={isSaved ? handleShare : undefined}
-                            disabled={!isSaved}
-                            className={`px-5 py-3.5 text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2 w-full rounded-sm ${isSaved ? 'btn-luxury-solid' : 'bg-[#333] text-[#555] cursor-not-allowed border border-[#333]'}`}
-                        >
-                            {t('common.shareReport')}
-                        </button>
-                        {!isSaved && (
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#252525] border border-[#968B74]/30 text-[#C4B091] text-[9px] font-bold uppercase tracking-wide rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
-                                {t('common.saveToShare')}
-                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#252525]"></div>
-                            </div>
-                        )}
-                    </div>
-                    {onReset && (
-                        <button onClick={onReset} className="btn-luxury px-5 py-3.5 text-[10px] font-black uppercase tracking-widest w-full rounded-sm flex items-center justify-center gap-2 hover:border-[#8b4a4a] hover:text-[#c66]" title={t('analysis.closeAndNew')}>
-                            <span>✕</span> {t('common.close')}
-                        </button>
+                <div className="w-full relative group">
+                    <button
+                        onClick={isSaved ? handleShare : undefined}
+                        disabled={!isSaved}
+                        className={`px-5 py-3.5 text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2 w-full rounded-sm ${isSaved ? 'btn-luxury-solid' : 'bg-[#333] text-[#555] cursor-not-allowed border border-[#333]'}`}
+                    >
+                        {t('common.shareReport')}
+                    </button>
+                    {!isSaved && (
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#252525] border border-[#968B74]/30 text-[#C4B091] text-[9px] font-bold uppercase tracking-wide rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                            {t('common.saveToShare')}
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#252525]"></div>
+                        </div>
                     )}
                 </div>
+                {onReset && (
+                    <button onClick={onReset} className="btn-luxury px-5 py-3.5 text-[10px] font-black uppercase tracking-widest w-full rounded-sm flex items-center justify-center gap-2 hover:border-[#8b4a4a] hover:text-[#c66]" title={t('analysis.closeAndNew')}>
+                        <span>✕</span> {t('common.close')}
+                    </button>
+                )}
+            </div>
         </>
     );
 
@@ -415,7 +415,7 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
             { id: 'cultural', label: t('analysis.tabCultural') },
         ] : [];
         return [...base, ...deep, { id: 'report', label: t('analysis.tabFinalReport') }];
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [i18n.language, analysis.analysisMode]);
 
     const tabsBarContent = (

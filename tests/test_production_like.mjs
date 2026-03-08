@@ -72,8 +72,7 @@ const stdConfig = {
 const contents = [{
     role: 'user',
     parts: [
-        { fileData: { mimeType: 'video/mp4', fileUri: testVideoUrl } },
-        { text: prompt }
+        { text: prompt + '\n\nVideo URL: ' + testVideoUrl }
     ]
 }];
 
