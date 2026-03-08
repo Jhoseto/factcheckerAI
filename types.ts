@@ -201,3 +201,11 @@ export interface CostEstimate {
   pointsCost: number; // User-facing cost in points
   margin: number;
 }
+
+export interface ChatNotification {
+  id: number;
+  sessionId: string;
+  userName: string;
+  message: string;
+  timestamp: number;
+}

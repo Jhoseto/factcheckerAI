@@ -2,13 +2,16 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
+import { Bell } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotifications } from '../../contexts/NotificationContext';
 import { useLanguageSwitch } from '../../hooks/useLanguageSwitch';
 import { AdminMenuButton } from '../../admin/client/components/AdminMenuButton';
 
 const Navbar: React.FC = () => {
     const { t } = useTranslation();
     const { currentUser, userProfile, logout } = useAuth();
+    const { notifications, permissionStatus, requestPermission } = useNotifications();
     const navigate = useNavigate();
     const { language, setLanguage, isTranslating, translateError } = useLanguageSwitch();
     const [showUserMenu, setShowUserMenu] = useState(false);
@@ -98,6 +101,30 @@ const Navbar: React.FC = () => {
                             </span>
                         )}
                     </div>
+                    {userProfile && (userProfile.uid === 'admin' || userProfile.email?.includes('admin')) && (
+                        <div className="flex items-center gap-4 border-r border-[#333] pr-6 mr-2">
+                            {permissionStatus === 'default' && (
+                                <button
+                                    onClick={() => requestPermission()}
+                                    className="text-[8px] font-bold text-amber-500/80 uppercase tracking-widest hover:text-amber-400 transition-colors"
+                                    title="Разреши браузърни нотификации"
+                                >
+                                    Разреши известия
+                                </button>
+                            )}
+                            <button
+                                onClick={() => navigate('/admin/chat')}
+                                className="relative p-2 text-[#888] hover:text-[#968B74] transition-all group"
+                            >
+                                <Bell size={20} className={notifications.length > 0 ? "animate-swing" : ""} />
+                                {notifications.length > 0 && (
+                                    <span className="absolute top-1 right-1 w-4 h-4 bg-amber-600 text-white text-[8px] font-bold rounded-full flex items-center justify-center border border-[#1a1a1a]">
+                                        {notifications.length}
+                                    </span>
+                                )}
+                            </button>
+                        </div>
+                    )}
                     {userProfile ? (
                         <>
                             <button
@@ -114,15 +141,15 @@ const Navbar: React.FC = () => {
                                     {userProfile.photoURL ? <img src={userProfile.photoURL} className="w-full h-full object-cover" /> : (userProfile.displayName?.[0] || 'U')}
                                 </div>
                             </button>
-                            
+
                             {/* PORTAL: Calculated Fixed Position */}
                             {showUserMenu && createPortal(
-                                <div 
+                                <div
                                     className="fixed inset-0 z-[9999]"
                                     onClick={() => setShowUserMenu(false)}
                                 >
                                     {/* The Menu Card */}
-                                    <div 
+                                    <div
                                         style={{
                                             position: 'fixed',
                                             top: `${menuCoords.top}px`,

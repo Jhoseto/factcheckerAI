@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import Markdown from 'react-markdown';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { useNotifications } from '../../../contexts/NotificationContext';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -16,12 +17,12 @@ const API_BASE = '/api/chat';
 
 export default function AdminDashboard() {
   const { i18n } = useTranslation();
+  const { notifications, removeNotification } = useNotifications();
   const [sessions, setSessions] = useState<any[]>([]);
   const [activeSession, setActiveSession] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [reply, setReply] = useState('');
   const [showCanned, setShowCanned] = useState(false);
-  const [notifications, setNotifications] = useState<any[]>([]);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<'active' | 'resolved'>('active');
@@ -79,7 +80,7 @@ export default function AdminDashboard() {
       const url = new URL(`${API_BASE}/sessions`, window.location.origin);
       url.searchParams.set('status', status);
       if (search) url.searchParams.set('search', search);
-      
+
       fetch(url.toString())
         .then(res => res.json())
         .then(data => setSessions(data));
@@ -103,27 +104,6 @@ export default function AdminDashboard() {
 
     newSocket.on('admin_update', (data) => {
       loadData();
-      
-      // Show notification if it's a new message and not in the active session
-      if (data.type === 'new_message' && data.sender !== 'admin' && (!activeSession || data.sessionId !== activeSession.id)) {
-        // Play notification sound
-        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3');
-        audio.play().catch(e => console.log('Audio play failed:', e));
-
-        const notification = {
-          id: Date.now(),
-          sessionId: data.sessionId,
-          userName: data.userName || (data.sender === 'ai' ? 'AI Assistant' : 'Guest'),
-          message: 'New message received!'
-        };
-        setNotifications(prev => [...prev, notification]);
-        
-        // Auto-remove notification after 5 seconds
-        setTimeout(() => {
-          setNotifications(prev => prev.filter(n => n.id !== notification.id));
-        }, 5000);
-      }
-
       if (activeSession && data.sessionId === activeSession.id) {
         fetchMessages(activeSession.id);
       }
@@ -156,7 +136,7 @@ export default function AdminDashboard() {
     setActiveSession(session);
     fetchMessages(session.id);
     socket?.emit('join_session', session.id);
-    
+
     // Mark as read
     if (session.is_read === 0) {
       fetch(`${API_BASE}/sessions/${session.id}/read`, { method: 'POST' })
@@ -180,7 +160,7 @@ export default function AdminDashboard() {
 
     if (!text && !file) setReply('');
     setShowCanned(false);
-    
+
     // Stop typing indicator
     socket?.emit('typing', { sessionId: activeSession.id, sender: 'admin', isTyping: false });
   };
@@ -209,7 +189,7 @@ export default function AdminDashboard() {
     if (!socket || !activeSession) return;
 
     socket.emit('typing', { sessionId: activeSession.id, sender: 'admin', isTyping: true });
-    
+
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
       socket.emit('typing', { sessionId: activeSession.id, sender: 'admin', isTyping: false });
@@ -223,11 +203,11 @@ export default function AdminDashboard() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: newCanned })
     })
-    .then(res => res.json())
-    .then(data => {
-      setCannedResponses(prev => [...prev, data]);
-      setNewCanned('');
-    });
+      .then(res => res.json())
+      .then(data => {
+        setCannedResponses(prev => [...prev, data]);
+        setNewCanned('');
+      });
   };
 
   const deleteCanned = (id: number) => {
@@ -253,10 +233,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const removeNotification = (id: number) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
-  };
-
   return (
     <div className="flex h-screen bg-[#222] font-sans overflow-hidden">
       {/* Notifications Toast */}
@@ -280,9 +256,9 @@ export default function AdminDashboard() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-[var(--bronze-light)]">{n.userName}</p>
-                <p className="text-xs text-[var(--bronze-mid)] truncate">New message received</p>
+                <p className="text-xs text-[var(--bronze-mid)] truncate">{n.message}</p>
               </div>
-              <button 
+              <button
                 onClick={(e) => {
                   e.stopPropagation();
                   removeNotification(n.id);
@@ -304,7 +280,7 @@ export default function AdminDashboard() {
             FactChecker AI
           </h1>
           <div className="flex items-center gap-2">
-            <button 
+            <button
               onClick={() => setShowAnalytics(!showAnalytics)}
               className={cn(
                 "p-2 rounded-lg transition-colors",
@@ -313,8 +289,9 @@ export default function AdminDashboard() {
             >
               <Users size={20} />
             </button>
-            <button className="p-2 hover:bg-[rgba(150,139,116,0.15)] rounded-lg text-[var(--bronze-mid)]">
+            <button className="p-2 hover:bg-[rgba(150,139,116,0.15)] rounded-lg text-[var(--bronze-mid)] relative">
               <Bell size={20} />
+              {notifications.length > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-amber-500 rounded-full border border-[#2C2C2C]" />}
             </button>
           </div>
         </div>
@@ -378,42 +355,42 @@ export default function AdminDashboard() {
               onClick={() => handleSessionSelect(session)}
               className={cn(
                 "w-full p-4 flex items-center gap-3 transition-all border-l-4",
-                activeSession?.id === session.id 
-                  ? "bg-[rgba(150,139,116,0.15)] border-[var(--bronze-mid)]" 
+                activeSession?.id === session.id
+                  ? "bg-[rgba(150,139,116,0.15)] border-[var(--bronze-mid)]"
                   : "hover:bg-[rgba(150,139,116,0.08)] border-transparent"
               )}
             >
               <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold shrink-0 bg-[rgba(150,139,116,0.2)] text-[var(--bronze-light)]">
                 {session.user_name?.[0] || 'G'}
               </div>
-                  <div className="flex-1 text-left min-w-0">
-                    <div className="flex justify-between items-start">
-                      <h3 className={cn(
-                        "text-sm truncate flex items-center gap-2",
-                        session.is_read === 0 ? "font-bold text-[var(--bronze-light)]" : "font-semibold text-[var(--bronze-mid)]"
-                      )}>
-                        {session.user_name || 'Guest'}
-                        {session.is_read === 0 && (
-                          <span className="w-2 h-2 bg-[var(--bronze-mid)] rounded-full shrink-0" />
-                        )}
-                        {session.handoff_requested === 1 && session.status === 'active' && (
-                          <span className="px-1.5 py-0.5 bg-rose-900/50 text-rose-300 text-[8px] font-bold rounded uppercase">Human</span>
-                        )}
-                      </h3>
-                      <div className="flex flex-col items-end gap-1">
-                        <span className="text-[10px] text-[var(--bronze-mid)] shrink-0">
-                          {format(new Date(session.last_active), 'HH:mm')}
-                        </span>
-                      </div>
-                    </div>
-                    <p className="text-xs text-[var(--bronze-mid)] truncate">
-                      {customerTyping[session.id] ? (
-                        <span className="text-[var(--bronze-light)] font-medium italic">{t.typing}</span>
-                      ) : (
-                        `ID: ${session.id}`
-                      )}
-                    </p>
+              <div className="flex-1 text-left min-w-0">
+                <div className="flex justify-between items-start">
+                  <h3 className={cn(
+                    "text-sm truncate flex items-center gap-2",
+                    session.is_read === 0 ? "font-bold text-[var(--bronze-light)]" : "font-semibold text-[var(--bronze-mid)]"
+                  )}>
+                    {session.user_name || 'Guest'}
+                    {session.is_read === 0 && (
+                      <span className="w-2 h-2 bg-[var(--bronze-mid)] rounded-full shrink-0" />
+                    )}
+                    {session.handoff_requested === 1 && session.status === 'active' && (
+                      <span className="px-1.5 py-0.5 bg-rose-900/50 text-rose-300 text-[8px] font-bold rounded uppercase">Human</span>
+                    )}
+                  </h3>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="text-[10px] text-[var(--bronze-mid)] shrink-0">
+                      {format(new Date(session.last_active), 'HH:mm')}
+                    </span>
                   </div>
+                </div>
+                <p className="text-xs text-[var(--bronze-mid)] truncate">
+                  {customerTyping[session.id] ? (
+                    <span className="text-[var(--bronze-light)] font-medium italic">{t.typing}</span>
+                  ) : (
+                    `ID: ${session.id}`
+                  )}
+                </p>
+              </div>
             </button>
           ))}
         </div>
@@ -439,7 +416,7 @@ export default function AdminDashboard() {
               </div>
               <div className="flex items-center gap-2">
                 {activeSession.status === 'active' && (
-                  <button 
+                  <button
                     onClick={handleResolve}
                     className="flex items-center gap-2 px-3 py-1.5 bg-[rgba(150,139,116,0.2)] text-[var(--bronze-light)] rounded-lg hover:bg-[rgba(150,139,116,0.3)] transition-colors text-xs font-bold"
                   >
@@ -453,75 +430,75 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-              {/* Messages Area */}
-              <div 
-                ref={scrollRef}
-                className="flex-1 overflow-y-auto p-8 space-y-6 bg-[#222]/50"
-              >
-                {activeSession.rating && (
-                  <div className="bg-[rgba(150,139,116,0.1)] border border-[rgba(150,139,116,0.2)] rounded-2xl p-4 flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-3">
-                      <div className="flex gap-1">
-                        {[1, 2, 3, 4, 5].map(star => (
-                          <span key={star} className={cn("text-lg", star <= activeSession.rating ? "text-[var(--bronze-light)]" : "text-[var(--bronze-dark)]")}>★</span>
-                        ))}
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-[var(--bronze-light)]">Customer Rating: {activeSession.rating}/5</p>
-                        {activeSession.rating_comment && <p className="text-xs text-[var(--bronze-mid)] italic">"{activeSession.rating_comment}"</p>}
-                      </div>
+            {/* Messages Area */}
+            <div
+              ref={scrollRef}
+              className="flex-1 overflow-y-auto p-8 space-y-6 bg-[#222]/50"
+            >
+              {activeSession.rating && (
+                <div className="bg-[rgba(150,139,116,0.1)] border border-[rgba(150,139,116,0.2)] rounded-2xl p-4 flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4, 5].map(star => (
+                        <span key={star} className={cn("text-lg", star <= activeSession.rating ? "text-[var(--bronze-light)]" : "text-[var(--bronze-dark)]")}>★</span>
+                      ))}
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-[var(--bronze-light)]">Customer Rating: {activeSession.rating}/5</p>
+                      {activeSession.rating_comment && <p className="text-xs text-[var(--bronze-mid)] italic">"{activeSession.rating_comment}"</p>}
                     </div>
                   </div>
-                )}
-                {messages.map((msg, i) => (
-                  <div
-                    key={i}
-                    className={cn(
-                      "flex flex-col max-w-[70%]",
-                      msg.sender === 'admin' ? "ml-auto items-end" : "mr-auto items-start"
-                    )}
-                  >
-                    <div className={cn(
-                      "px-5 py-3 text-sm shadow-sm",
-                      msg.sender === 'admin' ? "chat-bubble-admin" : 
+                </div>
+              )}
+              {messages.map((msg, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    "flex flex-col max-w-[70%]",
+                    msg.sender === 'admin' ? "ml-auto items-end" : "mr-auto items-start"
+                  )}
+                >
+                  <div className={cn(
+                    "px-5 py-3 text-sm shadow-sm",
+                    msg.sender === 'admin' ? "chat-bubble-admin" :
                       msg.sender === 'ai' ? "chat-bubble-ai" : "chat-bubble-customer"
-                    )}>
-                      {msg.fileUrl && (
-                        <div className="mb-2">
-                          {msg.fileType?.startsWith('image/') ? (
-                            <img src={msg.fileUrl} alt="Upload" className="max-w-full rounded-lg shadow-sm" referrerPolicy="no-referrer" />
-                          ) : (
-                            <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 bg-white/5 rounded-lg text-xs hover:bg-white/10 transition-colors text-[var(--bronze-light)]">
-                              <Paperclip size={14} />
-                              View Attachment
-                            </a>
-                          )}
-                        </div>
-                      )}
-                      {msg.content && (
-                        <div className="prose prose-sm prose-invert max-w-none [&_*]:text-[var(--bronze-light)] [&_a]:text-[var(--bronze-light)] [&_a]:underline">
-                          <Markdown>{msg.content}</Markdown>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 mt-1.5 px-1">
-                      <span className="text-[10px] font-medium text-[var(--bronze-mid)] uppercase tracking-tighter">
-                        {msg.sender === 'ai' ? 'AI Agent' : msg.sender === 'admin' ? 'You' : 'Customer'}
-                      </span>
-                      <span className="text-[10px] text-[var(--bronze-dark)]">•</span>
-                      <span className="text-[10px] text-[var(--bronze-mid)]">
-                        {format(new Date(msg.timestamp), 'HH:mm')}
-                      </span>
-                    </div>
+                  )}>
+                    {msg.fileUrl && (
+                      <div className="mb-2">
+                        {msg.fileType?.startsWith('image/') ? (
+                          <img src={msg.fileUrl} alt="Upload" className="max-w-full rounded-lg shadow-sm" referrerPolicy="no-referrer" />
+                        ) : (
+                          <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 bg-white/5 rounded-lg text-xs hover:bg-white/10 transition-colors text-[var(--bronze-light)]">
+                            <Paperclip size={14} />
+                            View Attachment
+                          </a>
+                        )}
+                      </div>
+                    )}
+                    {msg.content && (
+                      <div className="prose prose-sm prose-invert max-w-none [&_*]:text-[var(--bronze-light)] [&_a]:text-[var(--bronze-light)] [&_a]:underline">
+                        <Markdown>{msg.content}</Markdown>
+                      </div>
+                    )}
                   </div>
-                ))}
-                {customerTyping[activeSession.id] && (
-                  <div className="flex items-center gap-2 text-[var(--bronze-mid)] text-xs italic">
-                    <Loader2 size={12} className="animate-spin" />
-                    {t.typing}
+                  <div className="flex items-center gap-2 mt-1.5 px-1">
+                    <span className="text-[10px] font-medium text-[var(--bronze-mid)] uppercase tracking-tighter">
+                      {msg.sender === 'ai' ? 'AI Agent' : msg.sender === 'admin' ? 'You' : 'Customer'}
+                    </span>
+                    <span className="text-[10px] text-[var(--bronze-dark)]">•</span>
+                    <span className="text-[10px] text-[var(--bronze-mid)]">
+                      {format(new Date(msg.timestamp), 'HH:mm')}
+                    </span>
                   </div>
-                )}
-              </div>
+                </div>
+              ))}
+              {customerTyping[activeSession.id] && (
+                <div className="flex items-center gap-2 text-[var(--bronze-mid)] text-xs italic">
+                  <Loader2 size={12} className="animate-spin" />
+                  {t.typing}
+                </div>
+              )}
+            </div>
 
             {/* Reply Area */}
             <div className="p-6 bg-[#2C2C2C] border-t border-[rgba(150,139,116,0.2)] relative">
@@ -536,8 +513,8 @@ export default function AdminDashboard() {
                     <div className="p-3 border-b border-[rgba(150,139,116,0.2)] bg-[#222] flex items-center justify-between">
                       <span className="text-[10px] font-bold text-[var(--bronze-mid)] uppercase tracking-wider">{t.canned}</span>
                       <div className="flex gap-1">
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           value={newCanned}
                           onChange={(e) => setNewCanned(e.target.value)}
                           placeholder={t.newTemplate}
@@ -555,7 +532,7 @@ export default function AdminDashboard() {
                           >
                             {res.text}
                           </button>
-                          <button 
+                          <button
                             onClick={() => deleteCanned(res.id)}
                             className="px-3 opacity-0 group-hover:opacity-100 text-rose-500 hover:text-rose-700"
                           >
@@ -599,7 +576,7 @@ export default function AdminDashboard() {
                     className="flex-1 bg-transparent border-none focus:ring-0 text-sm resize-none max-h-32 min-h-[44px] py-2 text-[var(--bronze-light)] placeholder-[var(--bronze-dark)]"
                     rows={1}
                   />
-                  <button 
+                  <button
                     onClick={() => fileInputRef.current?.click()}
                     className="p-2 text-[var(--bronze-mid)] hover:text-[var(--bronze-light)] transition-colors mb-1"
                     title={t.canned}
