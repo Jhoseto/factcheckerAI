@@ -69,8 +69,13 @@ function calculateVideoCostInPoints(promptTokens, candidatesTokens, isDeep = fal
   const pricing = GEMINI_API_PRICING[model] ?? GEMINI_API_PRICING[DEFAULT_MODEL];
   const batchMultiplier = isBatch ? BATCH_DISCOUNT : 1.0;
 
-  const inputCostUSD = (promptTokens / 1_000_000) * pricing.inputPerMillion * batchMultiplier;
-  const outputCostUSD = (candidatesTokens / 1_000_000) * pricing.outputPerMillion * batchMultiplier;
+  // Gemini context tier pricing logic
+  const isOver128k = promptTokens > 128_000;
+  const inputRate = isOver128k ? pricing.inputPerMillion * 2 : pricing.inputPerMillion;
+  const outputRate = isOver128k ? pricing.outputPerMillion * 2 : pricing.outputPerMillion;
+
+  const inputCostUSD = (promptTokens / 1_000_000) * inputRate * batchMultiplier;
+  const outputCostUSD = (candidatesTokens / 1_000_000) * outputRate * batchMultiplier;
   const totalCostUSD = inputCostUSD + outputCostUSD;
 
   const totalCostEUR = totalCostUSD * USD_TO_EUR_RATE;
@@ -97,8 +102,14 @@ function estimateVideoCostInPoints(durationSeconds, isDeep = false, model = DEFA
   const outputTokens = isDeep ? 45000 : 5000;
 
   const pricing = GEMINI_API_PRICING[model] ?? GEMINI_API_PRICING[DEFAULT_MODEL];
-  const inputCostUSD = (inputTokens / 1_000_000) * pricing.inputPerMillion;
-  const outputCostUSD = (outputTokens / 1_000_000) * pricing.outputPerMillion;
+
+  // Gemini context tier pricing logic
+  const isOver128k = inputTokens > 128_000;
+  const inputRate = isOver128k ? pricing.inputPerMillion * 2 : pricing.inputPerMillion;
+  const outputRate = isOver128k ? pricing.outputPerMillion * 2 : pricing.outputPerMillion;
+
+  const inputCostUSD = (inputTokens / 1_000_000) * inputRate;
+  const outputCostUSD = (outputTokens / 1_000_000) * outputRate;
   const totalCostUSD = inputCostUSD + outputCostUSD;
 
   const totalCostEUR = totalCostUSD * USD_TO_EUR_RATE;

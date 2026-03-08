@@ -11,7 +11,7 @@ import { AdminMenuButton } from '../../admin/client/components/AdminMenuButton';
 const Navbar: React.FC = () => {
     const { t } = useTranslation();
     const { currentUser, userProfile, logout } = useAuth();
-    const { notifications, permissionStatus, requestPermission } = useNotifications();
+    const { notifications, permissionStatus, requestPermission, isAdmin } = useNotifications();
     const navigate = useNavigate();
     const { language, setLanguage, isTranslating, translateError } = useLanguageSwitch();
     const [showUserMenu, setShowUserMenu] = useState(false);
@@ -101,7 +101,7 @@ const Navbar: React.FC = () => {
                             </span>
                         )}
                     </div>
-                    {userProfile && (userProfile.uid === 'admin' || userProfile.email?.includes('admin')) && (
+                    {userProfile && isAdmin && (
                         <div className="flex items-center gap-4 border-r border-[#333] pr-6 mr-2">
                             {permissionStatus === 'default' && (
                                 <button

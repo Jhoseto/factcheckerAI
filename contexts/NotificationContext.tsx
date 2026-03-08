@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from './AuthContext';
+import { auth } from '../services/firebase';
 import { ChatNotification } from '../types';
 
 interface NotificationContextType {
@@ -8,6 +9,7 @@ interface NotificationContextType {
     removeNotification: (id: number) => void;
     requestPermission: () => Promise<boolean>;
     permissionStatus: NotificationPermission;
+    isAdmin: boolean;
 }
 
 const NotificationContext = createContext<NotificationContextType>({} as NotificationContextType);
@@ -18,11 +20,35 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const { userProfile } = useAuth();
     const [notifications, setNotifications] = useState<ChatNotification[]>([]);
     const [socket, setSocket] = useState<Socket | null>(null);
+    const [isAdmin, setIsAdmin] = useState<boolean>(false);
     const [permissionStatus, setPermissionStatus] = useState<NotificationPermission>(
         typeof window !== 'undefined' ? Notification.permission : 'default'
     );
 
-    const isAdmin = userProfile?.uid === 'admin' || userProfile?.email?.includes('admin'); // Basic check, will be verified by backend socket auth if implemented
+    // Sync isAdmin with server (matching AdminMenuButton logic)
+    useEffect(() => {
+        const verify = async () => {
+            if (!userProfile) {
+                setIsAdmin(false);
+                return;
+            }
+            try {
+                const user = auth.currentUser;
+                if (!user) return;
+
+                const token = await user.getIdToken(true);
+                const res = await fetch('/api/admin/verify', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                setIsAdmin(!!data.ok);
+            } catch (e) {
+                setIsAdmin(false);
+            }
+        };
+
+        verify();
+    }, [userProfile]);
 
     const requestPermission = async () => {
         if (typeof window === 'undefined' || !('Notification' in window)) return false;
@@ -40,23 +66,19 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         if (permissionStatus === 'granted') {
             new Notification(title, {
                 body,
-                icon: '/favicon.ico', // Adjust path if needed
+                icon: '/favicon.ico',
             });
         }
     }, [permissionStatus]);
 
     useEffect(() => {
-        if (!userProfile) {
+        if (!userProfile || !isAdmin) {
             if (socket) {
                 socket.disconnect();
                 setSocket(null);
             }
             return;
         }
-
-        // Ideally we should check if is admin from a more reliable source (like a claim)
-        // For now, only connect for admins to save resources
-        if (!isAdmin) return;
 
         const newSocket = io();
         setSocket(newSocket);
@@ -75,7 +97,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 playNotificationSound();
                 showBrowserNotification(notification.userName, notification.message);
 
-                // Auto-remove from list after 10 seconds (for the UI toast)
                 setTimeout(() => {
                     setNotifications(prev => prev.filter(n => n.id !== notification.id));
                 }, 10000);
@@ -92,7 +113,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     };
 
     return (
-        <NotificationContext.Provider value={{ notifications, removeNotification, requestPermission, permissionStatus }}>
+        <NotificationContext.Provider value={{ notifications, removeNotification, requestPermission, permissionStatus, isAdmin }}>
             {children}
         </NotificationContext.Provider>
     );
