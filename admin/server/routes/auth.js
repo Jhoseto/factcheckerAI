@@ -8,10 +8,13 @@ import { SUPER_ADMIN_EMAIL } from '../config.js';
 const router = express.Router();
 
 router.get('/verify', requireAuth, (req, res) => {
-    if (req.decodedToken.admin !== true) {
-        return res.status(403).json({ ok: false });
-    }
     const email = (req.decodedToken.email || '').toLowerCase();
+    const isAdmin = req.decodedToken.admin === true || email === SUPER_ADMIN_EMAIL.toLowerCase();
+
+    if (!isAdmin) {
+        return res.json({ ok: false });
+    }
+
     const isSuperAdmin = email === SUPER_ADMIN_EMAIL.toLowerCase()
         || req.decodedToken.super_admin === true;
     res.json({ ok: true, isSuperAdmin });
