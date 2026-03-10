@@ -783,7 +783,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
                 maxOutputTokens: 65536,
                 responseMimeType: 'application/json',
                 responseSchema: VIDEO_DEEP_SCHEMA,
-                thinkingConfig: { thinkingBudget: 0 },
+                thinkingConfig: { thinkingBudget: 4000 },
                 httpOptions: { timeout: 300000 }
             };
 
@@ -885,7 +885,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
                 maxOutputTokens: 65536,
                 responseMimeType: 'application/json',
                 responseSchema: VIDEO_STANDARD_SCHEMA,
-                thinkingConfig: { thinkingBudget: 0 },
+                thinkingConfig: { thinkingBudget: 4000 },
                 abortSignal: abortController.signal,
                 httpOptions: { timeout: 300000 }
             };
