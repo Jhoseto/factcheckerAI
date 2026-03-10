@@ -10,8 +10,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 const GEMINI_API_PRICING = {
   'gemini-2.5-flash': {
-    inputPerMillion: 0.50,
-    outputPerMillion: 2.00,
+    inputPerMillion: 0.30,
+    outputPerMillion: 1.00,
     audioPerMillion: 1.00,
   },
   'gemini-2.5-pro': {
@@ -69,10 +69,9 @@ function calculateVideoCostInPoints(promptTokens, candidatesTokens, isDeep = fal
   const pricing = GEMINI_API_PRICING[model] ?? GEMINI_API_PRICING[DEFAULT_MODEL];
   const batchMultiplier = isBatch ? BATCH_DISCOUNT : 1.0;
 
-  // Gemini context tier pricing logic
-  const isOver128k = promptTokens > 128_000;
-  const inputRate = isOver128k ? pricing.inputPerMillion * 2 : pricing.inputPerMillion;
-  const outputRate = isOver128k ? pricing.outputPerMillion * 2 : pricing.outputPerMillion;
+  // Gemini context tier pricing logic — Removed doubling penalty for consistency with AI Studio
+  const inputRate = pricing.inputPerMillion;
+  const outputRate = pricing.outputPerMillion;
 
   const inputCostUSD = (promptTokens / 1_000_000) * inputRate * batchMultiplier;
   const outputCostUSD = (candidatesTokens / 1_000_000) * outputRate * batchMultiplier;
@@ -89,7 +88,7 @@ function calculateVideoCostInPoints(promptTokens, candidatesTokens, isDeep = fal
 }
 
 /**
- * Оценява прогнозните точки за видео анализ преди старта
+ * Оценята прогнозните точки за видео анализ преди старта
  */
 function estimateVideoCostInPoints(durationSeconds, isDeep = false, model = DEFAULT_MODEL) {
   // Вече доказано: Видеото генерира средно 250 токена/сек (Input)
@@ -103,10 +102,9 @@ function estimateVideoCostInPoints(durationSeconds, isDeep = false, model = DEFA
 
   const pricing = GEMINI_API_PRICING[model] ?? GEMINI_API_PRICING[DEFAULT_MODEL];
 
-  // Gemini context tier pricing logic
-  const isOver128k = inputTokens > 128_000;
-  const inputRate = isOver128k ? pricing.inputPerMillion * 2 : pricing.inputPerMillion;
-  const outputRate = isOver128k ? pricing.outputPerMillion * 2 : pricing.outputPerMillion;
+  // Gemini context tier pricing logic — Removed doubling penalty for consistency with AI Studio
+  const inputRate = pricing.inputPerMillion;
+  const outputRate = pricing.outputPerMillion;
 
   const inputCostUSD = (inputTokens / 1_000_000) * inputRate;
   const outputCostUSD = (outputTokens / 1_000_000) * outputRate;

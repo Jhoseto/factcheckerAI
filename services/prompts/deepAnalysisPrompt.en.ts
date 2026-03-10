@@ -17,7 +17,6 @@ CRITICAL DATA EXTRACTION REQUIREMENTS (DEEP RESEARCH & GOOGLE SEARCH):
 4. **CONTEXTUAL VALUE**: Search for information about historical events mentioned in the video to give the user a true "Deep Research" experience.
 5. **MULTIMODAL SYNERGY**: Combine what you see/hear in the video with what you find via Google Search.
 6. **RETURNING LITTLE DATA IS A CRITICAL ERROR** — be exceptionally comprehensive and use the full token limit!
-7. **NO TRANSCRIPTION**: Do NOT generate a transcription. In the "transcription" field return an EMPTY array [].
 
 IMPORTANT: All text (summaries, explanations, recommendations) must be in ENGLISH. Only JSON enum values remain in English (they already are).
 
