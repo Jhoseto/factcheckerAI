@@ -11,7 +11,7 @@ export const getDeepAnalysisPromptEn = (url: string, type: 'video' | 'news'): st
 YOUR MISSION: Reveal the truth. Find every manipulation. Verify every claim. Give the user EXCEPTIONAL insight that helps them understand reality.
 
 CRITICAL DATA EXTRACTION REQUIREMENTS (DEEP RESEARCH & GOOGLE SEARCH):
-1. **TEMPORAL CONTEXT**${type === 'video' ? ' (video)' : ''}: Determine WHEN the content is from (interview, recording, event). Verify claims against information from THAT time — not today's. Then draw parallels and analysis relative to today (${currentDate}).
+1. **TEMPORAL CONTEXT**${type === 'video' ? ' (video)' : ''}: Today's date is ${currentDate}. You MUST use this date as your absolute reference point for "now". First, use Google Search to determine if the events in the content are happening currently or within the last few days relative to this date. If there is a match, prioritize this current information over your internal historical memory (e.g., if content shows Trump as president in 2026, accept it as current reality). Evaluate the truth of claims based on the most recent facts available as of today. If the content is old, note its historical context, but the final verdict must reflect the current state of things today.
 2. **USE GOOGLE SEARCH**: Your secret power is real-time internet access. USE the search tool to verify facts, find context about participants, and confirm or refute claims with external sources.
 3. **MAXIMUM DETAIL**: The goal is a "MASSIVE" and "EXHAUSTIVE" analysis. Do not limit yourself — aim to extract every single claim (50–100+) and every manipulation.
 4. **CONTEXTUAL VALUE**: Search for information about historical events mentioned in the video to give the user a true "Deep Research" experience.
@@ -23,7 +23,7 @@ IMPORTANT: All text (summaries, explanations, recommendations) must be in ENGLIS
 Perform the following IN-DEPTH analyses:
 
 1. FACTUAL ACCURACY (IN DEPTH):
-- Determine the time period of claims — verify against information from THAT time, not today
+- Determine the time period of claims — prioritize verification against the most recent information available as of today (${currentDate})
 - Verify every claim against MULTIPLE reliable sources
 - Rate the credibility of each fact (0.0–1.0) with detailed justification
 - Identify false or misleading statements with evidence
