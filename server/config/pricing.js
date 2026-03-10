@@ -14,7 +14,7 @@ const GEMINI_API_PRICING = {
     outputPerMillion: 1.00,
     audioPerMillion: 1.00,
   },
-  'gemini-3.1-pro': {
+  'gemini-3.1-pro-preview': {
     inputPerMillion: 1.25,
     outputPerMillion: 5.00,
   },
@@ -115,7 +115,7 @@ function estimateVideoCostInPoints(durationSeconds, isDeep = false) {
   const proInputTokens = flashOutputTokens + 10000;
   const proOutputTokens = isDeep ? 45000 : 8000; // Финален доклад
 
-  const proPricing = GEMINI_API_PRICING['gemini-3.1-pro'];
+  const proPricing = GEMINI_API_PRICING['gemini-3.1-pro-preview'];
   const proCostUSD = ((proInputTokens / 1_000_000) * proPricing.inputPerMillion) +
     ((proOutputTokens / 1_000_000) * proPricing.outputPerMillion);
 

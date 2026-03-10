@@ -7,10 +7,10 @@ export const MODELS = {
     VIDEO_EXTRACTOR: 'gemini-2.5-flash',
 
     // Stage 2: Smart & Current (Grounding, Search, Synthesis)
-    REPORT_SYNTHESIZER: 'gemini-3.1-pro',
+    REPORT_SYNTHESIZER: 'gemini-3.1-pro-preview',
 
     // Legacy/Generic mappings for single-call modes if any
-    LINK_ANALYSIS: 'gemini-3.1-pro',
+    LINK_ANALYSIS: 'gemini-3.1-pro-preview',
     VIDEO_STANDARD: 'gemini-2.5-flash',
     VIDEO_DEEP: 'gemini-2.5-flash', // We'll override this in hybrid logic
     TEXT_ANALYSIS: 'gemini-2.5-flash'
