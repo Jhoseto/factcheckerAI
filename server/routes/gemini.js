@@ -719,7 +719,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
                 // Pass research as established ground truth
                 currentContents.push({
                     role: 'user',
-                    parts: [{ text: `${videoContextStr}ESTABLISHED RESEARCH DATA (TRUSTED SOURCE):\n\n${rawText.substring(0, 60000)}\n\nINSTRUCTION: You MUST use the data above to populate the "explanation" and "missingContext" fields for all claims. If a specific claim is not directly mentioned in the research, perform a Logical Audit based on the video context and your general expertise. DO NOT use placeholder text like "No information available". Every single claim MUST have a detailed explanation. EVALUATE temporal claims (like "today") based on logical deduction from the video content (events, news items, visual cues) to determine the actual recording time.` }]
+                    parts: [{ text: `${videoContextStr}ESTABLISHED RESEARCH DATA (ABSOLUTE GROUND TRUTH):\n\n${rawText.substring(0, 60000)}\n\nINSTRUCTION: You MUST use the research data above as the primary source for all "explanation" and "missingContext" fields. This data represents the current reality and OVERRIDES any conflicting pre-trained knowledge. Do not use placeholders. Every claim MUST be evaluated against these findings. If a claim involves timing (e.g. "today"), use this data and current date clues to determine the actual context.` }]
                 });
             }
 
@@ -734,12 +734,13 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             const jsonPrompts = hasGrounding ? jsonPromptsWithContext : jsonPromptsNoContext;
             const finalConfig = {
                 ...toolConfig,
+                systemInstruction: enhancedSystemInstruction, // Correctly inherit the rules from Stage 1
                 tools: undefined,
-                maxOutputTokens: 65536, // Restored to 65536 for maximum response size
+                maxOutputTokens: 65536,
                 responseMimeType: 'application/json',
                 responseSchema: VIDEO_DEEP_SCHEMA,
-                thinkingConfig: { thinkingBudget: 0 }, // Disable thinking to avoid using tokens on reasoning
-                httpOptions: { timeout: 300000 } // 5 min for JSON step
+                thinkingConfig: { thinkingBudget: 0 },
+                httpOptions: { timeout: 300000 }
             };
 
             for (let attempt = 0; attempt < 2; attempt++) {
