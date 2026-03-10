@@ -143,7 +143,7 @@ Return the result as JSON in the following format:
   },
   "manipulationTechniques": [
     {
-      "technique": "Name of the technique (e.g. 'Emotional manipulation', 'Cherry-picking', 'Ad hominem', 'False dilemma', 'Out-of-context usage', 'Statistical manipulation', 'Fear-mongering', 'Enemy creation', 'Dehumanisation', 'Euphemisms/dysphemisms', 'Repetition', 'False authority', 'Logical fallacies', 'Gaslighting', 'Emotional blackmail')",
+      "technique": "Name of the technique in English, followed by the Bulgarian translation in brackets (e.g. 'Emotional manipulation (Емоционална манипулация)', 'Cherry-picking', 'Appeal to Authority (Апел към авторитета)')",
       "description": "Detailed description of exactly how it is used, with concrete examples from the video. Explain the mechanism of the manipulation.",
       "timestamp": "Exact timestamp from the video",
       "severity": 0.0,

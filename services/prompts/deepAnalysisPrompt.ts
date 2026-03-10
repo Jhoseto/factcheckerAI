@@ -59,7 +59,7 @@ export const getDeepAnalysisPrompt = (url: string, type: 'video' | 'news'): stri
   ],
   "manipulations": [
     {
-      "technique": "Техника",
+      "technique": "Име на техниката на български, следвано от оригиналното английско наименование в скоби (напр. 'Емоционално зареждане (Emotional loading)', 'Апел към авторитета (Appeal to Authority)')",
       "timestamp": "00:00",
       "logic": "Задълбочен анализ на манипулативната логика.",
       "effect": "Как влияе на публиката.",

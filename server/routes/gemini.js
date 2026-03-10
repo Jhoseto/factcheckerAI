@@ -105,7 +105,7 @@ const PROGRESS_MSG = {
         deepPreparing: 'Изготвяне на (DCGE) задълбочен анализ (може да отнеме до няколко минути)...',
         retry: 'Повторен опит при празен отговор...',
         googleRound: (r) => `Търсене в Google (кръг ${r})...`,
-        finalJson: 'Заявка за финален JSON отговор...',
+        finalJson: 'Заявка за финален отговор...',
         synthesizing: (kb) => `Синтезиране (${kb} KB)...`,
         googleSearch: (n) => `Търсене в Google (${n} заявки)...`,
         analyzing: (kb) => `Анализиране (${kb} KB)...`,

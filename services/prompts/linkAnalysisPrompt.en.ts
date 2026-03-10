@@ -129,7 +129,7 @@ Return ONLY valid JSON (no Markdown wrapper):
   ],
   "manipulationTechniques": [
     {
-      "technique": "Name of the technique (e.g. 'Emotional loading', 'Cherry-picking', 'False dilemma', 'Framing', 'Fear-mongering', 'Enemy creation', 'Euphemisms', 'Statistical manipulation', 'False authority', 'Out-of-context usage')",
+      "technique": "Name of the technique in English, followed by the Bulgarian translation in brackets (e.g. 'Emotional loading (Емоционално зареждане)', 'Cherry-picking', 'Appeal to Authority (Апел към авторитета)')",
       "description": "DETAILED description of exactly how it is used in this article, with concrete examples. Explain the mechanism — how it works on a cognitive and emotional level.",
       "severity": 0.0,
       "example": "FULL quote from the article demonstrating the technique",

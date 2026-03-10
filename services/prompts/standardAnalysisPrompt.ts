@@ -162,7 +162,7 @@ export const getStandardAnalysisPrompt = (url: string, type: 'video' | 'news'): 
   },
   "manipulations": [
     {
-      "technique": "Име на техниката на български",
+      "technique": "Име на техниката на български, следвано от оригиналното английско наименование в скоби (напр. 'Емоционално зареждане (Emotional loading)', 'Апел към авторитета (Appeal to Authority)')",
       "logic": "Задълбочен анализ на манипулативната логика с конкретни примери.",
       "timestamp": "Точен timestamp",
       "effect": "Какво е въздействието върху аудиторията",
