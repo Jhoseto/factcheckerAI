@@ -14,6 +14,10 @@ const GEMINI_API_PRICING = {
     outputPerMillion: 1.00,
     audioPerMillion: 1.00,
   },
+  'gemini-3.1-pro': {
+    inputPerMillion: 1.25,
+    outputPerMillion: 5.00,
+  },
   'gemini-2.5-pro': {
     inputPerMillion: 1.25,
     outputPerMillion: 5.00,
@@ -63,19 +67,24 @@ const BATCH_DISCOUNT = 0.5;
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Изчислява цената в точки за видео анализ (динамично)
+ * Изчислява цената в точки за видео анализ (динамично).
+ * Поддържа хибридно изчисляване, ако е масив от { model, promptTokens, candidatesTokens }
  */
-function calculateVideoCostInPoints(promptTokens, candidatesTokens, isDeep = false, isBatch = false, model = DEFAULT_MODEL) {
-  const pricing = GEMINI_API_PRICING[model] ?? GEMINI_API_PRICING[DEFAULT_MODEL];
+function calculateVideoCostInPoints(usageData, isDeep = false, isBatch = false) {
+  const dataArray = Array.isArray(usageData) ? usageData : [usageData];
   const batchMultiplier = isBatch ? BATCH_DISCOUNT : 1.0;
+  let totalCostUSD = 0;
 
-  // Gemini context tier pricing logic — Removed doubling penalty for consistency with AI Studio
-  const inputRate = pricing.inputPerMillion;
-  const outputRate = pricing.outputPerMillion;
+  for (const item of dataArray) {
+    const model = item.model || DEFAULT_MODEL;
+    const pTokens = item.promptTokens || 0;
+    const cTokens = item.candidatesTokens || 0;
 
-  const inputCostUSD = (promptTokens / 1_000_000) * inputRate * batchMultiplier;
-  const outputCostUSD = (candidatesTokens / 1_000_000) * outputRate * batchMultiplier;
-  const totalCostUSD = inputCostUSD + outputCostUSD;
+    const pricing = GEMINI_API_PRICING[model] ?? GEMINI_API_PRICING[DEFAULT_MODEL];
+
+    totalCostUSD += (pTokens / 1_000_000) * pricing.inputPerMillion * batchMultiplier;
+    totalCostUSD += (cTokens / 1_000_000) * pricing.outputPerMillion * batchMultiplier;
+  }
 
   const totalCostEUR = totalCostUSD * USD_TO_EUR_RATE;
   const basePoints = totalCostEUR * POINTS_PER_EUR;
@@ -88,29 +97,31 @@ function calculateVideoCostInPoints(promptTokens, candidatesTokens, isDeep = fal
 }
 
 /**
- * Оценята прогнозните точки за видео анализ преди старта
+ * Оценя прогнозните точки за видео анализ преди старта.
+ * Сега е много по-точен, вземайки предвид хибридния модел (Flash + Pro).
  */
-function estimateVideoCostInPoints(durationSeconds, isDeep = false, model = DEFAULT_MODEL) {
-  // Вече доказано: Видеото генерира средно 250 токена/сек (Input)
-  const videoTokens = Math.floor(durationSeconds * 250);
-  const promptOverhead = isDeep ? 8000 : 3000;
-  const inputTokens = videoTokens + promptOverhead;
+function estimateVideoCostInPoints(durationSeconds, isDeep = false) {
+  // Stage 1 (Gemini 2.5 Flash): Video Extraction
+  // Видеото генерира средно 250 токена/сек (Input)
+  const flashInputTokens = Math.floor(durationSeconds * 250) + 3000;
+  const flashOutputTokens = isDeep ? 15000 : 5000; // Flash извлича сурови данни
 
-  // Изходящи (Output): 
-  // Стандартен: ~5K. Дълбок: ~45K (с всички допълнителни мултимодални полета)
-  const outputTokens = isDeep ? 45000 : 5000;
+  const flashPricing = GEMINI_API_PRICING['gemini-2.5-flash'];
+  const flashCostUSD = ((flashInputTokens / 1_000_000) * flashPricing.inputPerMillion) +
+    ((flashOutputTokens / 1_000_000) * flashPricing.outputPerMillion);
 
-  const pricing = GEMINI_API_PRICING[model] ?? GEMINI_API_PRICING[DEFAULT_MODEL];
+  // Stage 2 (Gemini 3.1 Pro): Smart Grounding & Synthesis
+  // Вход: Резултат от Stage 1 (flashOutputTokens) + Промпт (~5k) + Търсене (~5k)
+  const proInputTokens = flashOutputTokens + 10000;
+  const proOutputTokens = isDeep ? 45000 : 8000; // Финален доклад
 
-  // Gemini context tier pricing logic — Removed doubling penalty for consistency with AI Studio
-  const inputRate = pricing.inputPerMillion;
-  const outputRate = pricing.outputPerMillion;
+  const proPricing = GEMINI_API_PRICING['gemini-3.1-pro'];
+  const proCostUSD = ((proInputTokens / 1_000_000) * proPricing.inputPerMillion) +
+    ((proOutputTokens / 1_000_000) * proPricing.outputPerMillion);
 
-  const inputCostUSD = (inputTokens / 1_000_000) * inputRate;
-  const outputCostUSD = (outputTokens / 1_000_000) * outputRate;
-  const totalCostUSD = inputCostUSD + outputCostUSD;
-
+  const totalCostUSD = flashCostUSD + proCostUSD;
   const totalCostEUR = totalCostUSD * USD_TO_EUR_RATE;
+
   const profitMultiplier = isDeep ? PROFIT_MULTIPLIERS.deep : PROFIT_MULTIPLIERS.standard;
   const finalPoints = Math.ceil(totalCostEUR * POINTS_PER_EUR * profitMultiplier);
 

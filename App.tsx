@@ -146,8 +146,8 @@ const App: React.FC = () => {
                 onClick={handleStartAnalysis}
                 disabled={loading || !analysisMode || fetchingMetadata}
                 className={`w-full md:w-auto px-10 py-4 rounded text-[10px] uppercase tracking-[0.2em] whitespace-nowrap transition-all ${!analysisMode
-                    ? 'bg-[#222] border border-[#444] text-[#666] cursor-not-allowed'
-                    : 'btn-luxury-solid'
+                  ? 'bg-[#222] border border-[#444] text-[#666] cursor-not-allowed'
+                  : 'btn-luxury-solid'
                   }`}
               >
                 {loading ? t('app.analyzing') : t('app.execute')}
@@ -198,6 +198,10 @@ const App: React.FC = () => {
                         </div>
                       </div>
                     </div>
+                    {/* Price Disclaimer */}
+                    <p className="mt-4 text-[10px] text-[#666] italic tracking-wide">
+                      * {t('app.priceDisclaimer')}
+                    </p>
                   </>
                 )}
               </>

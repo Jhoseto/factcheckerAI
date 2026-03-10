@@ -429,20 +429,58 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
             } else {
                 const jsonRuleShort = 'CRITICAL: Respond with exactly one valid JSON object. Start with {, end with }. No markdown. Escape " in strings as \\". Never truncate.';
                 const sysInstr = (systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON.') + '\n\n' + getLanguageInstruction(lang) + '\n\n' + jsonRuleShort;
-                const modelName = serviceType === 'linkArticle' ? MODELS.LINK_ANALYSIS : MODELS.VIDEO_STANDARD;
+                const modelExtractor = MODELS.VIDEO_EXTRACTOR;
+                const modelSynthesizer = MODELS.REPORT_SYNTHESIZER;
+
+                // Stage 1: Extraction (Flash)
+                const extractionConfig = {
+                    systemInstruction: (systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON.') + '\n\n' + getLanguageInstruction(lang),
+                    temperature: 0.1,
+                    maxOutputTokens: 65536,
+                    mediaResolution: 'MEDIA_RESOLUTION_LOW',
+                    tools: tools // Flash handles the initial search/extraction
+                };
+
                 const response = await ai.models.generateContent({
-                    model: model || modelName,
+                    model: modelExtractor,
                     contents,
+                    config: extractionConfig
+                });
+
+                const researchTokens = response.usageMetadata;
+                const rawText = response.text || '';
+
+                // Stage 2: Smart Synthesis (Pro 3.1)
+                const videoContextStr = req.body.metadata?.title ? `VIDEO METADATA:\n- Title: ${req.body.metadata.title}\n\n` : '';
+                const synthesisContents = [
+                    ...contents,
+                    { role: 'user', parts: [{ text: `${videoContextStr}ESTABLISHED RESEARCH DATA (GROUND TRUTH):\n\n${rawText}\n\nINSTRUCTION: Using the data above and MARCH 2026 as current context, synthesize the final analysis exactly according to the schema.` }] }
+                ];
+
+                const finalResponse = await ai.models.generateContent({
+                    model: modelSynthesizer,
+                    contents: synthesisContents,
                     config: {
-                        systemInstruction: sysInstr,
-                        temperature: 0.7,
-                        maxOutputTokens: 65536, // Gemini 2.5 Flash supports up to 64K output tokens
-                        ...(tools ? {} : { responseMimeType: 'application/json', responseSchema: serviceType === 'linkArticle' ? LINK_RESPONSE_SCHEMA : (isDeepMode ? VIDEO_DEEP_SCHEMA : VIDEO_STANDARD_SCHEMA) }),
-                        tools
+                        temperature: 0.1,
+                        responseMimeType: 'application/json',
+                        responseSchema: serviceType === 'linkArticle' ? LINK_RESPONSE_SCHEMA : (isDeepMode ? VIDEO_DEEP_SCHEMA : VIDEO_STANDARD_SCHEMA)
                     }
                 });
-                responseText = response.text || '';
-                lastAttemptUsage = response.usageMetadata || { promptTokenCount: 0, candidatesTokenCount: 0 };
+
+                responseText = finalResponse.text || '';
+                const finalUsageMeta = finalResponse.usageMetadata;
+
+                // Accumulate usage for billing
+                totalPromptTokens = (researchTokens?.promptTokenCount || 0) + (finalUsageMeta?.promptTokenCount || 0);
+                totalCandidatesTokens = (researchTokens?.candidatesTokenCount || 0) + (finalUsageMeta?.candidatesTokenCount || 0);
+                usage = {
+                    promptTokenCount: totalPromptTokens,
+                    candidatesTokenCount: totalCandidatesTokens,
+                    details: [
+                        { model: modelExtractor, ...researchTokens },
+                        { model: modelSynthesizer, ...finalUsageMeta }
+                    ]
+                };
             }
 
             // ── Log raw response for debugging ──────────────────────────────────
@@ -513,16 +551,22 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
         }
 
         // ── Calculate cost ────────────────────────────────────────────────────
-        const promptTokens = (totalPromptTokens > 0 || totalCandidatesTokens > 0)
-            ? totalPromptTokens : (usage?.promptTokenCount || 0);
-        const candidatesTokens = (totalPromptTokens > 0 || totalCandidatesTokens > 0)
-            ? totalCandidatesTokens : (usage?.candidatesTokenCount || 0);
-
         let finalPoints;
         if (isFixedPrice) {
             finalPoints = getFixedPrice(serviceType);
         } else {
-            finalPoints = calculateVideoCostInPoints(promptTokens, candidatesTokens, isDeepMode, isBatch, model);
+            // Multi-stage usage accumulation
+            const billingData = [];
+            if (usage && usage.details) { // Check if usage contains details (hybrid)
+                billingData.push(...usage.details);
+            } else if (usage) { // Fallback for single-stage usage
+                billingData.push({
+                    model: model || MODELS.VIDEO_EXTRACTOR, // Default to extractor if model not specified
+                    promptTokens: usage.promptTokenCount || 0,
+                    candidatesTokens: usage.candidatesTokenCount || 0
+                });
+            }
+            finalPoints = calculateVideoCostInPoints(billingData, isDeepMode, isBatch);
         }
 
         // ── Deduct points SERVER-SIDE ─────────────────────────────────────────
@@ -673,9 +717,9 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             // 2) ALWAYS final JSON step with responseSchema — guarantees valid JSON (tools + schema incompatible)
             sendSSE('progress', { status: getProgressMsg(lang, 'deepPreparing') });
 
-            const toolConfig = {
+            const extractionConfig = {
                 systemInstruction: enhancedSystemInstruction,
-                temperature: 0.7,
+                temperature: 0.1,
                 maxOutputTokens: 63536,
                 mediaResolution: 'MEDIA_RESOLUTION_LOW',
                 tools,
@@ -684,9 +728,9 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             };
 
             const response = await ai.models.generateContent({
-                model: model || 'gemini-2.5-flash',
+                model: MODELS.VIDEO_EXTRACTOR,
                 contents,
-                config: toolConfig
+                config: extractionConfig
             });
             researchUsage = response.usageMetadata;
             streamUsage = response.usageMetadata || streamUsage;
@@ -733,9 +777,9 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             ];
             const jsonPrompts = hasGrounding ? jsonPromptsWithContext : jsonPromptsNoContext;
             const finalConfig = {
-                ...toolConfig,
-                systemInstruction: enhancedSystemInstruction, // Correctly inherit the rules from Stage 1
+                systemInstruction: enhancedSystemInstruction,
                 tools: undefined,
+                temperature: 0.1,
                 maxOutputTokens: 65536,
                 responseMimeType: 'application/json',
                 responseSchema: VIDEO_DEEP_SCHEMA,
@@ -751,7 +795,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
                 sendSSE('progress', { status: getProgressMsg(lang, 'finalJson') });
                 const jsonPrompt = { role: 'user', parts: [{ text: jsonPrompts[attempt] }] };
                 const finalResponse = await ai.models.generateContent({
-                    model: model || 'gemini-2.5-flash',
+                    model: MODELS.REPORT_SYNTHESIZER,
                     contents: [...currentContents, jsonPrompt],
                     config: finalConfig
                 });
@@ -797,73 +841,87 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             }
 
         } else {
-            // STANDARD MODE: streaming first, retry with non-streaming on validation failure
-            const stdConfig = {
+            // STANDARD MODE: Hybrid 2-Stage (Flash Extraction + Pro Synthesis)
+            sendSSE('progress', { status: getProgressMsg(lang, 'deepPreparing') }); // Reuse deepPreparing for consistency
+
+            // Stage 1: Extraction (Flash)
+            const extractionConfig = {
                 systemInstruction: enhancedSystemInstruction,
-                temperature: 0.7,
-                maxOutputTokens: 65536, // Restored to 65536 for maximum response size
+                temperature: 0.1,
+                maxOutputTokens: 20000,
+                mediaResolution: 'MEDIA_RESOLUTION_LOW',
+                tools: tools, // Integrated Google Search if enabled
+                abortSignal: abortController.signal
+            };
+
+            const response = await ai.models.generateContent({
+                model: MODELS.VIDEO_EXTRACTOR,
+                contents,
+                config: extractionConfig
+            });
+            researchUsage = response.usageMetadata;
+
+            let rawText = '';
+            if (typeof response.text === 'string') rawText = response.text;
+            else if (typeof response.text === 'function') { try { rawText = response.text(); } catch (_) { } }
+            if (!rawText && response.candidates?.[0]?.content?.parts) {
+                rawText = response.candidates[0].content.parts
+                    .map(p => (p && typeof p === 'object' && p.text != null) ? String(p.text) : '')
+                    .join('');
+            }
+
+            // Stage 2: Report Generation (Pro 3.1)
+            sendSSE('progress', { status: getProgressMsg(lang, 'finalJson') });
+
+            const videoContextStr = metadata.title ? `VIDEO METADATA:\n- Title: ${metadata.title}\n\n` : '';
+            const synthesisContents = [
+                ...contents,
+                { role: 'user', parts: [{ text: `${videoContextStr}ESTABLISHED RESEARCH DATA (ABSOLUTE GROUND TRUTH):\n\n${rawText}\n\nINSTRUCTION: Using the findings above, synthesize the final JSON analysis according to the schema. Ensure high reliability and temporal accuracy relative to March 2026.` }] }
+            ];
+
+            const finalConfig = {
+                systemInstruction: enhancedSystemInstruction,
+                temperature: 0.1,
+                maxOutputTokens: 65536,
                 responseMimeType: 'application/json',
                 responseSchema: VIDEO_STANDARD_SCHEMA,
-                mediaResolution: 'MEDIA_RESOLUTION_LOW',
-                thinkingConfig: { thinkingBudget: 0 }, // Disable thinking: without this, gemini-2.5-flash uses 7000+ thinking tokens, leaving too few for output
+                thinkingConfig: { thinkingBudget: 0 },
                 abortSignal: abortController.signal,
-                httpOptions: { timeout: 300000 } // 5 min for video
+                httpOptions: { timeout: 300000 }
             };
-            const stream = await ai.models.generateContentStream({
-                model: model || 'gemini-2.5-flash',
-                contents,
-                config: stdConfig
+
+            const finalResponse = await ai.models.generateContent({
+                model: MODELS.REPORT_SYNTHESIZER,
+                contents: synthesisContents,
+                config: finalConfig
             });
 
-            for await (const chunk of stream) {
-                if (chunk.functionCalls && chunk.functionCalls.length > 0) {
-                    functionCallCount += chunk.functionCalls.length;
-                    sendSSE('progress', { status: getProgressMsg(lang, 'googleSearch', functionCallCount) });
-                    continue;
-                }
+            finalUsage = finalResponse.usageMetadata;
+            streamUsage = finalResponse.usageMetadata || streamUsage;
 
-                const chunkText = chunk.text || '';
-                if (chunkText) {
-                    fullText += chunkText;
-                    chunkCount++;
-                    if (chunkCount % 5 === 0) {
-                        sendSSE('progress', { status: getProgressMsg(lang, 'analyzing', Math.round(fullText.length / 1024)) });
-                    }
-                }
-                if (chunk.usageMetadata) {
-                    finalUsage = chunk.usageMetadata;
-                    streamUsage = chunk.usageMetadata;
-                }
+            if (typeof finalResponse.text === 'string') fullText = finalResponse.text;
+            else if (typeof finalResponse.text === 'function') { try { fullText = finalResponse.text(); } catch (_) { } }
+            if (!fullText && finalResponse.candidates?.[0]?.content?.parts) {
+                fullText = finalResponse.candidates[0].content.parts
+                    .map(p => (p && typeof p === 'object' && p.text != null) ? String(p.text) : '')
+                    .join('');
             }
 
-            // Retry with non-streaming if validation fails (more reliable for complete response)
-            let stdValidation = validateJsonResponse(fullText, serviceType || 'video');
-            if (!stdValidation.valid && (stdValidation.code === 'AI_JSON_PARSE_ERROR' || stdValidation.code === 'AI_INCOMPLETE_RESPONSE')) {
-                sendSSE('progress', { status: getProgressMsg(lang, 'retry') });
-                const modelName = MODELS.VIDEO_STANDARD;
-                const nonStreamResponse = await ai.models.generateContent({
-                    model: model || modelName,
-                    contents,
-                    config: stdConfig
-                });
-                finalUsage = nonStreamResponse.usageMetadata;
-                streamUsage = nonStreamResponse.usageMetadata || streamUsage;
-                fullText = '';
-                if (typeof nonStreamResponse.text === 'string') fullText = nonStreamResponse.text;
-                else if (typeof nonStreamResponse.text === 'function') { try { fullText = nonStreamResponse.text(); } catch (_) { } }
-                else if (nonStreamResponse.text != null && typeof nonStreamResponse.text.then === 'function') { try { fullText = await nonStreamResponse.text; } catch (_) { } }
-                if (!fullText && nonStreamResponse.candidates?.[0]?.content?.parts) {
-                    fullText = nonStreamResponse.candidates[0].content.parts
-                        .map(p => (p && typeof p === 'object' && p.text != null) ? String(p.text) : '')
-                        .join('');
-                }
-                fullText = fullText || '';
+            // Sum up Standard mode stages
+            if (researchUsage) {
+                totalPromptTokens += researchUsage.promptTokenCount || 0;
+                totalCandidatesTokens += researchUsage.candidatesTokenCount || 0;
             }
-
-            // Standard mode: just the final usage from stream
             if (finalUsage) {
-                totalPromptTokens = finalUsage.promptTokenCount || 0;
-                totalCandidatesTokens = finalUsage.candidatesTokenCount || 0;
+                totalPromptTokens += finalUsage.promptTokenCount || 0;
+                totalCandidatesTokens += finalUsage.candidatesTokenCount || 0;
+            }
+
+            // Stream simulation
+            const chunkSize = 2000;
+            for (let i = 0; i < fullText.length; i += chunkSize) {
+                sendSSE('progress', { status: getProgressMsg(lang, 'analyzing', Math.round(i / 1024)) });
+                await new Promise(r => setTimeout(r, 50));
             }
         }
 
@@ -905,7 +963,29 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
         if (isFixedPrice) {
             finalPoints = getFixedPrice(serviceType);
         } else {
-            finalPoints = calculateVideoCostInPoints(promptTokens, candidatesTokens, isDeepMode, isBatch, model);
+            const billingData = [];
+            if (researchUsage) {
+                billingData.push({
+                    model: MODELS.VIDEO_EXTRACTOR,
+                    promptTokens: researchUsage.promptTokenCount,
+                    candidatesTokens: researchUsage.candidatesTokenCount
+                });
+            }
+            if (finalUsage) {
+                billingData.push({
+                    model: MODELS.REPORT_SYNTHESIZER,
+                    promptTokens: finalUsage.promptTokenCount,
+                    candidatesTokens: finalUsage.candidatesTokenCount
+                });
+            }
+            if (billingData.length === 0) {
+                billingData.push({
+                    model: MODELS.VIDEO_EXTRACTOR,
+                    promptTokens,
+                    candidatesTokens
+                });
+            }
+            finalPoints = calculateVideoCostInPoints(billingData, isDeepMode, isBatch);
         }
 
         const balanceNow = await getUserPoints(userId);
