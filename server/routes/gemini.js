@@ -792,6 +792,8 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
                     sendSSE('progress', { status: getProgressMsg(lang, 'retry') });
                     await new Promise(r => setTimeout(r, 1500));
                 }
+                sendSSE('progress', { status: getProgressMsg(lang, 'finalJson') });
+                const jsonPrompt = { role: 'user', parts: [{ text: jsonPrompts[attempt] }] };
                 const textContents = currentContents.map(c => ({
                     role: c.role,
                     parts: c.parts.filter(p => !p.fileData && !p.inlineData)
