@@ -566,7 +566,7 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                     candidatesTokens: usage.candidatesTokenCount || 0
                 });
             }
-            finalPoints = calculateVideoCostInPoints(billingData, isDeepMode, isBatch);
+            finalPoints = calculateVideoCostInPoints(billingData, isDeepMode);
         }
 
         // ── Deduct points SERVER-SIDE ─────────────────────────────────────────
@@ -653,7 +653,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
     try {
         const ai = getAI();
         const userId = req.userId;
-        const { model, prompt, systemInstruction, videoUrl, isBatch, enableGoogleSearch, mode, serviceType, lang, metadata: reqMetadata } = req.body;
+        const { model, prompt, systemInstruction, videoUrl, enableGoogleSearch, mode, serviceType, lang, metadata: reqMetadata } = req.body;
         const metadata = reqMetadata || {};
 
         const isFixedPrice = serviceType && serviceType !== 'video';
@@ -792,11 +792,13 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
                     sendSSE('progress', { status: getProgressMsg(lang, 'retry') });
                     await new Promise(r => setTimeout(r, 1500));
                 }
-                sendSSE('progress', { status: getProgressMsg(lang, 'finalJson') });
-                const jsonPrompt = { role: 'user', parts: [{ text: jsonPrompts[attempt] }] };
+                const textContents = currentContents.map(c => ({
+                    role: c.role,
+                    parts: c.parts.filter(p => !p.fileData && !p.inlineData)
+                }));
                 const finalResponse = await ai.models.generateContent({
                     model: MODELS.REPORT_SYNTHESIZER,
-                    contents: [...currentContents, jsonPrompt],
+                    contents: [...textContents, jsonPrompt],
                     config: finalConfig
                 });
                 finalUsage = finalResponse.usageMetadata;
@@ -874,8 +876,12 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             sendSSE('progress', { status: getProgressMsg(lang, 'finalJson') });
 
             const videoContextStr = metadata.title ? `VIDEO METADATA:\n- Title: ${metadata.title}\n\n` : '';
+            const textContents = contents.map(c => ({
+                role: c.role,
+                parts: c.parts.filter(p => !p.fileData && !p.inlineData)
+            }));
             const synthesisContents = [
-                ...contents,
+                ...textContents,
                 { role: 'user', parts: [{ text: `${videoContextStr}ESTABLISHED RESEARCH DATA (ABSOLUTE GROUND TRUTH):\n\n${rawText}\n\nINSTRUCTION: Using the findings above, synthesize the final JSON analysis according to the schema. Ensure high reliability and temporal accuracy relative to March 2026.` }] }
             ];
 
@@ -985,7 +991,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
                     candidatesTokens
                 });
             }
-            finalPoints = calculateVideoCostInPoints(billingData, isDeepMode, isBatch);
+            finalPoints = calculateVideoCostInPoints(billingData, isDeepMode);
         }
 
         const balanceNow = await getUserPoints(userId);
@@ -1031,15 +1037,23 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
         try {
             // Gemini 1.5 / 2.5 Flash Pricing
             // Media (Video/Audio) is included in promptTokenCount.
-            const pricing = GEMINI_API_PRICING[model] || GEMINI_API_PRICING['gemini-2.5-flash'];
-            const isOver128k = promptTokens > 128000;
+            let promptCostUsd = 0;
+            let candidatesCostUsd = 0;
 
-            // Note: Pricing tier logic (x2 if > 128k)
-            const inputRate = isOver128k ? pricing.inputPerMillion * 2 : pricing.inputPerMillion;
-            const outputRate = isOver128k ? pricing.outputPerMillion * 2 : pricing.outputPerMillion;
+            const billingData = [];
+            if (researchUsage) {
+                billingData.push({ model: MODELS.VIDEO_EXTRACTOR, promptTokens: researchUsage.promptTokenCount, candidatesTokens: researchUsage.candidatesTokenCount });
+            }
+            if (finalUsage) {
+                billingData.push({ model: MODELS.REPORT_SYNTHESIZER, promptTokens: finalUsage.promptTokenCount, candidatesTokens: finalUsage.candidatesTokenCount });
+            }
 
-            const promptCostUsd = (promptTokens / 1000000) * inputRate;
-            const candidatesCostUsd = (candidatesTokens / 1000000) * outputRate;
+            for (const item of billingData) {
+                const p = GEMINI_API_PRICING[item.model];
+                const pTier = item.promptTokens > 128000 ? 2 : 1;
+                promptCostUsd += (item.promptTokens / 1000000) * p.inputPerMillion * pTier;
+                candidatesCostUsd += (item.candidatesTokens / 1000000) * p.outputPerMillion * pTier;
+            }
             const totalCostUsd = promptCostUsd + candidatesCostUsd;
 
             console.log('\n=========================================');

@@ -58,11 +58,6 @@ const FIXED_PRICES = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BATCH DISCOUNT
-// ─────────────────────────────────────────────────────────────────────────────
-const BATCH_DISCOUNT = 0.5;
-
-// ─────────────────────────────────────────────────────────────────────────────
 // ПОМОЩНИ ФУНКЦИИ
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -70,9 +65,8 @@ const BATCH_DISCOUNT = 0.5;
  * Изчислява цената в точки за видео анализ (динамично).
  * Поддържа хибридно изчисляване, ако е масив от { model, promptTokens, candidatesTokens }
  */
-function calculateVideoCostInPoints(usageData, isDeep = false, isBatch = false) {
+function calculateVideoCostInPoints(usageData, isDeep = false) {
   const dataArray = Array.isArray(usageData) ? usageData : [usageData];
-  const batchMultiplier = isBatch ? BATCH_DISCOUNT : 1.0;
   let totalCostUSD = 0;
 
   for (const item of dataArray) {
@@ -82,8 +76,13 @@ function calculateVideoCostInPoints(usageData, isDeep = false, isBatch = false) 
 
     const pricing = GEMINI_API_PRICING[model] ?? GEMINI_API_PRICING[DEFAULT_MODEL];
 
-    totalCostUSD += (pTokens / 1_000_000) * pricing.inputPerMillion * batchMultiplier;
-    totalCostUSD += (cTokens / 1_000_000) * pricing.outputPerMillion * batchMultiplier;
+    // Gemini Pricing Tier: Contexts > 128k tokens are charged 2x (for 1.5/2.5 Pro/Flash models)
+    const isOver128k = pTokens > 128000;
+    const inputRate = isOver128k ? pricing.inputPerMillion * 2 : pricing.inputPerMillion;
+    const outputRate = isOver128k ? pricing.outputPerMillion * 2 : pricing.outputPerMillion;
+
+    totalCostUSD += (pTokens / 1_000_000) * inputRate;
+    totalCostUSD += (cTokens / 1_000_000) * outputRate;
   }
 
   const totalCostEUR = totalCostUSD * USD_TO_EUR_RATE;
@@ -107,8 +106,9 @@ function estimateVideoCostInPoints(durationSeconds, isDeep = false) {
   const flashOutputTokens = isDeep ? 15000 : 5000; // Flash извлича сурови данни
 
   const flashPricing = GEMINI_API_PRICING['gemini-2.5-flash'];
-  const flashCostUSD = ((flashInputTokens / 1_000_000) * flashPricing.inputPerMillion) +
-    ((flashOutputTokens / 1_000_000) * flashPricing.outputPerMillion);
+  const flashTier = flashInputTokens > 128000 ? 2 : 1;
+  const flashCostUSD = ((flashInputTokens / 1_000_000) * flashPricing.inputPerMillion * flashTier) +
+    ((flashOutputTokens / 1_000_000) * flashPricing.outputPerMillion * flashTier);
 
   // Stage 2 (Gemini 3.1 Pro): Smart Grounding & Synthesis
   // Вход: Резултат от Stage 1 (flashOutputTokens) + Промпт (~5k) + Търсене (~5k)
@@ -116,8 +116,9 @@ function estimateVideoCostInPoints(durationSeconds, isDeep = false) {
   const proOutputTokens = isDeep ? 45000 : 8000; // Финален доклад
 
   const proPricing = GEMINI_API_PRICING['gemini-3.1-pro-preview'];
-  const proCostUSD = ((proInputTokens / 1_000_000) * proPricing.inputPerMillion) +
-    ((proOutputTokens / 1_000_000) * proPricing.outputPerMillion);
+  const proTier = proInputTokens > 128000 ? 2 : 1;
+  const proCostUSD = ((proInputTokens / 1_000_000) * proPricing.inputPerMillion * proTier) +
+    ((proOutputTokens / 1_000_000) * proPricing.outputPerMillion * proTier);
 
   const totalCostUSD = flashCostUSD + proCostUSD;
   const totalCostEUR = totalCostUSD * USD_TO_EUR_RATE;
@@ -155,7 +156,6 @@ export {
   PROFIT_MULTIPLIERS,
   MIN_POINTS,
   FIXED_PRICES,
-  BATCH_DISCOUNT,
   calculateVideoCostInPoints,
   estimateVideoCostInPoints,
   getFixedPrice,
