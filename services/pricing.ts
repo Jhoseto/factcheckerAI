@@ -1,114 +1,117 @@
 /**
- * Unified pricing configuration for Gemini API models
- * Prices are per 1 million tokens
+ * Unified pricing — Client side
+ * Mirrors server/config/pricing.js (March 2026, official Google prices)
  * 
- * Gemini 3 Flash pricing (as of 2026):
- * - Standard: $0.50 input, $3.00 output
- * - Batch: 50% discount
- * - Audio input: $1.00 per 1M tokens
- * 
- * Gemini 3 Flash is the RECOMMENDED model:
- * - Pro-grade reasoning at Flash speed
- * - 3x faster than 2.5 Pro
- * - Outperforms 2.5 Pro on benchmarks
- * - 4x cheaper than 3 Pro
- * 
- * Actual pricing may vary - check Google AI Studio for current rates.
+ * Architecture:
+ *   Stage 1 — Gemini 2.5 Flash: Video+Audio input (cheap)
+ *   Stage 2 — Gemini 3.1 Pro Preview: Text-only synthesis (expensive per token, low volume)
  */
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Official Gemini API pricing (March 2026, ai.google.dev/pricing)
+// ─────────────────────────────────────────────────────────────────────────────
 export const GEMINI_PRICING = {
-  // Official Gemini 3 Flash Pricing (Set to DOUBLE 2.5 Flash per user request)
-  // Standard: $0.50 -> Deep: $1.00
-  'gemini-3-flash-preview': {
-    input: 1.00,  // DOUBLE of 2.5 Flash
-    output: 4.00, // DOUBLE of 2.5 Flash
-    audio: 2.00,
-  },
-  'gemini-3-flash-preview-batch': {
-    input: 0.50,
-    output: 2.00,
-    audio: 1.00,
-  },
-  // Gemini 2.5 Flash / 1.5 Flash (Standard High-Speed Model)
-  // Updated to "High Tier" pricing per user request ($0.50 Input / $2.00 Output)
   'gemini-2.5-flash': {
-    input: 0.50,
-    output: 2.00,
-    audio: 1.00,
+    contextThreshold: 128000,
+    // ≤ 128k context
+    inputPerMillion: 0.15,          // text + image + video
+    audioInputPerMillion: 0.70,     // audio
+    outputPerMillion: 0.60,         // non-thinking output
+    // > 128k context
+    inputPerMillionHigh: 0.30,
+    audioInputPerMillionHigh: 1.00,
+    outputPerMillionHigh: 2.50,
   },
-  // Gemini 3 Pro (Legacy/Pro Tier) - Also set to Double
-  'gemini-3-pro-preview': {
-    input: 1.00,
-    output: 4.00,
-    audio: 2.00,
+  'gemini-3.1-pro-preview': {
+    contextThreshold: 200000,
+    // ≤ 200k context
+    inputPerMillion: 2.00,
+    outputPerMillion: 12.00,
+    // > 200k context
+    inputPerMillionHigh: 4.00,
+    outputPerMillionHigh: 18.00,
   },
-  'gemini-3-pro-preview-batch': {
-    input: 0.50,
-    output: 2.00,
-    audio: 1.00,
-  }
 } as const;
 
-/**
- * Calculate cost based on token usage
- */
-export const calculateCost = (
-  model: string = 'gemini-2.5-flash',
-  promptTokens: number,
-  candidatesTokens: number,
-  isBatch: boolean = false
-): number => {
-  const modelKey = isBatch
-    ? `${model}-batch`
-    : model;
+// Video token rates (official documentation)
+export const VIDEO_TOKENS_PER_SECOND = 263;
+export const AUDIO_TOKENS_PER_SECOND = 32;
 
-  const pricing = GEMINI_PRICING[modelKey as keyof typeof GEMINI_PRICING]
-    || GEMINI_PRICING['gemini-3-flash-preview'];
+// Conversion
+export const USD_TO_EUR_RATE = 0.95;
+export const POINTS_PER_EUR = 100;
 
-  const inputCost = (promptTokens / 1_000_000) * pricing.input;
-  const outputCost = (candidatesTokens / 1_000_000) * pricing.output;
+// Profit multipliers (must match server/config/pricing.js)
+export const PROFIT_MULTIPLIERS = {
+  standard: 1.5,
+  deep: 2.5,
+};
 
-  return Math.max(0, inputCost + outputCost);
+// Minimum points (floor)
+export const MIN_POINTS = {
+  standard: 3,
+  deep: 8,
 };
 
 /**
- * Calculate cost in points for user-facing display
- * Strictly applies multiplier on Gemini API cost
- * 
- * Formula:
- * 1. Calculate USD Cost
- * 2. Convert to EUR (0.95 rate)
- * 3. Convert to Points (1 EUR = 100 Points)
- * 4. Multiply by 2 (User Price = 2 * Our Cost) ("Standard") → x2 profit
- * 5. IF DEEP MODE: Multiply by 1.5 AGAIN (User Price = 3 * Our Cost) → x3 profit
- * 
- * Result: Standard = x2 profit, Deep = x3 profit.
+ * Calculate USD cost for a single model call
  */
-export const calculateCostInPoints = (
-  model: string = 'gemini-2.5-flash',
+export const calculateModelCostUSD = (
+  model: string,
   promptTokens: number,
-  candidatesTokens: number,
-  isBatch: boolean = false,
-  isDeep: boolean = false // New param for explicit doubling
+  outputTokens: number,
+  hasVideo: boolean = false
 ): number => {
-  const costUSD = calculateCost(model, promptTokens, candidatesTokens, isBatch);
+  const pricing = GEMINI_PRICING[model as keyof typeof GEMINI_PRICING]
+    ?? GEMINI_PRICING['gemini-2.5-flash'];
+  const threshold = pricing.contextThreshold || 128000;
+  const isHigh = promptTokens > threshold;
 
-  // Exchange rate: 1 USD = ~0.95 EUR
-  const costEUR = costUSD * 0.95;
+  // Flash with video → split video/audio tokens proportionally
+  if (hasVideo && 'audioInputPerMillion' in pricing) {
+    const audioRatio = AUDIO_TOKENS_PER_SECOND / (VIDEO_TOKENS_PER_SECOND + AUDIO_TOKENS_PER_SECOND);
+    const audioTokens = Math.floor(promptTokens * audioRatio);
+    const videoTextTokens = promptTokens - audioTokens;
 
-  // Cost in Points (100 points = 1 EUR)
-  const costPoints = costEUR * 100;
+    const videoRate = isHigh ? pricing.inputPerMillionHigh : pricing.inputPerMillion;
+    const audioRate = isHigh ? pricing.audioInputPerMillionHigh : pricing.audioInputPerMillion;
+    const outputRate = isHigh ? pricing.outputPerMillionHigh : pricing.outputPerMillion;
 
-  // User Price = 1.3 * Cost (Base Multiplier) → x1.3 profit for Standard
-  let userPoints = Math.ceil(costPoints * 1.3);
-
-  // IF Deep Analysis: additional multiplier to reach x1.6 total
-  if (isDeep) {
-    userPoints = Math.ceil(costPoints * 1.6);
+    return (videoTextTokens / 1_000_000) * videoRate +
+      (audioTokens / 1_000_000) * audioRate +
+      (outputTokens / 1_000_000) * outputRate;
   }
 
-  // Minimum floor
-  // Standard: 3 points. Deep: 8 points.
-  const minPoints = isDeep ? 8 : 3;
-  return Math.max(minPoints, userPoints);
+  const inputRate = isHigh
+    ? (('inputPerMillionHigh' in pricing) ? pricing.inputPerMillionHigh : pricing.inputPerMillion * 2)
+    : pricing.inputPerMillion;
+  const outputRate = isHigh
+    ? (('outputPerMillionHigh' in pricing) ? pricing.outputPerMillionHigh : pricing.outputPerMillion * 2)
+    : pricing.outputPerMillion;
+
+  return (promptTokens / 1_000_000) * inputRate +
+    (outputTokens / 1_000_000) * outputRate;
 };
+
+/**
+ * Calculate cost in points (matches server-side calculateVideoCostInPoints)
+ */
+export const calculateCostInPoints = (
+  model: string,
+  promptTokens: number,
+  candidatesTokens: number,
+  _isBatch: boolean = false,
+  isDeep: boolean = false
+): number => {
+  const costUSD = calculateModelCostUSD(model, promptTokens, candidatesTokens);
+  const costEUR = costUSD * USD_TO_EUR_RATE;
+  const costPoints = costEUR * POINTS_PER_EUR;
+
+  const multiplier = isDeep ? PROFIT_MULTIPLIERS.deep : PROFIT_MULTIPLIERS.standard;
+  const finalPoints = Math.ceil(costPoints * multiplier);
+  const minPoints = isDeep ? MIN_POINTS.deep : MIN_POINTS.standard;
+  return Math.max(minPoints, finalPoints);
+};
+
+// Legacy alias
+export const calculateCost = calculateModelCostUSD;

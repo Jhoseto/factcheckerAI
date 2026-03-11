@@ -308,7 +308,7 @@
     "standardTooltip": "Structured audit of claims, sources and manipulations. Ideal for quick verification of key facts.",
     "deepTooltip": "Full multimodal audit: visual, vocal and body language, psychological profile and extended report. For maximum depth.",
     "pointsCost": "{{count}} points",
-    "priceDisclaimer": "The points shown are approximate and depend on the complexity of the analysis.",
+    "priceDisclaimer": "The predicted points are approximate and depend on the complexity of the analysis.",
     "scannerUnderstanding": "UNDERSTANDING",
     "scannerConnection": "CONNECTION",
     "scannerDepth": "DEPTH",

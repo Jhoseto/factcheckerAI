@@ -19,6 +19,7 @@ import {
 import { getMaxAnalysesPerDay, getAnalysesCountToday } from '../services/configService.js';
 import {
     calculateVideoCostInPoints,
+    calculateModelCostUSD,
     estimateVideoCostInPoints,
     getFixedPrice,
     GEMINI_API_PRICING
@@ -976,7 +977,8 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
                 billingData.push({
                     model: MODELS.VIDEO_EXTRACTOR,
                     promptTokens: researchUsage.promptTokenCount,
-                    candidatesTokens: researchUsage.candidatesTokenCount
+                    candidatesTokens: researchUsage.candidatesTokenCount,
+                    hasVideo: true  // Flash обработва видео+аудио → различни цени
                 });
             }
             if (finalUsage) {
@@ -1039,33 +1041,42 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
         try {
             // Gemini 1.5 / 2.5 Flash Pricing
             // Media (Video/Audio) is included in promptTokenCount.
-            let promptCostUsd = 0;
-            let candidatesCostUsd = 0;
-
-            const billingData = [];
+            let totalCostUsd = 0;
+            let stage1Cost = 0;
+            let stage2Cost = 0;
             if (researchUsage) {
-                billingData.push({ model: MODELS.VIDEO_EXTRACTOR, promptTokens: researchUsage.promptTokenCount, candidatesTokens: researchUsage.candidatesTokenCount });
+                stage1Cost = calculateModelCostUSD(
+                    MODELS.VIDEO_EXTRACTOR,
+                    researchUsage.promptTokenCount || 0,
+                    researchUsage.candidatesTokenCount || 0,
+                    true  // hasVideo = true for Flash video input
+                );
+                totalCostUsd += stage1Cost;
             }
             if (finalUsage) {
-                billingData.push({ model: MODELS.REPORT_SYNTHESIZER, promptTokens: finalUsage.promptTokenCount, candidatesTokens: finalUsage.candidatesTokenCount });
+                stage2Cost = calculateModelCostUSD(
+                    MODELS.REPORT_SYNTHESIZER,
+                    finalUsage.promptTokenCount || 0,
+                    finalUsage.candidatesTokenCount || 0,
+                    false  // Pro 3.1 receives text-only
+                );
+                totalCostUsd += stage2Cost;
             }
-
-            for (const item of billingData) {
-                const p = GEMINI_API_PRICING[item.model];
-                const pTier = item.promptTokens > 128000 ? 2 : 1;
-                promptCostUsd += (item.promptTokens / 1000000) * p.inputPerMillion * pTier;
-                candidatesCostUsd += (item.candidatesTokens / 1000000) * p.outputPerMillion * pTier;
-            }
-            const totalCostUsd = promptCostUsd + candidatesCostUsd;
 
             console.log('\n=========================================');
-            console.log(`🧠 [DEEP ANALYSIS] API USAGE REPORT`);
+            console.log(`🧠 [${isDeepMode ? 'DEEP' : 'STANDARD'}] API USAGE REPORT`);
             console.log(`=========================================`);
             console.log(`► Type: ${isDeepMode ? 'Deep' : 'Standard'} Analysis`);
-            console.log(`► Prompt Tokens: ${promptTokens.toLocaleString()} (${promptCostUsd.toFixed(6)} USD)`);
-            console.log(`► Output Tokens: ${candidatesTokens.toLocaleString()} (${candidatesCostUsd.toFixed(6)} USD)`);
+            if (researchUsage) {
+                console.log(`  ▸ Stage 1 (Flash 2.5 — Video Input):`);
+                console.log(`    Prompt: ${(researchUsage.promptTokenCount || 0).toLocaleString()} | Output: ${(researchUsage.candidatesTokenCount || 0).toLocaleString()} | Cost: $${stage1Cost.toFixed(4)}`);
+            }
+            if (finalUsage) {
+                console.log(`  ▸ Stage 2 (Pro 3.1 — Synthesis):`);
+                console.log(`    Prompt: ${(finalUsage.promptTokenCount || 0).toLocaleString()} | Output: ${(finalUsage.candidatesTokenCount || 0).toLocaleString()} | Cost: $${stage2Cost.toFixed(4)}`);
+            }
             console.log(`► Total Tokens: ${(promptTokens + candidatesTokens).toLocaleString()}`);
-            console.log(`► Estimated Real Cost: $${totalCostUsd.toFixed(6)} USD`);
+            console.log(`► Real API Cost: $${totalCostUsd.toFixed(6)} USD`);
             console.log(`► Points Deducted: ${finalPoints} pts`);
             console.log(`=========================================\n`);
         } catch (e) {

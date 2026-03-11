@@ -4,22 +4,29 @@
  * ЕДИНСТВЕНОТО МЯСТО за промяна на цените.
  * Всички модули (server + client) трябва да импортират от тук.
  *
- * Последна актуализация: 2026-02
+ * Последна актуализация: 2026-03 (Март 2026, Google Official)
  */
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GEMINI API РАЗХОДИ (цени на Google — не се променят от нас)
+// GEMINI API РАЗХОДИ (цени на Google — ai.google.dev/pricing)
 // ─────────────────────────────────────────────────────────────────────────────
 export const GEMINI_API_PRICING = {
   'gemini-2.5-flash': {
-    inputPerMillion: 0.50,   // USD за 1M input токена
-    outputPerMillion: 2.00,  // USD за 1M output токена
-    audioPerMillion: 1.00,   // USD за 1M аудио токена
+    contextThreshold: 128000,
+    inputPerMillion: 0.15,          // $0.15/M (вместо $0.50)
+    outputPerMillion: 0.60,         // $0.60/M (вместо $2.00)
+    audioPerMillion: 0.70,          // $0.70/M (вместо $1.00)
+    // High Tier (>128k)
+    inputPerMillionHigh: 0.30,
+    outputPerMillionHigh: 2.50,
+    audioPerMillionHigh: 1.00,
   },
-  'gemini-2.5-pro': {
-    inputPerMillion: 1.25,
-    outputPerMillion: 5.00,
-    audioPerMillion: 2.00,
+  'gemini-3.1-pro-preview': {
+    contextThreshold: 200000,
+    inputPerMillion: 2.00,
+    outputPerMillion: 12.00,
+    inputPerMillionHigh: 4.00,
+    outputPerMillionHigh: 18.00,
   },
 } as const;
 
@@ -29,49 +36,41 @@ export const DEFAULT_MODEL = 'gemini-2.5-flash';
 // ─────────────────────────────────────────────────────────────────────────────
 // ВАЛУТЕН КУРС
 // ─────────────────────────────────────────────────────────────────────────────
-export const USD_TO_EUR_RATE = 0.95; // 1 USD = 0.95 EUR
+export const USD_TO_EUR_RATE = 0.95;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ТОЧКИ КОНВЕРСИЯ
 // ─────────────────────────────────────────────────────────────────────────────
-export const POINTS_PER_EUR = 100; // 1 EUR = 100 точки
+export const POINTS_PER_EUR = 100;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// МНОЖИТЕЛИ ЗА ПЕЧАЛБА (profit margin)
+// МНОЖИТЕЛИ ЗА ПЕЧАЛБА (Profit Margin - Синхронизирани със сървъра)
 // ─────────────────────────────────────────────────────────────────────────────
 export const PROFIT_MULTIPLIERS = {
-  standard: 2.0,  // x2 — Стандартен видео анализ
-  deep: 3.0,      // x3 — Задълбочен видео анализ (x2 * x1.5)
+  standard: 1.5,  // x1.5 за стандартен видео анализ
+  deep: 2.5,      // x2.5 за задълбочен видео анализ
 } as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // МИНИМАЛНИ ЦЕНИ (floor) за динамично таксуване
 // ─────────────────────────────────────────────────────────────────────────────
 export const MIN_POINTS = {
-  videoStandard: 5,   // Минимум за стандартен видео анализ
-  videoDeep: 10,      // Минимум за задълбочен видео анализ
+  videoStandard: 3,
+  videoDeep: 8,
 } as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ФИКСИРАНИ ЦЕНИ (в точки)
-// Тези услуги имат фиксирана цена независимо от дължината на съдържанието
 // ─────────────────────────────────────────────────────────────────────────────
 export const FIXED_PRICES = {
-  // ── Линк / Статия ──────────────────────────────────────────────────────────
-  linkArticle: 12,          // Анализ на уеб статия / новина
-
-  // ── Сравнителен анализ ─────────────────────────────────────────────────────
-  compareMode: 5,           // Допълнителна такса за Compare Mode (върху цената на двата анализа)
+  linkArticle: 10,
+  compareMode: 4,
 } as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BATCH DISCOUNT
+// ДОПЪЛНИТЕЛНИ ПАРАМЕТРИ
 // ─────────────────────────────────────────────────────────────────────────────
-export const BATCH_DISCOUNT = 0.5; // 50% отстъпка при batch заявки
-
-// ─────────────────────────────────────────────────────────────────────────────
-// WELCOME BONUS
-// ─────────────────────────────────────────────────────────────────────────────
+export const BATCH_DISCOUNT = 0.5; // 50% отстъпка (не се поддържа от моделите, но е запазено за съвместимост)
 export const WELCOME_BONUS_POINTS = 100; // Точки при регистрация
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -86,7 +85,7 @@ export const PRICING_TIERS = [
     bonusPoints: 0,
     totalPoints: 500,
     popular: false,
-    variantId: '1362624', // Lemon Squeezy variant ID
+    variantId: '1362624',
     features: [
       'Достъп до всички функции на платформата',
       'Видео и линк анализ, архив, експорт',
@@ -136,34 +135,25 @@ export const PRICING_TIERS = [
   },
 ] as const;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ПОМОЩНИ ФУНКЦИИ
-// ─────────────────────────────────────────────────────────────────────────────
-
 /**
- * Изчислява цената в точки за динамично таксуване (видео анализ)
- * @param promptTokens - Брой input токени
- * @param candidatesTokens - Брой output токени
- * @param isDeep - Дали е задълбочен анализ
- * @param isBatch - Дали е batch заявка
- * @param model - Gemini модел
+ * Изчислява цената в точки (Клиентска версия)
+ * Трябва да съответства на логиката в services/pricing.ts и server/config/pricing.js
  */
 export function calculateVideoCostInPoints(
   promptTokens: number,
   candidatesTokens: number,
   isDeep: boolean = false,
-  isBatch: boolean = false,
+  _isBatch: boolean = false, // Не се поддържа вече
   model: string = DEFAULT_MODEL
 ): number {
-  const pricing = GEMINI_API_PRICING[model as keyof typeof GEMINI_API_PRICING]
-    ?? GEMINI_API_PRICING[DEFAULT_MODEL];
+  const pricing = (GEMINI_API_PRICING as any)[model] ?? GEMINI_API_PRICING[DEFAULT_MODEL];
+  const threshold = pricing.contextThreshold || 128000;
+  const isHigh = promptTokens > threshold;
 
-  const batchMultiplier = isBatch ? BATCH_DISCOUNT : 1.0;
+  const inputRate = isHigh ? (pricing.inputPerMillionHigh || pricing.inputPerMillion * 2) : pricing.inputPerMillion;
+  const outputRate = isHigh ? (pricing.outputPerMillionHigh || pricing.outputPerMillion * 2) : pricing.outputPerMillion;
 
-  const inputCostUSD = (promptTokens / 1_000_000) * pricing.inputPerMillion * batchMultiplier;
-  const outputCostUSD = (candidatesTokens / 1_000_000) * pricing.outputPerMillion * batchMultiplier;
-  const totalCostUSD = inputCostUSD + outputCostUSD;
-
+  const totalCostUSD = (promptTokens / 1_000_000) * inputRate + (candidatesTokens / 1_000_000) * outputRate;
   const totalCostEUR = totalCostUSD * USD_TO_EUR_RATE;
   const basePoints = totalCostEUR * POINTS_PER_EUR;
 
@@ -172,27 +162,4 @@ export function calculateVideoCostInPoints(
 
   const minPoints = isDeep ? MIN_POINTS.videoDeep : MIN_POINTS.videoStandard;
   return Math.max(minPoints, finalPoints);
-}
-
-/**
- * Връща фиксираната цена за даден тип услуга
- */
-export function getFixedPrice(
-  serviceType: keyof typeof FIXED_PRICES
-): number {
-  return FIXED_PRICES[serviceType];
-}
-
-/**
- * Проверява дали потребителят може да си позволи дадена услуга
- */
-export function canAfford(balance: number, cost: number): boolean {
-  return balance >= cost;
-}
-
-/**
- * Форматира цена за показване
- */
-export function formatPoints(points: number): string {
-  return points.toLocaleString('bg-BG') + ' точки';
 }

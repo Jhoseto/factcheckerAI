@@ -3,29 +3,56 @@
  * ====================================================
  * Единственото място за pricing логика на сървъра.
  * Клиентът получава цените от сървъра след анализ.
+ * 
+ * Цени взети от: https://ai.google.dev/pricing (Март 2026)
+ * Видео токени: 263 tok/sec (видео кадри) + 32 tok/sec (аудио) = ~295 tok/sec
  */
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GEMINI API РАЗХОДИ (официални цени на Google)
+// GEMINI API РАЗХОДИ (официални цени на Google, Март 2026)
+// Всяка ценова таблица има: base (≤ праг) и high (> праг)
 // ─────────────────────────────────────────────────────────────────────────────
 const GEMINI_API_PRICING = {
   'gemini-2.5-flash': {
-    inputPerMillion: 0.30,
-    outputPerMillion: 1.00,
-    audioPerMillion: 1.00,
+    contextThreshold: 128000,              // Прагът е 128k токена
+    // ≤ 128k контекст
+    inputPerMillion: 0.15,                 // $0.15/M за текст+изображения+видео
+    audioInputPerMillion: 0.70,            // $0.70/M за аудио
+    outputPerMillion: 0.60,                // $0.60/M за non-thinking output
+    thinkingOutputPerMillion: 1.25,        // $1.25/M за thinking output
+    // > 128k контекст
+    inputPerMillionHigh: 0.30,             // $0.30/M за текст+изображения+видео
+    audioInputPerMillionHigh: 1.00,        // $1.00/M за аудио
+    outputPerMillionHigh: 2.50,            // $2.50/M за non-thinking output
+    thinkingOutputPerMillionHigh: 2.50,    // $2.50/M за thinking output
   },
   'gemini-3.1-pro-preview': {
-    inputPerMillion: 1.25,
-    outputPerMillion: 5.00,
+    contextThreshold: 200000,              // Прагът е 200k токена
+    // ≤ 200k контекст
+    inputPerMillion: 2.00,                 // $2.00/M за текст+изображения+видео
+    outputPerMillion: 12.00,               // $12.00/M output (thinking included)
+    // > 200k контекст
+    inputPerMillionHigh: 4.00,             // $4.00/M
+    outputPerMillionHigh: 18.00,           // $18.00/M
   },
   'gemini-2.5-pro': {
+    contextThreshold: 200000,
     inputPerMillion: 1.25,
-    outputPerMillion: 5.00,
-    audioPerMillion: 2.00,
+    audioInputPerMillion: 2.00,
+    outputPerMillion: 10.00,
+    inputPerMillionHigh: 2.50,
+    audioInputPerMillionHigh: 4.00,
+    outputPerMillionHigh: 15.00,
   },
 };
 
 const DEFAULT_MODEL = 'gemini-2.5-flash';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ВИДЕО ТОКЕНИЗАЦИЯ (официална документация на Google)
+// ─────────────────────────────────────────────────────────────────────────────
+const VIDEO_TOKENS_PER_SECOND = 263;  // Видео кадри → токени
+const AUDIO_TOKENS_PER_SECOND = 32;   // Аудио → токени
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ВАЛУТЕН КУРС И КОНВЕРСИЯ
@@ -37,29 +64,72 @@ const POINTS_PER_EUR = 100;
 // МНОЖИТЕЛИ ЗА ПЕЧАЛБА
 // ─────────────────────────────────────────────────────────────────────────────
 const PROFIT_MULTIPLIERS = {
-  standard: 1.5,  // x1.5 за по-добра стратегия
-  deep: 2.5,      // x2.5 (по искане на потребителя: ~90 точки за голям анализ)
+  standard: 1.5,  // x1.5
+  deep: 2.5,      // x2.5
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // МИНИМАЛНИ ЦЕНИ (floor)
 // ─────────────────────────────────────────────────────────────────────────────
 const MIN_POINTS = {
-  videoStandard: 3, // Намалено от 5
-  videoDeep: 8,     // Намалено от 10
+  videoStandard: 3,
+  videoDeep: 8,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ФИКСИРАНИ ЦЕНИ (в точки)
 // ─────────────────────────────────────────────────────────────────────────────
 const FIXED_PRICES = {
-  linkArticle: 10,        // Намалено от 12
-  compareMode: 4,         // Намалено от 5
+  linkArticle: 10,
+  compareMode: 4,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ПОМОЩНИ ФУНКЦИИ
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Изчислява РЕАЛНАТА цена в USD за даден модел и токени,
+ * с отчитане на tier-а (base или high).
+ * 
+ * hasVideo: true → за Flash модела, promptTokens включват видео (263 tok/sec) 
+ *  и аудио (32 tok/sec). Разделяме ги пропорционално за точна цена.
+ */
+function calculateModelCostUSD(model, promptTokens, outputTokens, hasVideo = false) {
+  const pricing = GEMINI_API_PRICING[model] ?? GEMINI_API_PRICING[DEFAULT_MODEL];
+  const threshold = pricing.contextThreshold || 128000;
+  const isHigh = promptTokens > threshold;
+
+  // Ако моделът има отделна цена за аудио И е видео вход → разделяме токените
+  if (hasVideo && pricing.audioInputPerMillion) {
+    // Пропорция: 263 видео : 32 аудио = 89.15% : 10.85%
+    const audioRatio = AUDIO_TOKENS_PER_SECOND / (VIDEO_TOKENS_PER_SECOND + AUDIO_TOKENS_PER_SECOND);
+    // Текстовият промпт е малка част (~3000 токена), третиран като видео вход
+    const audioTokens = Math.floor(promptTokens * audioRatio);
+    const videoTextTokens = promptTokens - audioTokens;
+
+    const videoRate = isHigh ? (pricing.inputPerMillionHigh || pricing.inputPerMillion * 2) : pricing.inputPerMillion;
+    const audioRate = isHigh ? (pricing.audioInputPerMillionHigh || pricing.audioInputPerMillion * 2) : pricing.audioInputPerMillion;
+    const outputRate = isHigh ? (pricing.outputPerMillionHigh || pricing.outputPerMillion * 2) : pricing.outputPerMillion;
+
+    return (videoTextTokens / 1_000_000) * videoRate +
+      (audioTokens / 1_000_000) * audioRate +
+      (outputTokens / 1_000_000) * outputRate;
+  }
+
+  // Стандартно изчисление (текстов вход или модел без отделна аудио цена)
+  const inputRate = isHigh
+    ? (pricing.inputPerMillionHigh || pricing.inputPerMillion * 2)
+    : pricing.inputPerMillion;
+  const outputRate = isHigh
+    ? (pricing.outputPerMillionHigh || pricing.outputPerMillion * 2)
+    : pricing.outputPerMillion;
+
+  const inputCost = (promptTokens / 1_000_000) * inputRate;
+  const outputCost = (outputTokens / 1_000_000) * outputRate;
+
+  return inputCost + outputCost;
+}
 
 /**
  * Изчислява цената в точки за видео анализ (динамично).
@@ -73,16 +143,7 @@ function calculateVideoCostInPoints(usageData, isDeep = false) {
     const model = item.model || DEFAULT_MODEL;
     const pTokens = item.promptTokens || 0;
     const cTokens = item.candidatesTokens || 0;
-
-    const pricing = GEMINI_API_PRICING[model] ?? GEMINI_API_PRICING[DEFAULT_MODEL];
-
-    // Gemini Pricing Tier: Contexts > 128k tokens are charged 2x (for 1.5/2.5 Pro/Flash models)
-    const isOver128k = pTokens > 128000;
-    const inputRate = isOver128k ? pricing.inputPerMillion * 2 : pricing.inputPerMillion;
-    const outputRate = isOver128k ? pricing.outputPerMillion * 2 : pricing.outputPerMillion;
-
-    totalCostUSD += (pTokens / 1_000_000) * inputRate;
-    totalCostUSD += (cTokens / 1_000_000) * outputRate;
+    totalCostUSD += calculateModelCostUSD(model, pTokens, cTokens, item.hasVideo || false);
   }
 
   const totalCostEUR = totalCostUSD * USD_TO_EUR_RATE;
@@ -97,28 +158,35 @@ function calculateVideoCostInPoints(usageData, isDeep = false) {
 
 /**
  * Оценя прогнозните точки за видео анализ преди старта.
- * Сега е много по-точен, вземайки предвид хибридния модел (Flash + Pro).
+ * Използва официалното тегло: 263 tok/sec (видео) + 32 tok/sec (аудио) = 295 tok/sec
  */
 function estimateVideoCostInPoints(durationSeconds, isDeep = false) {
-  // Stage 1 (Gemini 2.5 Flash): Video Extraction
-  // Видеото генерира средно 250 токена/сек (Input)
-  const flashInputTokens = Math.floor(durationSeconds * 250) + 3000;
-  const flashOutputTokens = isDeep ? 15000 : 5000; // Flash извлича сурови данни
+  // Stage 1 (Gemini 2.5 Flash): Video + Audio Extraction
+  const videoTokens = Math.floor(durationSeconds * VIDEO_TOKENS_PER_SECOND);
+  const audioTokens = Math.floor(durationSeconds * AUDIO_TOKENS_PER_SECOND);
+  const textPromptTokens = 3000; // System instruction + JSON schema
+  const flashInputTokens = videoTokens + audioTokens + textPromptTokens;
+  const flashOutputTokens = isDeep ? 15000 : 5000;
 
+  // Flash tier
   const flashPricing = GEMINI_API_PRICING['gemini-2.5-flash'];
-  const flashTier = flashInputTokens > 128000 ? 2 : 1;
-  const flashCostUSD = ((flashInputTokens / 1_000_000) * flashPricing.inputPerMillion * flashTier) +
-    ((flashOutputTokens / 1_000_000) * flashPricing.outputPerMillion * flashTier);
+  const flashIsHigh = flashInputTokens > flashPricing.contextThreshold;
 
-  // Stage 2 (Gemini 3.1 Pro): Smart Grounding & Synthesis
-  // Вход: Резултат от Stage 1 (flashOutputTokens) + Промпт (~5k) + Търсене (~5k)
-  const proInputTokens = flashOutputTokens + 10000;
-  const proOutputTokens = isDeep ? 45000 : 8000; // Финален доклад
+  // Video + text tokens use inputPerMillion, audio uses audioInputPerMillion
+  const videoInputRate = flashIsHigh ? flashPricing.inputPerMillionHigh : flashPricing.inputPerMillion;
+  const audioInputRate = flashIsHigh ? flashPricing.audioInputPerMillionHigh : flashPricing.audioInputPerMillion;
+  const flashOutputRate = flashIsHigh ? flashPricing.outputPerMillionHigh : flashPricing.outputPerMillion;
 
-  const proPricing = GEMINI_API_PRICING['gemini-3.1-pro-preview'];
-  const proTier = proInputTokens > 128000 ? 2 : 1;
-  const proCostUSD = ((proInputTokens / 1_000_000) * proPricing.inputPerMillion * proTier) +
-    ((proOutputTokens / 1_000_000) * proPricing.outputPerMillion * proTier);
+  const flashCostUSD =
+    ((videoTokens + textPromptTokens) / 1_000_000) * videoInputRate +
+    (audioTokens / 1_000_000) * audioInputRate +
+    (flashOutputTokens / 1_000_000) * flashOutputRate;
+
+  // Stage 2 (Gemini 3.1 Pro Preview): Smart Grounding & Synthesis (TEXT ONLY)
+  const proInputTokens = flashOutputTokens + 10000; // Резултат от Stage 1 + промпт
+  const proOutputTokens = isDeep ? 45000 : 8000;
+
+  const proCostUSD = calculateModelCostUSD('gemini-3.1-pro-preview', proInputTokens, proOutputTokens);
 
   const totalCostUSD = flashCostUSD + proCostUSD;
   const totalCostEUR = totalCostUSD * USD_TO_EUR_RATE;
@@ -156,6 +224,9 @@ export {
   PROFIT_MULTIPLIERS,
   MIN_POINTS,
   FIXED_PRICES,
+  VIDEO_TOKENS_PER_SECOND,
+  AUDIO_TOKENS_PER_SECOND,
+  calculateModelCostUSD,
   calculateVideoCostInPoints,
   estimateVideoCostInPoints,
   getFixedPrice,
