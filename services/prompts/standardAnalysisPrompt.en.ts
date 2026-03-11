@@ -174,6 +174,6 @@ Return the result as JSON in the following format:
   "technicalForensics": "Technical forensics in English. Check data, statistics, and charts for manipulations. Analyse the technical accuracy of the claims.",
   "socialImpactPrediction": "Social impact prediction in English. How can this content affect society? Which groups are affected? What are the risks?",
   "recommendations": "Recommendations for users in English. How to protect themselves from manipulations? What should they know? How to verify the information?",
-  "finalInvestigativeReport": "FINAL INVESTIGATIVE REPORT in English. Structured, precise, no filler. Sections: 1) OVERALL VERDICT — one sharp sentence with the bottom line. 2) KEY MANIPULATIONS — top 3-5 manipulations with exact examples from the video. 3) FACT-CHECKS — which claims are true, which are false, with evidence. 4) HIDDEN AGENDA — what is really being attempted. 5) CONCLUSION — how to protect yourself. Write like a seasoned investigative journalist: direct, specific, no padding. Maximum 8-10 paragraphs."
+  "finalInvestigativeReport": "Write an OFFICIAL INTELLIGENCE REPORT as the DCGE analysis system. Do NOT recap the tabs — synthesise the findings into a new, precise, and objective analytical text. Style: high-tech, direct, analytical, with no references to humans or journalistic teams. Use impersonal and objective phrasing: 'Analysis established', 'System detected', 'Data indicates'. Every section must be thorough and fact-driven."
 }`;
 };

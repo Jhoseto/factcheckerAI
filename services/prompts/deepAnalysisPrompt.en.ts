@@ -329,6 +329,6 @@ Return the result as JSON in the following format:
     }
   ],
   "transcription": [],
-  "finalInvestigativeReport": "EXCEPTIONALLY DETAILED FINAL INVESTIGATIVE REPORT in English. This should be a masterpiece of high journalism — critical, objective, fact-based, comprehensive, nuanced. Include: unique factual comparisons, revealing ALL hidden perspectives, analysis of ALL manipulations (verbal, nonverbal, visual, vocal, psychological), verification of ALL claims, contextual juxtapositions, in-depth logical analysis, multi-source factual verification, multimodal analysis synthesis. The report must be so good that the user says 'WOW — this is something EXCEPTIONAL'. MINIMUM 80–120 paragraphs with EXCEPTIONALLY detailed and deep analysis at EVERY level (verbal, nonverbal, visual, psychological, cultural)."
+  "finalInvestigativeReport": "Write an OFFICIAL INTELLIGENCE REPORT as the DCGE analysis system. Do NOT recap the tabs — synthesise the findings into a new, precise, and objective analytical text. Style: high-tech, direct, analytical, with no references to humans or journalistic teams. Use impersonal and objective phrasing: 'Analysis established', 'System detected', 'Data indicates'. This report must be a massive, in-depth demonstration of the full analytical capability of the DCGE technology, covering all nuances across verbal, non-verbal, visual, and psychological dimensions."
 }`;
 };
