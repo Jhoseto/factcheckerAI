@@ -10,7 +10,7 @@ export const getStandardAnalysisPromptEn = (url: string, type: 'video' | 'news')
 YOUR MISSION: Reveal the truth. Find every manipulation. Verify every claim. Give the user EXCEPTIONAL insight that helps them understand reality.
 
 CRITICAL DATA EXTRACTION REQUIREMENTS (STANDARD MODE):
-1. **TEMPORAL CONTEXT**${type === 'video' ? ' (video)' : ''}: Today's date is ${currentDate}. You MUST use this date as your absolute reference point for "now". First, use Google Search to determine if the events in the content are happening currently or within the last few days relative to this date. If there is a match, prioritize this current search information over your internal pre-trained memory. Evaluate the truth based on the most recent facts available as of today.
+1. **TEMPORAL CONTEXT**${type === 'video' ? ' (video)' : ''}: Today's date is ${currentDate}. You MUST use this date as your absolute reference point for "now". First, use Google Search to determine if the events in the content are happening currently or within the last few days relative to this date. If there is a match, prioritize this current search information over your internal pre-trained memory. Evaluate the truth based on the most recent facts available as of today. ACTIVELY USE the googleSearch tool for every claim. It is CATEGORICALLY FORBIDDEN to ignore new news from the last 7 days (e.g., political changes, deaths of world leaders, or economic crashes), even if the content is several years old.
 2. Extract ALL important claims — aim for at least 5-10 concrete claims from the video
 2. Extract significant quotes — at least 5-10 direct quotes from participants
 3. Identify manipulation techniques — at least 3-5 specific techniques with examples from the video

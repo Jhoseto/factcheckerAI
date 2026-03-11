@@ -43,7 +43,7 @@ export const POINTS_PER_EUR = 100;
 
 // Profit multipliers (must match server/config/pricing.js)
 export const PROFIT_MULTIPLIERS = {
-  standard: 1.5,
+  standard: 1.8,
   deep: 2.5,
 };
 
@@ -83,11 +83,11 @@ export const calculateModelCostUSD = (
   }
 
   const inputRate = isHigh
-    ? (('inputPerMillionHigh' in pricing) ? pricing.inputPerMillionHigh : pricing.inputPerMillion * 2)
-    : pricing.inputPerMillion;
+    ? ((pricing as any).inputPerMillionHigh ?? (pricing as any).inputPerMillion * 2)
+    : (pricing as any).inputPerMillion;
   const outputRate = isHigh
-    ? (('outputPerMillionHigh' in pricing) ? pricing.outputPerMillionHigh : pricing.outputPerMillion * 2)
-    : pricing.outputPerMillion;
+    ? ((pricing as any).outputPerMillionHigh ?? (pricing as any).outputPerMillion * 2)
+    : (pricing as any).outputPerMillion;
 
   return (promptTokens / 1_000_000) * inputRate +
     (outputTokens / 1_000_000) * outputRate;

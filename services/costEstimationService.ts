@@ -35,7 +35,7 @@ export const calculateCostEstimate = (
     const audioTokens = Math.floor(durationSeconds * AUDIO_TOKENS_PER_SECOND);
     const textPromptTokens = 3000; // System instruction + schema
     const flashInputTokens = videoTokens + audioTokens + textPromptTokens;
-    const flashOutputTokens = isDeep ? 15000 : 5000;
+    const flashOutputTokens = isDeep ? 15000 : 7000;
 
     const flashPricing = GEMINI_PRICING['gemini-2.5-flash'];
     const flashIsHigh = flashInputTokens > flashPricing.contextThreshold;
@@ -51,7 +51,7 @@ export const calculateCostEstimate = (
 
     // ── Stage 2: Pro 3.1 (Text-only Synthesis) ───────────────────────────
     const proInputTokens = flashOutputTokens + 10000; // Stage 1 output + prompt
-    const proOutputTokens = isDeep ? 45000 : 8000;
+    const proOutputTokens = isDeep ? 50000 : 12000;
 
     const proCostUSD = calculateModelCostUSD(
         'gemini-3.1-pro-preview',

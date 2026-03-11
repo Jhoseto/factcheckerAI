@@ -455,7 +455,7 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                 const videoContextStr = req.body.metadata?.title ? `VIDEO METADATA:\n- Title: ${req.body.metadata.title}\n\n` : '';
                 const synthesisContents = [
                     ...contents,
-                    { role: 'user', parts: [{ text: `${videoContextStr}ESTABLISHED RESEARCH DATA (GROUND TRUTH):\n\n${rawText}\n\nINSTRUCTION: Using the data above and MARCH 2026 as current context, synthesize the final analysis exactly according to the schema.` }] }
+                    { role: 'user', parts: [{ text: `${videoContextStr}ESTABLISHED RESEARCH DATA (GROUND TRUTH):\n\n${rawText}\n\nINSTRUCTION: Using the data above and MARCH 2026 as current context, synthesize the final analysis exactly according to the schema. If needed, perform additional Google Search to verify the latest facts.` }] }
                 ];
 
                 const finalResponse = await ai.models.generateContent({
@@ -463,8 +463,15 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                     contents: synthesisContents,
                     config: {
                         temperature: 0.1,
+                        maxOutputTokens: 65536,
                         responseMimeType: 'application/json',
-                        responseSchema: serviceType === 'linkArticle' ? LINK_RESPONSE_SCHEMA : (isDeepMode ? VIDEO_DEEP_SCHEMA : VIDEO_STANDARD_SCHEMA)
+                        responseSchema: serviceType === 'linkArticle' ? LINK_RESPONSE_SCHEMA : (isDeepMode ? VIDEO_DEEP_SCHEMA : VIDEO_STANDARD_SCHEMA),
+                        thinkingConfig: { thinkingBudget: 4000 },
+                        tools: [{
+                            googleSearchRetrieval: {
+                                dynamicRetrievalConfig: { mode: 'DYNAMIC', dynamicThreshold: 0 }
+                            }
+                        }]
                     }
                 });
 
@@ -779,7 +786,11 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             const jsonPrompts = hasGrounding ? jsonPromptsWithContext : jsonPromptsNoContext;
             const finalConfig = {
                 systemInstruction: enhancedSystemInstruction,
-                tools: undefined,
+                tools: [{
+                    googleSearchRetrieval: {
+                        dynamicRetrievalConfig: { mode: 'DYNAMIC', dynamicThreshold: 0 }
+                    }
+                }],
                 temperature: 0.1,
                 maxOutputTokens: 65536,
                 responseMimeType: 'application/json',
@@ -895,6 +906,11 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
                 responseMimeType: 'application/json',
                 responseSchema: VIDEO_STANDARD_SCHEMA,
                 thinkingConfig: { thinkingBudget: 4000 },
+                tools: [{
+                    googleSearchRetrieval: {
+                        dynamicRetrievalConfig: { mode: 'DYNAMIC', dynamicThreshold: 0 }
+                    }
+                }],
                 abortSignal: abortController.signal,
                 httpOptions: { timeout: 300000 }
             };

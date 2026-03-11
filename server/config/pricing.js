@@ -64,8 +64,8 @@ const POINTS_PER_EUR = 100;
 // МНОЖИТЕЛИ ЗА ПЕЧАЛБА
 // ─────────────────────────────────────────────────────────────────────────────
 const PROFIT_MULTIPLIERS = {
-  standard: 1.5,  // x1.5
-  deep: 2.5,      // x2.5
+  standard: 1.8,  // Увеличен от 1.5, за да се намали голямата разлика с Deep
+  deep: 2.5
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -74,6 +74,7 @@ const PROFIT_MULTIPLIERS = {
 const MIN_POINTS = {
   videoStandard: 3,
   videoDeep: 8,
+  linkArticle: 10
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -164,9 +165,9 @@ function estimateVideoCostInPoints(durationSeconds, isDeep = false) {
   // Stage 1 (Gemini 2.5 Flash): Video + Audio Extraction
   const videoTokens = Math.floor(durationSeconds * VIDEO_TOKENS_PER_SECOND);
   const audioTokens = Math.floor(durationSeconds * AUDIO_TOKENS_PER_SECOND);
-  const textPromptTokens = 3000; // System instruction + JSON schema
+  const textPromptTokens = 3000;  // Константи за реалистична оценка
   const flashInputTokens = videoTokens + audioTokens + textPromptTokens;
-  const flashOutputTokens = isDeep ? 15000 : 5000;
+  const stage1Output = isDeep ? 15000 : 7000;
 
   // Flash tier
   const flashPricing = GEMINI_API_PRICING['gemini-2.5-flash'];
@@ -180,11 +181,11 @@ function estimateVideoCostInPoints(durationSeconds, isDeep = false) {
   const flashCostUSD =
     ((videoTokens + textPromptTokens) / 1_000_000) * videoInputRate +
     (audioTokens / 1_000_000) * audioInputRate +
-    (flashOutputTokens / 1_000_000) * flashOutputRate;
+    (stage1Output / 1_000_000) * flashOutputRate;
 
   // Stage 2 (Gemini 3.1 Pro Preview): Smart Grounding & Synthesis (TEXT ONLY)
-  const proInputTokens = flashOutputTokens + 10000; // Резултат от Stage 1 + промпт
-  const proOutputTokens = isDeep ? 45000 : 8000;
+  const proInputTokens = stage1Output + 10000; // Резултат от Stage 1 + промпт
+  const proOutputTokens = isDeep ? 50000 : 12000;
 
   const proCostUSD = calculateModelCostUSD('gemini-3.1-pro-preview', proInputTokens, proOutputTokens);
 
