@@ -469,7 +469,7 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                         thinkingConfig: { thinkingBudget: 4000 },
                         tools: [{
                             googleSearchRetrieval: {
-                                dynamicRetrievalConfig: { mode: 'DYNAMIC', dynamicThreshold: 0 }
+                                dynamicRetrievalConfig: { mode: 'MODE_DYNAMIC', dynamicThreshold: 0 }
                             }
                         }]
                     }
@@ -788,7 +788,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
                 systemInstruction: enhancedSystemInstruction,
                 tools: [{
                     googleSearchRetrieval: {
-                        dynamicRetrievalConfig: { mode: 'DYNAMIC', dynamicThreshold: 0 }
+                        dynamicRetrievalConfig: { mode: 'MODE_DYNAMIC', dynamicThreshold: 0 }
                     }
                 }],
                 temperature: 0.1,
@@ -908,7 +908,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
                 thinkingConfig: { thinkingBudget: 4000 },
                 tools: [{
                     googleSearchRetrieval: {
-                        dynamicRetrievalConfig: { mode: 'DYNAMIC', dynamicThreshold: 0 }
+                        dynamicRetrievalConfig: { mode: 'MODE_DYNAMIC', dynamicThreshold: 0 }
                     }
                 }],
                 abortSignal: abortController.signal,
