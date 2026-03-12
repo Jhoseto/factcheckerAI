@@ -468,7 +468,7 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                         responseSchema: serviceType === 'linkArticle' ? LINK_RESPONSE_SCHEMA : (isDeepMode ? VIDEO_DEEP_SCHEMA : VIDEO_STANDARD_SCHEMA),
                         thinkingConfig: { thinkingBudget: 4000 },
                         tools: [{
-                            googleSearchRetrieval: {
+                            googleSearch: {
                                 dynamicRetrievalConfig: { mode: 'MODE_DYNAMIC', dynamicThreshold: 0 }
                             }
                         }]
@@ -787,7 +787,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             const finalConfig = {
                 systemInstruction: enhancedSystemInstruction,
                 tools: [{
-                    googleSearchRetrieval: {
+                    googleSearch: {
                         dynamicRetrievalConfig: { mode: 'MODE_DYNAMIC', dynamicThreshold: 0 }
                     }
                 }],
@@ -907,7 +907,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
                 responseSchema: VIDEO_STANDARD_SCHEMA,
                 thinkingConfig: { thinkingBudget: 4000 },
                 tools: [{
-                    googleSearchRetrieval: {
+                    googleSearch: {
                         dynamicRetrievalConfig: { mode: 'MODE_DYNAMIC', dynamicThreshold: 0 }
                     }
                 }],
