@@ -21,7 +21,7 @@ export function setupChatBotSocket(io) {
     socket.on('send_message', async (data) => {
       const { sessionId, sender, content, userName, fileUrl, fileType, lang, handoffRequested } = data;
       console.log(`[ChatSocket] Message from ${sender} in session ${sessionId}: ${content?.slice(0, 50)}...`);
-      const userLang = lang === 'en' ? 'en' : 'bg';
+      const userLang = (lang && String(lang).startsWith('en')) ? 'en' : 'bg';
 
       try {
         const session = db.prepare('SELECT id FROM sessions WHERE id = ?').get(sessionId);

@@ -13,44 +13,59 @@ function getAIInstance() {
   return aiInstance;
 }
 
-const PRICING_KNOWLEDGE = `
-FACTCHECKER AI — ТОЧНА ИНФОРМАЦИЯ ЗА ТОЧКИТЕ И ЦЕНИТЕ (не измисляй, използвай САМО това):
+const APP_KNOWLEDGE = `
+FACTCHECKER AI — ЕДИНСТВЕН ИЗТОЧНИК НА ИСТИНАТА. Използвай САМО тази информация. НИКОГА не измисляй, не предполагай, не добавяй детайли.
 
-1. НАЧАЛЕН БОНУС: При регистрация потребителят получава 100 точки безплатно.
+=== ПЛАТФОРМАТА ===
+FactChecker AI е платформа за фактчекинг на видеа и статии. Потребителите получават структурирани анализи с индекси на достоверност и манипулация.
 
-2. ПАКЕТИ (не абонаменти!): Това са пакети за еднократна покупка. Няма месечни лимити — точките не се зануляват и могат да се ползват когато потребителят поиска.
-   - Starter: 5 EUR → 500 точки
-   - Standard: 15 EUR → 1500 точки + 200 бонус = 1700 точки общо (най-популярен)
-   - Professional: 44 EUR → 4500 точки + 1000 бонус = 5500 точки общо
-   - Enterprise: 99 EUR → 10000 точки + 2500 бонус = 12500 точки общо
-   Във всеки пакет има различен брой бонус точки в зависимост от големината на пакета (по-големият пакет = повече бонус).
+=== УСЛУГИ ===
+1. ВИДЕО АНАЛИЗ (YouTube): Два режима:
+   - Стандартен: структуриран одит на твърдения, източници и манипулации. Идеален за бърза проверка.
+   - Дълбок (Deep): пълен мултимодален одит — визуален, вокален, език на тялото, психологически профил, разширен доклад.
+   Цената за видео е ДИНАМИЧНА — зависи от дължината и сложността. Показва се преди анализ.
 
-3. КУРС: 1 EUR = 100 точки
+2. ЛИНК/СТАТИЯ АНАЛИЗ: Анализ на статии по URL. ФИКСИРАНА ЦЕНА: 10 точки.
 
-4. ЦЕНИ НА УСЛУГИТЕ (в точки):
-   - Анализ на линк/статия: 12 точки фиксирано
-   - Видео анализ: цената се изчислява динамично според дължината и сложността на видеото (не е фиксирана)
-   - Compare Mode: допълнителна такса върху цената на двата анализа
-   - Batch заявки: отстъпка при групови заявки
+3. COMPARE MODE: Сравняване на два вече направени анализа (напр. две статии по една тема). ДОПЪЛНИТЕЛНИ 4 точки върху цената на двата основни анализа. Т.е. плащаш двата анализа + 4 точки за сравнението.
 
-5. НЯМА: месечни лимити, зануляване на точки, абонаментни планове. Това са пакети за еднократна покупка.
+4. АРХИВ: Анализите могат да се запазват в архив. Има слотове за видео и линк анализи.
 
-6. За актуални цени и детайли винаги препоръчай страницата /pricing на сайта.
+=== ТОЧКИ И ПАКЕТИ ===
+- Начален бонус: 100 точки при регистрация.
+- Курс: 1 EUR = 100 точки.
+- Пакети (еднократна покупка, НЕ абонаменти):
+  - Starter: 5 EUR → 500 точки
+  - Standard: 15 EUR → 1500 + 200 бонус = 1700 общо (най-популярен)
+  - Professional: 44 EUR → 4500 + 1000 бонус = 5500 общо
+  - Enterprise: 99 EUR → 10000 + 2500 бонус = 12500 общо
+- НЯМА: месечни лимити, зануляване, абонаменти. Точките не изтичат.
+
+=== ВАЖНО ===
+- НЕ предлагаме: batch заявки, групови отстъпки, пакети за множество линкове наведнъж.
+- За точни цени и актуализации винаги препоръчай /pricing.
+- Ако не знаеш нещо — кажи че не си сигурен и препоръчай /pricing или свързване с поддръжка.
 `;
 
 export async function getAIResponse(message, history, lang = 'en') {
   const langInstruction = lang === 'bg'
     ? 'Always respond in Bulgarian. The user writes in Bulgarian and expects answers in Bulgarian.'
     : 'Always respond in English.';
-  const systemInstruction = `You are a helpful assistant for FactChecker AI, a fact-checking platform for videos and articles. Help users with questions about how the service works, pricing, analysis types, and technical support. Be professional, concise, and friendly. If you don't know something, offer to connect the user to a human agent. ${langInstruction}
+  const systemInstruction = `You are the official support assistant for FactChecker AI — a fact-checking platform for videos and articles.
 
-CRITICAL: When answering about points, pricing, or packages, use ONLY this exact information. Do NOT invent monthly limits, point resets, subscriptions, or custom plans:
-${PRICING_KNOWLEDGE}`;
+RULES (NEVER BREAK):
+1. Use ONLY the knowledge base below. Do NOT invent, assume, or add details.
+2. Do NOT mention code, implementation, APIs, or internal technical details.
+3. If asked about something not in the knowledge base, say you're not sure and recommend /pricing or connecting with human support.
+4. Be professional, concise, and helpful. ${langInstruction}
+
+KNOWLEDGE BASE (your only source of truth):
+${APP_KNOWLEDGE}`;
 
   try {
     const ai = getAIInstance();
     const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
       contents: [
         ...history,
         { role: 'user', parts: [{ text: message }] }
@@ -62,8 +77,16 @@ ${PRICING_KNOWLEDGE}`;
     const fallback = lang === 'bg'
       ? 'В момента не мога да обработа заявката. Моля, опитайте отново по-късно или се свържете с поддръжката.'
       : 'I am currently unable to process your request. Please try again later or contact support.';
-    return response.text || fallback;
+    let text = '';
+    if (typeof response?.text === 'string') text = response.text;
+    else if (typeof response?.text === 'function') { try { text = response.text(); } catch (_) {} }
+    else if (response?.text != null && typeof response.text.then === 'function') { try { text = await response.text; } catch (_) { } }
+    if (!text && response?.candidates?.[0]?.content?.parts?.length) {
+      text = response.candidates[0].content.parts.map(p => p?.text ?? '').join('');
+    }
+    return (typeof text === 'string' && text.trim() ? text : null) || fallback;
   } catch (error) {
+    console.error('[ChatBot Gemini] API error:', error?.message || error);
     const fallback = lang === 'bg'
       ? 'В момента не мога да обработа заявката. Моля, опитайте отново по-късно или се свържете с поддръжката.'
       : 'I am currently unable to process your request. Please try again later or contact support.';

@@ -3,6 +3,7 @@ import { io, Socket } from 'socket.io-client';
 import { MessageCircle, X, Send, Bot, User, Loader2, Clock, Paperclip, Star, Headphones } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
+import { getApiLang } from '../../../i18n';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import Markdown from 'react-markdown';
@@ -42,7 +43,10 @@ export default function ChatWidget() {
   const [isResolved, setIsResolved] = useState(false);
   const [chatMode, setChatMode] = useState<'ai' | 'admin'>('ai');
   const [unreadCount, setUnreadCount] = useState(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [socketDisconnected, setSocketDisconnected] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const lastResponseRef = useRef<HTMLDivElement | null>(null);
   const isOpenRef = useRef(false);
   const notifyTitleRef = useRef('');
   const typingTimeoutRef = useRef<any>(null);
@@ -54,6 +58,7 @@ export default function ChatWidget() {
       start: "Please enter your name to start the conversation.",
       placeholder: "Your Name",
       btnStart: "Start Chatting",
+      continueAsGuest: "Continue as guest",
       online: "Online & Ready to help",
       thinking: "AI is thinking...",
       typing: "Support is typing...",
@@ -67,13 +72,16 @@ export default function ChatWidget() {
       modeAI: "AI Assistant",
       modeAdmin: "Real Support",
       newMessage: "New message from support",
-      quickReplies: ["How does video analysis work?", "Tell me about pricing and points", "I need support", "What types of analysis do you offer?"]
+      quickReplies: ["How does video analysis work?", "Tell me about pricing and points", "I need support", "What types of analysis do you offer?"],
+      uploadError: "Upload failed. Please try again.",
+      reconnecting: "Connection lost. Reconnecting..."
     },
     bg: {
       welcome: "Поддръжка FactChecker AI",
       start: "Моля, въведете името си, за да започнете.",
       placeholder: "Вашето име",
       btnStart: "Започни чат",
+      continueAsGuest: "Продължи като гост",
       online: "На линия и готов за помощ",
       thinking: "Подготвям отговор...",
       typing: "Операторът пише...",
@@ -87,7 +95,8 @@ export default function ChatWidget() {
       modeAI: "AI асистент",
       modeAdmin: "Реален администратор",
       newMessage: "Ново съобщение от поддръжката",
-      quickReplies: ["Как работи анализът на видео?", "Цени и точки", "Имам нужда от поддръжка", "Какви видове анализ предлагате?"]
+      quickReplies: ["Как работи анализът на видео?", "Цени и точки", "Имам нужда от поддръжка", "Какви видове анализ предлагате?"],
+      uploadError: "Качването не успя. Моля, опитайте отново."
     }
   }[i18n.language === 'en' ? 'en' : 'bg'];
   notifyTitleRef.current = t.newMessage;
@@ -119,12 +128,20 @@ export default function ChatWidget() {
 
     newSocket.on('connect', () => {
       console.log('[ChatWidget] Socket connected, joining session:', sessionId);
+      setSocketDisconnected(false);
       newSocket.emit('join_session', sessionId);
+    });
+
+    newSocket.on('disconnect', () => {
+      setSocketDisconnected(true);
     });
 
     newSocket.on('new_message', (msg) => {
       setMessages(prev => {
-        // Prevent duplicate if we already added it via "Local Echo" or if it's already there
+        const last = prev[prev.length - 1];
+        if (last?.sender === 'customer' && !last.id && last.content === msg.content && msg.sender === 'customer') {
+          return [...prev.slice(0, -1), { ...msg }];
+        }
         const exists = prev.some(m => m.id === msg.id || (m.timestamp === msg.timestamp && m.content === msg.content && m.sender === msg.sender));
         if (exists) return prev;
         return [...prev, msg];
@@ -157,7 +174,12 @@ export default function ChatWidget() {
   }, [isOpen]);
 
   useEffect(() => {
-    if (scrollRef.current) {
+    const last = messages[messages.length - 1];
+    if (last && (last.sender === 'ai' || last.sender === 'admin')) {
+      requestAnimationFrame(() => {
+        lastResponseRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      });
+    } else if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
@@ -166,6 +188,7 @@ export default function ChatWidget() {
     const finalMessage = text || message;
     if (!finalMessage.trim() && !file && !socket) return;
 
+    setUploadError(null);
     const tempMsg = {
       sessionId,
       sender: 'customer',
@@ -184,12 +207,12 @@ export default function ChatWidget() {
       userName: effectiveUserName || 'Visitor',
       fileUrl: file?.url,
       fileType: file?.type,
-      lang: i18n.language,
+      lang: getApiLang(),
       handoffRequested: chatMode === 'admin'
     });
 
     if (!text && !file) setMessage('');
-    if (!file) setIsTyping(chatMode === 'ai');
+    setIsTyping(chatMode === 'ai');
 
     // Stop typing indicator
     socket?.emit('typing', { sessionId, sender: 'customer', isTyping: false });
@@ -199,6 +222,7 @@ export default function ChatWidget() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setUploadError(null);
     const formData = new FormData();
     formData.append('file', file);
 
@@ -208,10 +232,16 @@ export default function ChatWidget() {
         body: formData
       });
       const data = await res.json();
+      if (!res.ok || !data?.url) {
+        setUploadError(t.uploadError);
+        return;
+      }
       handleSend('', { url: data.url, type: data.type });
     } catch (err) {
       console.error('Upload failed:', err);
+      setUploadError(t.uploadError);
     }
+    e.target.value = '';
   };
 
   const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -249,6 +279,11 @@ export default function ChatWidget() {
       setUserName(tempName.trim());
       localStorage.setItem('chat_user_name', tempName.trim());
     }
+  };
+
+  const handleContinueAsGuest = () => {
+    setUserName('Guest');
+    localStorage.setItem('chat_user_name', 'Guest');
   };
 
 
@@ -351,6 +386,13 @@ export default function ChatWidget() {
                     >
                       {t.btnStart}
                     </button>
+                    <button
+                      type="button"
+                      onClick={handleContinueAsGuest}
+                      className="w-full text-[10px] text-[var(--bronze-mid)] hover:text-[var(--bronze-light)] py-2 transition-colors"
+                    >
+                      {t.continueAsGuest}
+                    </button>
                   </form>
                 </div>
               ) : (
@@ -365,9 +407,10 @@ export default function ChatWidget() {
                   )}
                   {messages.map((msg, i) => (
                     <motion.div
+                      ref={i === messages.length - 1 && (msg.sender === 'ai' || msg.sender === 'admin') ? lastResponseRef : undefined}
                       initial={{ opacity: 0, x: msg.sender === 'customer' ? 10 : -10 }}
                       animate={{ opacity: 1, x: 0 }}
-                      key={i}
+                      key={msg.id ?? `temp-${i}-${msg.timestamp}`}
                       className={cn(
                         "flex flex-col max-w-[80%]",
                         msg.sender === 'customer' ? "ml-auto items-end" : "mr-auto items-start"
@@ -510,6 +553,12 @@ export default function ChatWidget() {
                     <Send size={18} />
                   </button>
                 </div>
+                {socketDisconnected && (
+                  <p className="text-[10px] text-center text-amber-400 mt-2">{t.reconnecting}</p>
+                )}
+                {uploadError && (
+                  <p className="text-[10px] text-center text-rose-400 mt-2">{uploadError}</p>
+                )}
                 <p className="text-[10px] text-center text-[var(--bronze-mid)] mt-3">
                   Powered by FactChecker AI
                 </p>

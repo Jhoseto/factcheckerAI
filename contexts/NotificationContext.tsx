@@ -25,13 +25,19 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         typeof window !== 'undefined' ? Notification.permission : 'default'
     );
 
-    // Sync isAdmin with server (matching AdminMenuButton logic)
+    // Sync isAdmin with server (matching AdminMenuButton logic) — retry on failure
     useEffect(() => {
-        const verify = async () => {
-            if (!userProfile) {
-                setIsAdmin(false);
-                return;
-            }
+        if (!userProfile) {
+            setIsAdmin(false);
+            return;
+        }
+
+        let cancelled = false;
+        const maxRetries = 4;
+        const baseDelay = 1500;
+
+        const verify = async (attempt = 0) => {
+            if (cancelled) return;
             try {
                 const user = auth.currentUser;
                 if (!user) return;
@@ -41,13 +47,19 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
-                setIsAdmin(!!data.ok);
+                if (!cancelled) setIsAdmin(!!data.ok);
             } catch (e) {
-                setIsAdmin(false);
+                if (attempt < maxRetries - 1) {
+                    const delay = baseDelay * Math.pow(2, attempt);
+                    setTimeout(() => verify(attempt + 1), delay);
+                } else {
+                    if (!cancelled) setIsAdmin(false);
+                }
             }
         };
 
         verify();
+        return () => { cancelled = true; };
     }, [userProfile]);
 
     const requestPermission = async () => {
@@ -84,27 +96,24 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         setSocket(newSocket);
 
         newSocket.on('admin_update', (data) => {
-            if (data.type === 'new_message' && data.sender === 'customer') {
-                const isHandoff = data.handoffRequested;
-                const notification: ChatNotification = {
-                    id: Date.now(),
-                    sessionId: data.sessionId,
-                    userName: data.userName || 'Guest',
-                    message: isHandoff ? `🆘 [HUMAN REQUEST] ${data.content || 'Needs help!'}` : (data.content || 'New message received!'),
-                    timestamp: Date.now()
-                };
+            // Notify admin only when user explicitly chose "Real administrator" (handoff)
+            if (data.type !== 'new_message' || data.sender !== 'customer' || !data.handoffRequested) return;
 
-                setNotifications(prev => [...prev, notification]);
-                playNotificationSound();
-                showBrowserNotification(
-                    isHandoff ? `🆘 ${notification.userName}` : notification.userName,
-                    notification.message
-                );
+            const notification: ChatNotification = {
+                id: Date.now(),
+                sessionId: data.sessionId,
+                userName: data.userName || 'Guest',
+                message: `🆘 [HUMAN REQUEST] ${data.content || 'Needs help!'}`,
+                timestamp: Date.now()
+            };
 
-                setTimeout(() => {
-                    setNotifications(prev => prev.filter(n => n.id !== notification.id));
-                }, 15000); // 15s visibility
-            }
+            setNotifications(prev => [...prev, notification]);
+            playNotificationSound();
+            showBrowserNotification(`🆘 ${notification.userName}`, notification.message);
+
+            setTimeout(() => {
+                setNotifications(prev => prev.filter(n => n.id !== notification.id));
+            }, 15000);
         });
 
         return () => {

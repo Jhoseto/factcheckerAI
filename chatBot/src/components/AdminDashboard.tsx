@@ -32,6 +32,7 @@ export default function AdminDashboard() {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [newCanned, setNewCanned] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
+  const lastAdminMessageRef = useRef<HTMLDivElement | null>(null);
   const typingTimeoutRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -166,7 +167,12 @@ export default function AdminDashboard() {
   }, [socket, loadData, fetchMessages]);
 
   useEffect(() => {
-    if (scrollRef.current) {
+    const last = messages[messages.length - 1];
+    if (last && last.sender === 'admin') {
+      requestAnimationFrame(() => {
+        lastAdminMessageRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      });
+    } else if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
@@ -485,7 +491,8 @@ export default function AdminDashboard() {
               )}
               {messages.map((msg, i) => (
                 <div
-                  key={i}
+                  ref={i === messages.length - 1 && msg.sender === 'admin' ? lastAdminMessageRef : undefined}
+                  key={msg.id ?? `msg-${i}-${msg.timestamp}`}
                   className={cn(
                     "flex flex-col max-w-[70%]",
                     msg.sender === 'admin' ? "ml-auto items-end" : "mr-auto items-start"
