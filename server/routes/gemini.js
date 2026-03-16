@@ -26,6 +26,11 @@ import {
 } from '../config/pricing.js';
 import { MODELS } from '../config/models.js';
 import { logActivity } from '../../admin/server/activityLogger.js';
+import {
+    logRequest, logSystemPrompt, logUserPrompt, logGoogleSearches,
+    logThinking, logRawResponse, logError, logComplete,
+    extractSearchMetadata, newRequestId
+} from '../utils/debugLogger.js';
 const router = express.Router();
 
 /** Escape raw control chars inside JSON string literals so JSON.parse accepts the string. */
@@ -251,7 +256,7 @@ const VIDEO_PROPERTIES = {
 
 const VIDEO_STANDARD_SCHEMA = {
     type: 'object',
-    required: ['summary', 'claims', 'manipulations'],
+    required: ['summary', 'claims', 'manipulations', 'finalInvestigativeReport'],
     properties: VIDEO_PROPERTIES
 };
 
@@ -335,6 +340,8 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
         const ai = getAI();
         const userId = req.userId;
         const { model, prompt, systemInstruction, videoUrl, isBatch, enableGoogleSearch, mode, serviceType, lang, images } = req.body;
+        const _dbgId = newRequestId();
+        logRequest({ requestId: _dbgId, route: '/generate', stage: 'init', model: model || 'auto', serviceType, mode, userId, hasGoogleSearch: !!(enableGoogleSearch || mode === 'deep') });
 
         // ── Determine cost type ───────────────────────────────────────────────
         const isFixedPrice = serviceType && serviceType !== 'video';
@@ -442,6 +449,8 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                     tools: tools // Flash handles the initial search/extraction
                 };
 
+                logSystemPrompt(_dbgId, extractionConfig.systemInstruction);
+                logUserPrompt(_dbgId, prompt, !!videoUrl);
                 const response = await ai.models.generateContent({
                     model: modelExtractor,
                     contents,
@@ -450,6 +459,8 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
 
                 const researchTokens = response.usageMetadata;
                 const rawText = response.text || '';
+                { const sm = extractSearchMetadata(response); logGoogleSearches(_dbgId + '_s1', sm.searchQueries, sm.groundingChunks); logThinking(_dbgId + '_s1', sm.thinkingText); }
+                logRawResponse(_dbgId, 'stage1_extraction', rawText, researchTokens);
 
                 // Stage 2: Smart Synthesis (Pro 3.1)
                 const videoContextStr = req.body.metadata?.title ? `VIDEO METADATA:\n- Title: ${req.body.metadata.title}\n\n` : '';
@@ -477,6 +488,8 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
 
                 responseText = finalResponse.text || '';
                 const finalUsageMeta = finalResponse.usageMetadata;
+                { const sm = extractSearchMetadata(finalResponse); logGoogleSearches(_dbgId + '_s2', sm.searchQueries, sm.groundingChunks); logThinking(_dbgId + '_s2', sm.thinkingText); }
+                logRawResponse(_dbgId, 'stage2_synthesis', responseText, finalUsageMeta);
 
                 // Accumulate usage for billing
                 totalPromptTokens = (researchTokens?.promptTokenCount || 0) + (finalUsageMeta?.promptTokenCount || 0);
@@ -663,6 +676,10 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
         const userId = req.userId;
         const { model, prompt, systemInstruction, videoUrl, enableGoogleSearch, mode, serviceType, lang, metadata: reqMetadata } = req.body;
         const metadata = reqMetadata || {};
+        const _dbgId = newRequestId();
+        logRequest({ requestId: _dbgId, route: '/generate-stream', stage: 'init', model: model || 'auto', serviceType, mode, userId, hasGoogleSearch: !!(enableGoogleSearch || mode === 'deep') });
+        logSystemPrompt(_dbgId, systemInstruction || '(ще бъде построен)');
+        logUserPrompt(_dbgId, prompt, !!videoUrl);
 
         const isFixedPrice = serviceType && serviceType !== 'video';
         const isDeepMode = mode === 'deep';
@@ -742,6 +759,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             });
             researchUsage = response.usageMetadata;
             streamUsage = response.usageMetadata || streamUsage;
+            { const sm = extractSearchMetadata(response); logGoogleSearches(_dbgId + '_deep_s1', sm.searchQueries, sm.groundingChunks); logThinking(_dbgId + '_deep_s1', sm.thinkingText); }
 
             const parts = response.candidates?.[0]?.content?.parts;
             const hasFn = Array.isArray(parts) && parts.some(p => p?.functionCall || p?.function_call);
@@ -766,22 +784,27 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             // Build conversation for final JSON step (model's analysis as context)
             let currentContents = [...contents];
             let hasGrounding = rawText && rawText.trim().length > 50;
+            const durationMin = Math.round((metadata.videoDuration || metadata.duration || 0) / 60) || 10;
+            const targetClaims = Math.min(20, Math.max(6, Math.round(durationMin * 0.6)));
+            const targetManipulations = Math.min(10, Math.max(4, Math.round(durationMin * 0.4)));
             if (hasGrounding) {
-                const videoContextStr = metadata.title ? `VIDEO METADATA (Reference Point):\n- Title: ${metadata.title}\n- Author: ${metadata.author || 'Unknown'}\n- Uploaded/Published: ${metadata.date || 'Refer to content'}\n\n` : '';
-                // Pass research as established ground truth
+                const todayStr = new Date().toLocaleDateString('en-US', { dateStyle: 'full' });
+                const videoContextStr = metadata.title ? `VIDEO METADATA (Reference Point):\n- Title: ${metadata.title}\n- Author: ${metadata.author || 'Unknown'}\n- Duration: ~${durationMin} minutes\n- Uploaded/Published: ${metadata.date || 'Refer to content'}\n\n` : '';
+                const verificationInstruction = `VERIFICATION RULE (today: ${todayStr}):
+For EVERY claim: use Google Search to verify it against today's date. Return information current as of the moment this report is created. Verify events and cite accurate dates from your search results. Use the research above as base, but always confirm facts and dates via search.`;
                 currentContents.push({
                     role: 'user',
-                    parts: [{ text: `${videoContextStr}ESTABLISHED RESEARCH DATA (ABSOLUTE GROUND TRUTH):\n\n${rawText.substring(0, 60000)}\n\nINSTRUCTION: You MUST use the research data above as the primary source for all "explanation" and "missingContext" fields. This data represents the current reality and OVERRIDES any conflicting pre-trained knowledge. Do not use placeholders. Every claim MUST be evaluated against these findings. If a claim involves timing (e.g. "today"), use this data and current date clues to determine the actual context.` }]
+                    parts: [{ text: `${videoContextStr}ESTABLISHED RESEARCH DATA (from Stage 1):\n\n${rawText.substring(0, 60000)}\n\n${verificationInstruction}\n\nDo not use placeholders. Every claim MUST be evaluated against these findings.` }]
                 });
             }
 
             const jsonPromptsWithContext = [
-                'Return the complete analysis as JSON using the exact schema. INTEGRATE your research into the "explanation" and "logic" fields. BE EXTREMELY LOGICAL AND DETAILED. Do not use generic statements. Populate EVERY array. Keep finalInvestigativeReport concise. Ensure valid JSON. Never leave arrays empty.',
-                'Perform an EXHAUSTIVE video analysis based on your research and format as valid JSON. Populate all fields with high-quality evidence. No placeholders.'
+                `Return the complete analysis as JSON. For each claim: verify via Google Search against today's date; give current information and accurate dates. For this ~${durationMin}-min video, aim for around ${targetClaims} claims and ${targetManipulations} manipulations. Populate EVERY array. For visualAnalysis, bodyLanguageAnalysis, vocalAnalysis, deceptionAnalysis, humorAnalysis, psychologicalProfile, culturalSymbolicAnalysis: 4-6 items each, 2-4 sentences per "details" field. INTEGRATE research into explanation and logic. Ensure valid JSON. Do not truncate.`,
+                `Format as valid JSON. Use the research above. For each claim: verify via Google Search against today; give current info and accurate dates. Aim for ~${targetClaims} claims and ~${targetManipulations} manipulations. Multimodal arrays: 4-6 items each with detailed 2-4 sentence analysis. Populate all fields. No placeholders. Keep JSON complete.`
             ];
             const jsonPromptsNoContext = [
                 'Analyze the VIDEO and return complete fact-check analysis as JSON. Populate EVERY array (visualAnalysis, bodyLanguageAnalysis, etc). Be extremely concise to avoid JSON truncation.',
-                'Format as valid JSON. Analyze the video for all behavioral metrics. No placeholders. Generate 1-2 items per array.'
+                'Format as valid JSON. Analyze the video for all behavioral metrics. Extract as many claims and manipulations as the content supports. No placeholders. Ensure complete valid JSON.'
             ];
             const jsonPrompts = hasGrounding ? jsonPromptsWithContext : jsonPromptsNoContext;
             const finalConfig = {
@@ -817,6 +840,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
                 });
                 finalUsage = finalResponse.usageMetadata;
                 streamUsage = finalResponse.usageMetadata || streamUsage;
+                { const sm = extractSearchMetadata(finalResponse); logGoogleSearches(_dbgId + `_deep_s2_att${attempt}`, sm.searchQueries, sm.groundingChunks); logThinking(_dbgId + `_deep_s2_att${attempt}`, sm.thinkingText); }
 
                 fullText = '';
                 if (typeof finalResponse.text === 'string') fullText = finalResponse.text;
@@ -876,6 +900,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
                 config: extractionConfig
             });
             researchUsage = response.usageMetadata;
+            { const sm = extractSearchMetadata(response); logGoogleSearches(_dbgId + '_std_s1', sm.searchQueries, sm.groundingChunks); logThinking(_dbgId + '_std_s1', sm.thinkingText); }
 
             let rawText = '';
             if (typeof response.text === 'string') rawText = response.text;
@@ -889,14 +914,16 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             // Stage 2: Report Generation (Pro 3.1)
             sendSSE('progress', { status: getProgressMsg(lang, 'finalJson') });
 
+            const todayStr = new Date().toLocaleDateString('en-US', { dateStyle: 'full' });
             const videoContextStr = metadata.title ? `VIDEO METADATA:\n- Title: ${metadata.title}\n\n` : '';
             const textContents = contents.map(c => ({
                 role: c.role,
                 parts: c.parts.filter(p => !p.fileData && !p.inlineData)
             }));
+            const verificationInstruction = `VERIFICATION RULE (today: ${todayStr}): For EVERY claim: use Google Search to verify against today's date. Return information current as of report creation. Verify events and cite accurate dates from search results.`;
             const synthesisContents = [
                 ...textContents,
-                { role: 'user', parts: [{ text: `${videoContextStr}ESTABLISHED RESEARCH DATA (ABSOLUTE GROUND TRUTH):\n\n${rawText}\n\nINSTRUCTION: Using the findings above, synthesize the final JSON analysis according to the schema. Ensure high reliability and temporal accuracy relative to March 2026.` }] }
+                { role: 'user', parts: [{ text: `${videoContextStr}ESTABLISHED RESEARCH DATA:\n\n${rawText}\n\n${verificationInstruction}\n\nINSTRUCTION: Using the findings above, synthesize the final JSON analysis. For each claim: verify via Google Search against today; give current info and accurate dates. You MUST include finalInvestigativeReport — a full official DCGE intelligence report (4–8 paragraphs) synthesizing all findings, verdicts, and key conclusions.` }] }
             ];
 
             const finalConfig = {
@@ -923,6 +950,7 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
 
             finalUsage = finalResponse.usageMetadata;
             streamUsage = finalResponse.usageMetadata || streamUsage;
+            { const sm = extractSearchMetadata(finalResponse); logGoogleSearches(_dbgId + '_std_s2', sm.searchQueries, sm.groundingChunks); logThinking(_dbgId + '_std_s2', sm.thinkingText); logRawResponse(_dbgId, 'std_stage2', fullText, finalUsage); }
 
             if (typeof finalResponse.text === 'string') fullText = finalResponse.text;
             else if (typeof finalResponse.text === 'function') { try { fullText = finalResponse.text(); } catch (_) { } }

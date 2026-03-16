@@ -184,8 +184,11 @@ function estimateVideoCostInPoints(durationSeconds, isDeep = false) {
     (stage1Output / 1_000_000) * flashOutputRate;
 
   // Stage 2 (Gemini 3.1 Pro Preview): Smart Grounding & Synthesis (TEXT ONLY)
-  const proInputTokens = stage1Output + 10000; // Резултат от Stage 1 + промпт
-  const proOutputTokens = isDeep ? 50000 : 12000;
+  // Both modes have Google Search in Stage 2 — grounding chunks add tokens
+  const proInputTokens = isDeep
+    ? stage1Output + 10000 + 400000   // ~425k — Deep: more searches
+    : stage1Output + 10000 + 300000;  // ~317k — Standard: moderate grounding
+  const proOutputTokens = isDeep ? 25000 : 12000;
 
   const proCostUSD = calculateModelCostUSD('gemini-3.1-pro-preview', proInputTokens, proOutputTokens);
 
