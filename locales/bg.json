@@ -2,6 +2,7 @@
   "nav": {
     "home": "FACTCHECKER AI – Начало",
     "login": "Вход",
+    "register": "Регистрация",
     "buyPoints": "Купи Точки",
     "archive": "Архив",
     "expenses": "Разходи",
@@ -63,7 +64,8 @@
     "saveToShare": "Запазете доклада, за да го споделите",
     "noSlots": "НЯМА СВОБОДНИ СЛОТОВЕ",
     "saveToArchiveSlots": "ЗАПАЗИ В АРХИВ ({{used}}/{{max}})",
-    "newAnalysis": "НОВ АНАЛИЗ"
+    "newAnalysis": "НОВ АНАЛИЗ",
+    "selectLanguage": "Избор на език"
   },
   "analysis": {
     "priceOfAnalysis": "Цена на анализа",

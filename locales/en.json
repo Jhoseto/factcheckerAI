@@ -1,7 +1,8 @@
 {
   "nav": {
     "home": "FACTCHECKER AI – Home",
-    "login": "Log In",
+    "login": "Sign In",
+    "register": "Sign Up",
     "buyPoints": "Buy Points",
     "archive": "Archive",
     "expenses": "History",
@@ -63,7 +64,8 @@
     "saveToShare": "Save the report to share it",
     "noSlots": "NO AVAILABLE SLOTS",
     "saveToArchiveSlots": "SAVE TO ARCHIVE ({{used}}/{{max}})",
-    "newAnalysis": "NEW ANALYSIS"
+    "newAnalysis": "NEW ANALYSIS",
+    "selectLanguage": "Select Language"
   },
   "analysis": {
     "priceOfAnalysis": "Analysis Price",

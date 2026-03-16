@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { Bell } from 'lucide-react';
+import { Bell, Globe } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { useLanguageSwitch } from '../../hooks/useLanguageSwitch';
@@ -15,6 +15,7 @@ const Navbar: React.FC = () => {
     const navigate = useNavigate();
     const { language, setLanguage, isTranslating, translateError } = useLanguageSwitch();
     const [showUserMenu, setShowUserMenu] = useState(false);
+    const [showLangMenu, setShowLangMenu] = useState(false);
     const [menuCoords, setMenuCoords] = useState({ top: 0, right: 0 });
 
     const handleProfileClick = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -22,6 +23,7 @@ const Navbar: React.FC = () => {
         const rect = e.currentTarget.getBoundingClientRect();
         const willOpen = !showUserMenu;
         if (willOpen) {
+            setShowLangMenu(false);
             setMenuCoords({
                 top: rect.bottom + 8,
                 right: window.innerWidth - rect.right,
@@ -79,21 +81,37 @@ const Navbar: React.FC = () => {
 
                 {/* Profile / Actions */}
                 <div className="flex items-center gap-8">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-4 relative">
                         <button
-                            onClick={() => setLanguage('bg')}
+                            onClick={() => setShowLangMenu(!showLangMenu)}
                             disabled={isTranslating}
-                            className={`text-[9px] font-bold uppercase tracking-[0.2em] transition-colors px-2 py-1 rounded border ${language === 'bg' ? 'text-[#968B74] border-[#968B74]/40' : 'text-[#666] border-[#333] hover:text-[#968B74] hover:border-[#968B74]/30'}`}
+                            className={`p-2 rounded-full transition-all duration-300 ${showLangMenu ? 'text-[#C4B091] bg-[#968B74]/10' : 'text-[#666] hover:text-[#968B74]'}`}
+                            title={t('common.selectLanguage')}
                         >
-                            BG
+                            <Globe size={18} className={`${isTranslating ? 'animate-pulse' : ''}`} />
                         </button>
-                        <button
-                            onClick={() => setLanguage('en')}
-                            disabled={isTranslating}
-                            className={`text-[9px] font-bold uppercase tracking-[0.2em] transition-colors px-2 py-1 rounded border ${language === 'en' ? 'text-[#968B74] border-[#968B74]/40' : 'text-[#666] border-[#333] hover:text-[#968B74] hover:border-[#968B74]/30'}`}
-                        >
-                            ENG
-                        </button>
+
+                        {/* Language Dropdown - Absolutely Positioned */}
+                        {showLangMenu && (
+                            <div 
+                                className="absolute top-full left-1/2 -translate-x-1/2 pt-2 animate-fadeSlide flex flex-col items-center gap-2 z-50 pointer-events-auto"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <button
+                                    onClick={() => { setLanguage('bg'); setShowLangMenu(false); }}
+                                    className={`text-[9px] font-bold uppercase tracking-[0.2em] transition-all duration-300 ${language === 'bg' ? 'text-[#968B74]' : 'text-[#666] hover:text-[#968B74]'}`}
+                                >
+                                    BG
+                                </button>
+                                <button
+                                    onClick={() => { setLanguage('en'); setShowLangMenu(false); }}
+                                    className={`text-[9px] font-bold uppercase tracking-[0.2em] transition-all duration-300 ${language === 'en' ? 'text-[#968B74]' : 'text-[#666] hover:text-[#968B74]'}`}
+                                >
+                                    ENG
+                                </button>
+                            </div>
+                        )}
+                        
                         {isTranslating && <span className="text-[8px] text-[#666] uppercase tracking-wider">{t('common.translating')}</span>}
                         {translateError && (
                             <span className="text-[8px] text-amber-500/90 max-w-[200px] ml-1" title={translateError}>
@@ -142,13 +160,12 @@ const Navbar: React.FC = () => {
                                 </div>
                             </button>
 
-                            {/* PORTAL: Calculated Fixed Position */}
+                            {/* PORTAL: User Menu */}
                             {showUserMenu && createPortal(
                                 <div
                                     className="fixed inset-0 z-[9999]"
                                     onClick={() => setShowUserMenu(false)}
                                 >
-                                    {/* The Menu Card */}
                                     <div
                                         style={{
                                             position: 'fixed',
@@ -178,15 +195,25 @@ const Navbar: React.FC = () => {
                             )}
                         </>
                     ) : (
-                        <button
-                            onClick={() => navigate('/login')}
-                            className="px-8 py-3 border border-[#333] text-[#888] text-[9px] font-bold tracking-[0.25em] uppercase hover:border-[#968B74] hover:text-[#968B74] transition-all rounded-sm bg-transparent hover:bg-[#968B74]/5"
-                        >
-                            {t('nav.login')}
-                        </button>
+                        <div className="flex items-center gap-3 text-[9px] font-bold tracking-[0.25em] uppercase">
+                            <button
+                                onClick={() => navigate('/login')}
+                                className="text-[#888] hover:text-[#968B74] transition-colors"
+                            >
+                                {t('nav.login')}
+                            </button>
+                            <span className="text-[#333] select-none">|</span>
+                            <button
+                                onClick={() => navigate('/register')}
+                                className="text-[#888] hover:text-[#968B74] transition-colors"
+                            >
+                                {t('nav.register')}
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>
+
         </header>
     );
 };
