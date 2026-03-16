@@ -590,47 +590,32 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
             finalPoints = calculateVideoCostInPoints(billingData, isDeepMode);
         }
 
-        // ── Deduct points SERVER-SIDE ─────────────────────────────────────────
-        // Only deduct if we are ready to send success response
-        if (lastValidation.valid) {
-            let description = 'Анализ на съдържание';
-            if (serviceType === 'linkArticle') {
-                description = 'Анализ на статия (Линк)';
-            } else if (serviceType === 'text') {
-                description = 'Текстов анализ';
-            } else {
-                description = isDeepMode ? 'Дълбок видео анализ' : 'Стандартен видео анализ';
+        // ── Prepare billing payload ──────────────────────────────────────────
+        const billingPayload = {
+            userId,
+            points: finalPoints,
+            serviceType,
+            mode,
+            metadata: {
+                ...metadata,
+                videoTitle: metadata.videoTitle || metadata.title || null,
+                videoAuthor: metadata.videoAuthor || metadata.author || metadata.siteName || null,
+                videoId: metadata.videoId || null,
+                videoDuration: metadata.videoDuration || metadata.duration || null,
+                thumbnailUrl: metadata.thumbnailUrl || null
             }
+        };
 
-            // Extract metadata if exists (e.g. for link analysis title)
-            const metadata = req.body.metadata || {};
-
-            const deductResult = await deductPointsFromUser(userId, finalPoints, description, metadata);
-            if (!deductResult.success) {
-                return res.status(403).json({
-                    error: 'Insufficient points after generation.',
-                    code: 'INSUFFICIENT_POINTS',
-                    currentBalance: deductResult.newBalance
-                });
+        // Update balance in response object
+        res.json({
+            text: lastValidation.cleanedText || responseText,
+            usageMetadata: usage,
+            billingPayload, // Send to client for subsequent verification and finalization
+            points: {
+                costInPoints: finalPoints,
+                isDeep: isDeepMode
             }
-            logActivity(userId, serviceType === 'linkArticle' ? 'analysis_link' : 'analysis_video', { points: finalPoints }).catch(() => { });
-
-            // Update balance in response object
-            res.json({
-                text: lastValidation.cleanedText || responseText,
-                usageMetadata: usage,
-                points: {
-                    deducted: finalPoints,
-                    costInPoints: finalPoints,
-                    newBalance: deductResult.newBalance,
-                    isDeep: isDeepMode
-                }
-            });
-        } else {
-            // Should verify validation logic doesn't already handle this
-            // Use exiting error block
-            throw new Error('Unexpected validation state');
-        }
+        });
 
     } catch (error) {
         console.error('[Gemini API] Error:', error.message);
@@ -1049,34 +1034,34 @@ For EVERY claim: use Google Search to verify it against today's date. Return inf
             return;
         }
 
+        // ── Prepare billing payload ──────────────────────────────────────────
+        const billingPayload = {
+            userId,
+            points: finalPoints,
+            serviceType: serviceType || 'video',
+            mode,
+            metadata: {
+                ...metadata,
+                videoTitle: metadata.title || metadata.videoTitle,
+                videoAuthor: metadata.author || metadata.videoAuthor,
+                videoId: metadata.videoId,
+                videoDuration: metadata.duration,
+                thumbnailUrl: metadata.thumbnailUrl
+            }
+        };
+
         const textToSend = validation.parsed ? JSON.stringify(validation.parsed) : fullText;
-        const description = serviceType === 'linkArticle' ? 'Анализ на статия (Линк)' : serviceType === 'text' ? 'Текстов анализ' : isDeepMode ? 'Дълбок видео анализ' : 'Стандартен видео анализ';
-        if (serviceType === 'video' || !serviceType) {
-            metadata.videoTitle = metadata.title || metadata.videoTitle;
-            metadata.videoAuthor = metadata.author || metadata.videoAuthor;
-            metadata.videoId = metadata.videoId;
-            metadata.videoDuration = metadata.duration;
-            metadata.thumbnailUrl = metadata.thumbnailUrl;
-        }
-
-        const deductResult = await deductPointsFromUser(userId, finalPoints, description, metadata);
-        if (!deductResult.success) {
-            sendSSE('error', { error: 'Insufficient points.', code: 'INSUFFICIENT_POINTS', currentBalance: deductResult.newBalance });
-            endStream();
-            return;
-        }
-        const newBalance = deductResult.newBalance;
-        logActivity(userId, 'analysis_video', { points: finalPoints, isDeep: isDeepMode }).catch(() => { });
-
+        
         sendSSE('progress', { status: getProgressMsg(lang, 'finalizing') });
         try {
             sendSSE('complete', {
                 text: textToSend,
                 usageMetadata: usage,
-                points: { deducted: finalPoints, costInPoints: finalPoints, newBalance, isDeep: isDeepMode }
+                billingPayload,
+                points: { costInPoints: finalPoints, isDeep: isDeepMode }
             });
         } catch (e) {
-            console.error('[Gemini Stream] Send failed after deduct:', e?.message);
+            console.error('[Gemini Stream] Send failed:', e?.message);
             endStream();
             return;
         }
@@ -1127,7 +1112,7 @@ For EVERY claim: use Google Search to verify it against today's date. Return inf
             console.log('[Cost Logger Error]', e.message);
         }
 
-        sendSSE('points_deducted', { newBalance });
+        // sendSSE('points_deducted', { newBalance }); // Removed, handled by client call
         endStream();
 
     } catch (error) {
@@ -1181,6 +1166,54 @@ router.post('/synthesize-report', requireAuth, analysisRateLimiter, async (req, 
     } catch (error) {
         console.error('[Report Synthesis] Error:', error?.message || error);
         res.status(500).json({ error: error.message || 'Report synthesis failed' });
+    }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/gemini/finalize-billing — Finalize point deduction after client UI verification
+// ─────────────────────────────────────────────────────────────────────────────
+router.post('/finalize-billing', requireAuth, async (req, res) => {
+    try {
+        const { billingPayload } = req.body;
+        if (!billingPayload || !billingPayload.userId || billingPayload.points === undefined) {
+            return res.status(400).json({ error: 'Invalid billing payload' });
+        }
+
+        // Security check: must belong to the same user
+        if (billingPayload.userId !== req.userId) {
+            return res.status(403).json({ error: 'Unauthorized billing request' });
+        }
+
+        const { userId, points, serviceType, mode, metadata } = billingPayload;
+
+        let description = 'Анализ на съдържание';
+        if (serviceType === 'linkArticle') {
+            description = 'Анализ на статия (Линк)';
+        } else if (serviceType === 'text') {
+            description = 'Текстов анализ';
+        } else {
+            description = mode === 'deep' ? 'Дълбок видео анализ' : 'Стандартен видео анализ';
+        }
+
+        const deductResult = await deductPointsFromUser(userId, points, description, metadata);
+        if (!deductResult.success) {
+            return res.status(403).json({
+                error: 'Insufficient points for finalization.',
+                code: 'INSUFFICIENT_POINTS',
+                currentBalance: deductResult.newBalance
+            });
+        }
+
+        logActivity(userId, serviceType === 'linkArticle' ? 'analysis_link' : 'analysis_video', { points }).catch(() => { });
+
+        res.json({
+            success: true,
+            newBalance: deductResult.newBalance,
+            pointsDeducted: points
+        });
+    } catch (error) {
+        console.error('[Gemini Billing] Error:', error.message);
+        res.status(500).json({ error: 'Failed to finalize billing', code: 'BILLING_ERROR' });
     }
 });
 

@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getAnalysisById, saveAnalysis, getAnalysisCountByType } from '../../services/archiveService';
-import { synthesizeReport } from '../../services/geminiService';
+import { synthesizeReport, finalizeBilling } from '../../services/geminiService';
 import VideoResultView from '../common/result-views/VideoResultView';
 import LinkResultView from '../common/result-views/LinkResultView';
 import { VideoAnalysis } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
+// import { usePoints } from '../../contexts/PointsContext'; // Removed invalid import
 
 const SLOT_LIMITS = { video: 10, link: 15 };
 
@@ -15,7 +16,7 @@ const ReportPage: React.FC = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
-    const { currentUser } = useAuth();
+    const { currentUser, updateLocalBalance, refreshProfile } = useAuth();
 
     const [analysis, setAnalysis] = useState<VideoAnalysis | null>(null);
     const [type, setType] = useState<'video' | 'link'>('video');
@@ -25,6 +26,9 @@ const ReportPage: React.FC = () => {
     const [slotUsage, setSlotUsage] = useState<{ used: number; max: number } | null>(null);
     const [isSaved, setIsSaved] = useState(false);
     const [reportLoading, setReportLoading] = useState(false);
+    const [isNewAnalysis, setIsNewAnalysis] = useState(false);
+    const [billingPayload, setBillingPayload] = useState<any>(null);
+    const [billingFinalized, setBillingFinalized] = useState(false);
 
     useEffect(() => {
         const state = location.state as { analysis?: VideoAnalysis; type?: 'video' | 'link'; url?: string } | undefined;
@@ -34,6 +38,10 @@ const ReportPage: React.FC = () => {
             setUrl(state.url || '');
             setIsSaved(false);
             setLoading(false);
+            setIsNewAnalysis(true);
+            if ((state.analysis as any).billingPayload) {
+                setBillingPayload((state.analysis as any).billingPayload);
+            }
 
             // For fresh deep video analysis — synthesize the final report in background
             if (state.type === 'video' && state.analysis.analysisMode === 'deep' && !state.analysis.synthesizedReport) {
@@ -81,6 +89,38 @@ const ReportPage: React.FC = () => {
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
     }, [analysis, loading, error]);
+
+    // ── HITRO I TOCHNO BILLING LOGIC ─────────────────────────────────────────
+    useEffect(() => {
+        // Trigger billing ONLY if:
+        // 1. It's a new analysis (not from archive)
+        // 2. We have a billing payload
+        // 3. We haven't finalized it yet
+        // 4. IMPORTANT: There is actual content visible (e.g. claims or summary)
+        if (isNewAnalysis && billingPayload && !billingFinalized && analysis) {
+            const hasContent = (analysis.claims && analysis.claims.length > 0) || 
+                               (analysis.summary && (analysis.summary.overallSummary || (analysis.summary as any).text));
+            
+            if (hasContent) {
+                console.log('[Billing] Content detected, finalizing points deduction...');
+                setBillingFinalized(true); // Prevent double calls
+                finalizeBilling(billingPayload)
+                    .then(res => {
+                        console.log('[Billing] Success, points deducted:', res.pointsDeducted || billingPayload.points);
+                        if (updateLocalBalance && res.newBalance !== undefined) {
+                            updateLocalBalance(res.newBalance);
+                        } else if (refreshProfile) {
+                            refreshProfile();
+                        }
+                    })
+                    .catch(err => {
+                        console.error('[Billing] Failed to finalize points deduction:', err.message);
+                        // We don't block the user, but log it. 
+                        // If it fails, they actually got it for free (which satisfies the MUST NOT PAY ON ERROR rule)
+                    });
+            }
+        }
+    }, [analysis, isNewAnalysis, billingPayload, billingFinalized, updateLocalBalance, refreshProfile]);
 
     useEffect(() => {
         if (!currentUser || !type) return;

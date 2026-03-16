@@ -91,7 +91,7 @@ const callGeminiAPI = async (payload: {
  * Streaming SSE client for video analysis
  * Avoids Node.js undici headers timeout by using Server-Sent Events
  */
-const callGeminiStreamAPI = async (payload: any, token: string, onProgress?: (status: string) => void): Promise<{ text: string; usageMetadata: any; points?: any }> => {
+const callGeminiStreamAPI = async (payload: any, token: string, onProgress?: (status: string) => void): Promise<{ text: string; usageMetadata: any; points?: any; billingPayload?: any }> => {
   const response = await fetch('/api/gemini/generate-stream', {
     method: 'POST',
     headers: {
@@ -118,7 +118,7 @@ const callGeminiStreamAPI = async (payload: any, token: string, onProgress?: (st
 
   const decoder = new TextDecoder();
   let buffer = '';
-  let result: { text: string; usageMetadata: any; points?: any } | null = null;
+  let result: { text: string; usageMetadata: any; points?: any; billingPayload?: any } | null = null;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -169,7 +169,7 @@ const callGeminiStreamAPI = async (payload: any, token: string, onProgress?: (st
         }
       } catch (e: any) {
         // Re-throw actual errors (not JSON parse errors)
-        if (e.code || e.message !== 'Stream error' && e instanceof Error && !(e instanceof SyntaxError)) {
+        if (e.code || (e.message !== 'Stream error' && e instanceof Error && !(e instanceof SyntaxError))) {
           throw e;
         }
       }
@@ -181,6 +181,31 @@ const callGeminiStreamAPI = async (payload: any, token: string, onProgress?: (st
   }
 
   return result;
+};
+
+/**
+ * Finalize billing by sending the billing payload back to the server
+ */
+export const finalizeBilling = async (billingPayload: any): Promise<{ success: boolean; newBalance: number }> => {
+  const user = auth.currentUser;
+  if (!user) throw new Error('User not authenticated');
+  const token = await user.getIdToken();
+
+  const response = await fetch('/api/gemini/finalize-billing', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({ billingPayload })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Failed to finalize billing');
+  }
+
+  return response.json();
 };
 
 const getAnalysisPrompt = (url: string, mode: AnalysisMode): string => {
