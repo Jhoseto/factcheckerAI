@@ -168,7 +168,7 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                     <div className="flex flex-wrap gap-x-6 gap-y-2">{linkTabsContent}</div>
                 </nav>
                 <div className="h-[52px]" aria-hidden />
-                <section ref={tabContentRef} className="min-h-[400px] pt-2 pb-8">
+                <section ref={tabContentRef} className="min-h-[400px] pt-2 pb-8 scroll-mt-[300px]">
                     {activeTab === 'summary' && (
                         <div className="space-y-10 animate-fadeIn">
                             {/* Header Card */}

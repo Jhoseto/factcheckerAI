@@ -480,7 +480,7 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
                 </nav>
                 <div className="h-[52px]" aria-hidden />
 
-                <section ref={tabContentRef} className="min-h-[400px] pt-2 pb-8">
+                <section ref={tabContentRef} className="min-h-[400px] pt-2 pb-8 scroll-mt-[300px]">
                     {activeTab === 'summary' && (
                         <div className="space-y-8 animate-fadeIn">
                             <div className="editorial-card p-6 md:p-8 border-l-4 border-l-[#968B74] space-y-4">
