@@ -105,7 +105,14 @@ const MobileAudit: React.FC = () => {
       );
       if (response.usage?.newBalance !== undefined) updateLocalBalance(response.usage.newBalance);
       else refreshProfile();
-      navigate('/analysis-result', { state: { analysis: response.analysis, type: 'video', url: youtubeUrl } });
+      navigate('/analysis-result', { 
+        state: { 
+          analysis: response.analysis, 
+          type: 'video', 
+          url: youtubeUrl,
+          billingPayload: response.billingPayload 
+        } 
+      });
     } catch (e: any) {
       if (e.code === 'INSUFFICIENT_POINTS') setError(t('errors.insufficientPointsShort'));
       else if (e.code === 'RATE_LIMIT') setError(t('errors.rateLimitWait'));
@@ -137,12 +144,19 @@ const MobileAudit: React.FC = () => {
     setError(null);
     setElapsedSeconds(0);
     try {
-      const { analysis: result, usage } = await analyzeLinkDeep(linkUrl, (status) => {
+      const { analysis: result, usage, billingPayload } = await analyzeLinkDeep(linkUrl, (status) => {
         setStreamingProgress(status);
       });
       if (usage?.newBalance !== undefined) updateLocalBalance(usage.newBalance);
       else refreshProfile();
-      navigate('/analysis-result', { state: { analysis: result, type: 'link', url: linkUrl } });
+      navigate('/analysis-result', { 
+        state: { 
+          analysis: result, 
+          type: 'link', 
+          url: linkUrl,
+          billingPayload: billingPayload 
+        } 
+      });
     } catch (e: any) {
       if (e.code === 'INSUFFICIENT_POINTS') setError(t('errors.insufficientPointsShort'));
       else if (e.code === 'RATE_LIMIT') setError(t('errors.rateLimitWait'));

@@ -177,6 +177,7 @@ export interface APIUsage {
 export interface AnalysisResponse {
   analysis: VideoAnalysis;
   usage: APIUsage;
+  billingPayload?: any;
 }
 
 // New types for analysis modes

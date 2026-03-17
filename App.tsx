@@ -74,7 +74,14 @@ const App: React.FC = () => {
 
     try {
       const response = await analyzeYouTubeStandard(url, videoMetadata || undefined, 'gemini-2.5-flash', analysisMode || 'standard', setStreamingProgress);
-      navigate('/analysis-result', { state: { analysis: response.analysis, type: 'video', url: youtubeUrl } });
+      navigate('/analysis-result', { 
+        state: { 
+          analysis: response.analysis, 
+          type: 'video', 
+          url: youtubeUrl,
+          billingPayload: response.billingPayload 
+        } 
+      });
       if (response.usage?.newBalance !== undefined) updateLocalBalance(response.usage.newBalance);
       else refreshProfile();
     } catch (e: any) {

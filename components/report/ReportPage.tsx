@@ -39,7 +39,9 @@ const ReportPage: React.FC = () => {
             setIsSaved(false);
             setLoading(false);
             setIsNewAnalysis(true);
-            if ((state.analysis as any).billingPayload) {
+            if ((state as any).billingPayload) {
+                setBillingPayload((state as any).billingPayload);
+            } else if ((state.analysis as any).billingPayload) {
                 setBillingPayload((state.analysis as any).billingPayload);
             }
 

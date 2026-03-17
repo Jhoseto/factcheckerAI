@@ -39,7 +39,14 @@ const LinkAuditPage: React.FC = () => {
 
         try {
             const result = await analyzeLinkDeep(url);
-            navigate('/analysis-result', { state: { analysis: result.analysis, type: 'link', url } });
+            navigate('/analysis-result', { 
+                state: { 
+                    analysis: result.analysis, 
+                    type: 'link', 
+                    url,
+                    billingPayload: result.billingPayload 
+                } 
+            });
 
             if (result.usage?.newBalance !== undefined) {
                 updateLocalBalance(result.usage.newBalance);

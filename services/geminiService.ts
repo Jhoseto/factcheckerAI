@@ -186,7 +186,7 @@ const callGeminiStreamAPI = async (payload: any, token: string, onProgress?: (st
 /**
  * Finalize billing by sending the billing payload back to the server
  */
-export const finalizeBilling = async (billingPayload: any): Promise<{ success: boolean; newBalance: number }> => {
+export const finalizeBilling = async (billingPayload: any): Promise<{ success: boolean; newBalance: number; pointsDeducted?: number }> => {
   const user = auth.currentUser;
   if (!user) throw new Error('User not authenticated');
   const token = await user.getIdToken();
@@ -511,7 +511,7 @@ export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTub
     const transcription: TranscriptionLine[] = [];
 
     const parsed = transformGeminiResponse(rawResponse, model, videoMetadata?.title, videoMetadata?.author, videoMetadata, transcription, mode);
-
+    
     const usage: APIUsage = {
       promptTokens: data.usageMetadata?.promptTokenCount || 0,
       candidatesTokens: data.usageMetadata?.candidatesTokenCount || 0,
@@ -533,7 +533,7 @@ export const analyzeYouTubeStandard = async (url: string, videoMetadata?: YouTub
     };
 
     parsed.pointsCost = usage.pointsCost;
-    return { analysis: parsed, usage };
+    return { analysis: parsed, usage, billingPayload: (data as any).billingPayload };
   } catch (e: any) {
     const appError = handleApiError(e);
     throw appError;

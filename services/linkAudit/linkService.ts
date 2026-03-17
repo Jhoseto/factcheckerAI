@@ -2,7 +2,7 @@ import { auth } from '../firebase';
 import { handleApiError } from '../errorHandler';
 import { getLinkAnalysisPrompt } from '../prompts/linkAnalysisPrompt';
 import { getLinkAnalysisPromptEn } from '../prompts/linkAnalysisPrompt.en';
-import { VideoAnalysis, APIUsage } from '../../types';
+import { VideoAnalysis, APIUsage, AnalysisResponse } from '../../types';
 import { getApiLang } from '../../i18n';
 
 interface ScrapeResult {
@@ -44,7 +44,7 @@ const scrapeLinkContent = async (url: string, token: string): Promise<ScrapeResu
 export const analyzeLinkDeep = async (
     url: string,
     onProgress?: (status: string) => void
-): Promise<{ analysis: VideoAnalysis; usage: APIUsage }> => {
+): Promise<AnalysisResponse> => {
     try {
         const user = auth.currentUser;
         if (!user) throw new Error('User must be logged in');
@@ -117,7 +117,7 @@ export const analyzeLinkDeep = async (
                 : 'Анализът не съдържа достатъчно информация. Моля, опитайте отново.');
         }
 
-        return { analysis, usage };
+        return { analysis, usage, billingPayload: jsonData.billingPayload };
 
     } catch (error: any) {
         throw handleApiError(error);
