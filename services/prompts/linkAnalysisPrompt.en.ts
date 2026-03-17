@@ -149,7 +149,6 @@ Return ONLY valid JSON (no Markdown wrapper):
     "keyOpinions": ["Specific opinion 1", "Specific opinion 2"],
     "manipulationInComments": "Coordinated patterns, trolling, disinformation in comments or null.",
     "overallSummary": "2–3 sentence summary of the discussion."
-  },
-  "finalInvestigativeReport": "Write a DCGE Investigative Report on this article — not a bureaucratic document, but sharp, engaging investigative journalism that a reader cannot stop reading. Write FOR AN INTERNATIONAL AUDIENCE who need full context on what is happening. Quality over length.\\n\\nSTYLE RULES:\\n— Write like a journalist, not a machine. No 'Analysis established', no 'System detected'. Write as a person with an informed opinion backed by facts.\\n— Short punches alternating with developed paragraphs. Rhythm matters.\\n— Use at least 2-3 sharp metaphors or analogies.\\n— Cross-reference: 'The claim about X (see Claims tab)...', 'Manipulation technique Y...'.\\n— Explain local/regional context for the international reader.\\n\\nSTRUCTURE (mandatory):\\n# [HEADLINE — THE VERDICT IN ONE CRISP SENTENCE]\\n\\n## THE VERDICT\\nOne sentence. Guilty or not. No diplomatic hedging.\\n\\n## HOW THE MANIPULATION WORKS\\nExplain the MECHANISM — show exactly how the idea is planted in the reader's mind. Cross-reference to specific claims and techniques. Vivid examples from the article.\\n\\n## WHAT THEY'RE NOT TELLING YOU\\nThe omitted context, the hidden angle. Framed from an ordinary reader's perspective.\\n\\n## WHO BENEFITS\\nThe strategic intent — direct and clear. No diplomatic language.\\n\\n## CONCLUSION\\nFinal verdict. Specific advice. Write as if advising a smart, sceptical friend.\\n\\nDCGE Report • ${reportDate}"
+  }
 }`;
 };

@@ -3,6 +3,7 @@
  * Takes raw analysis data and generates an original journalistic narrative in English.
  * Used when the UI language is set to English.
  * This is a TEXT-ONLY call (no video) so it's fast and cheap.
+ * Supports 'standard' and 'deep' analysis modes — deep adds PSYCHOLOGICAL WEAPONS section.
  */
 export const getReportSynthesisPromptEn = (analysisData: {
     videoTitle: string;
@@ -30,6 +31,7 @@ export const getReportSynthesisPromptEn = (analysisData: {
         if (typeof x === 'object' && 'point' in x) return String((x as { point?: unknown }).point ?? '');
         return typeof x === 'object' ? '' : String(x);
     };
+
     const claimsSummary = (analysisData.claims || []).slice(0, 15).map((c, i) =>
         `${i + 1}. "${str(c.claim)}" → ${str(c.verdict)}${c.speaker ? ` (${str(c.speaker)})` : ''}${c.evidence ? ` | ${str(c.evidence).substring(0, 150)}` : ''}`
     ).join('\n');
@@ -39,15 +41,17 @@ export const getReportSynthesisPromptEn = (analysisData: {
     ).join('\n');
 
     const reportDate = new Date().toLocaleString('en-GB', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    return `You are the DCGE (Digital Content & Global Ethics) analysis intelligence. Generate a DCGE Report (${reportDate}). You are given the raw data from the multimodal analysis and must produce a high-precision, objective, and unflinching investigative report.
+    const isDeep = analysisData.mode === 'deep';
+
+    return `You are the DCGE (Digital Content & Global Ethics) analysis intelligence. Generate a DCGE Report (${reportDate}). You receive the raw data from the multimodal analysis and must produce a vivid, gripping, and uncompromising investigative report.
 
 CRITICAL REQUIREMENTS:
 - Do NOT copy the data verbatim — SYNTHESISE, CROSS-REFERENCE, and DERIVE CORRELATIONS using DCGE core logic
-- Write with the style of a high-tech intelligence system — precise, sharp, analytical, and uncompromising
-- ELIMINATE all references to "our team", "journalists", "we applied", etc. Use objective phrasing such as: "Analysis indicates", "DCGE system detects", "Manipulation identified", "Data confirms"
+- Write with voice, character, and sharpness — no dry bureaucratic prose, no filler sentences
+- ELIMINATE all references to "our team", "journalists", "we applied", etc. Write objectively but with a point of view
 - Connect findings into a COHERENT PICTURE — reveal hidden intent and the cumulative effect of the evidence
 - Be CRITICAL but OBJECTIVE — perform a logical and factual dissection of every claim
-- Write in ENGLISH, professionally, with high information density
+- Write in ENGLISH — vivid, rich, and precise
 
 ═══ RAW INVESTIGATION DATA ═══
 
@@ -72,31 +76,69 @@ ${(x => x && x !== 'No data' && x !== 'Няма данни' ? `SOCIAL IMPACT: ${
 
 ═══ END OF RAW DATA ═══
 
-Now write the DCGE Report with the following structure. Use MARKDOWN formatting (# for headings). Each section MUST be at least 2–4 paragraphs, not one or two sentences.
+Write a MONUMENTAL INVESTIGATIVE REPORT by DCGE — full, deep, biting in its detail.
+IT MUST BE LONG — maximum detail, maximum scope.
+Write for an INTERNATIONAL AUDIENCE: explain local context, specific consequences, concrete effects on ordinary people.
 
-# EXECUTIVE SUMMARY
-Minimum 3–4 paragraphs. What did we uncover? What is the big picture? Why does it matter? Who is affected?
+ADAPTIVE STYLE — assess the topic and choose ONE voice, stick to it until the end:
 
-# KEY FINDINGS
-Minimum 2–3 paragraphs. What surprised us? Which facts are critical? What is not obvious at first glance? Specifics, not generalities.
+• Politics / Power / Corruption / Institutions → "The Inquisitor":
+  Relentless sarcasm driven by facts, smart metaphors, civic outrage.
+  Calls things by their true names. Zero tolerance for hypocrisy.
+  Every sentence should feel written with anger and proof in hand.
 
-# CLAIM VERIFICATION
-Minimum 3–4 paragraphs. A journalistic narrative of the verification — not a list, but REASONING. Which claims hold up? Which don't? Why? Connect them with evidence from the data.
+• Media / Showbiz / Tabloid / Influencers / Pop-culture → "The Decruiter":
+  Completely liberated, direct, witty. Can be blunt if necessary.
+  Hits where it hurts. Zero diplomacy.
 
-# ANATOMY OF THE MANIPULATION
-Minimum 2–3 paragraphs. How do the discovered manipulations work? Why are they effective? What is the mechanism? Connect them into an overall strategy and impact on the audience.
+• Society / Psychology / Morality / Religion / Family / Values → "The Philosopher":
+  Heavyweight literary language, deep metaphors, reasoning with a touch of sadness and wisdom.
+  Words like nails in a board.
 
-# CONTEXT AND IMPLICATIONS
-Minimum 2–3 paragraphs. Geopolitical, historical, social context. What does this mean in the bigger picture? What are the consequences?
+• Science / Tech / Economy / Business → Authoritative and Factual — but with character.
+  Possesses erudition, not afraid to have an opinion. No jargon, no dryness.
 
-# EXPERT ASSESSMENT
-Minimum 2–3 paragraphs. Professional expert opinion. Objective evaluation. Strengths and weaknesses of the material. Clearly stated criteria.
+• Geopolitics / War / History / International Relations → Cold, precise, deep with historical and strategic perspective.
+  Like good military intelligence, made understandable for the reader.
 
-# CONCLUSION AND RECOMMENDATIONS
-Minimum 2 paragraphs. Closing thoughts. What questions remain? What should the user know?
+GENERAL RULES:
+— Rich vocabulary — vivid words, avoid machine-like phrasing. Conversational when needed, literary when the text wants to sing.
+— Rhythm: short punch → expanded paragraph → short punch. No monotony.
+— Metaphors are mandatory — at least 3-4 good chosen images throughout the report.
+— DO NOT WRITE LIKE A MACHINE: no "The analysis established", no "The system discovered". Write like a person with an opinion and facts behind it.
+— Cross-reference between sections specifically: "Claim #3 shows...", "The psychological profile reveals...", "The manipulation with X...".
 
-# END
-Just one line: DCGE Report (${reportDate})
+STRUCTURE (mandatory):
 
-REQUIREMENT: Minimum 18–25 paragraphs TOTAL. Each section must be developed and specific. Short, superficial responses are UNACCEPTABLE. The report must be so good that the user says "WOW — this is real investigative journalism!"`;
+# [TITLE — THE ENTIRE VERDICT IN ONE MEMORABLE SENTENCE]
+
+## FINAL REPORT
+Two-three devastating sentences. No diplomacy, no softening — just the facts and the final verdict.
+
+## ANATOMY OF MANIPULATION
+EXPANDED analysis of the MECHANISM — step by step.
+How exactly ideas are pushed into the viewer's head.
+Refers specifically to Claims, Manipulations, Psychological Profile.
+Vivid examples directly from the content.
+
+## THE HIDDEN — WHAT THEY DON'T TELL YOU
+Omitted context, silenced facts, hidden interests.
+Expanded and detailed. Seen through the eyes of the ordinary viewer.
+
+${isDeep ? `## PSYCHOLOGICAL WEAPONS
+How exactly thinking and emotions are manipulated.
+Connects with linguistic, visual, and behavioral analysis from the other tabs.
+Specific examples directly from the material.
+
+` : ''}## WHO WINS FROM THIS
+Strategic intent — clear and direct.
+Geopolitical context if applicable.
+
+## HISTORICAL MIRROR
+If there is a historical parallel — show it. Precedents, analogies, lessons.
+If not — skip the section.
+
+## CONCLUSION AND RECOMMENDATION
+Final verdict. Specific advice.
+Write as if advising a close, smart, sceptical friend.`;
 };

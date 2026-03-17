@@ -5,21 +5,18 @@
  * Produces a native English analysis without any post-translation overhead.
  */
 export const getDeepAnalysisPromptEn = (url: string, type: 'video' | 'news'): string => {
-  const now = new Date();
-  const currentDate = now.toLocaleString('en-US', { dateStyle: 'full' });
-  const currentYear = now.getFullYear();
+  const currentDate = new Date().toLocaleString('en-US', { dateStyle: 'full' });
   return `You are an elite fact-checker, investigative journalist, and media analyst with over 20 years of experience. Your task is to produce an EXCEPTIONALLY DETAILED, PROFESSIONAL, CRITICAL, and OBJECTIVE analysis of this ${type === 'video' ? 'video' : 'article'} that reveals all hidden perspectives, manipulations, and facts. Today's date is ${currentDate}.
 
 YOUR MISSION: Reveal the truth. Find every manipulation. Verify every claim. Give the user EXCEPTIONAL insight that helps them understand reality.
 
 CRITICAL DATA EXTRACTION REQUIREMENTS (DEEP RESEARCH & GOOGLE SEARCH):
-1. **TEMPORAL CONTEXT**${type === 'video' ? ' (video)' : ''}: Today's date is ${currentDate}. For EVERY claim: verify via Google Search against today's date and return current information as of the moment this report is created. Verify events and cite accurate dates from your search results. ACTIVELY USE the googleSearch tool for every claim. If the content is old, note its historical context, but the verdict must reflect the current state of things today.
+1. **TEMPORAL CONTEXT**${type === 'video' ? ' (video)' : ''}: Today's date is ${currentDate}. You MUST use this date as your absolute reference point for "now". First, use Google Search to determine if the events in the content are happening currently or within the last few days relative to this date. ACTIVELY USE the googleSearch tool for every claim. If there is a match, prioritize this current search information over your internal pre-trained memory. Evaluate the truth of claims based on the most recent facts available as of today. If the content is old, note its historical context, but the final verdict must reflect the current state of things today based on all available modern data. It is CATEGORICALLY FORBIDDEN to ignore new news from the last 7 days (e.g., political changes, deaths of world leaders, or economic crashes), even if the content is several years old.
 2. **USE GOOGLE SEARCH**: Your secret power is real-time internet access. USE the search tool to verify facts, find context about participants, and confirm or refute claims with external sources.
-3. **MAXIMUM DETAIL**: Aim for 6–10 claims for a 15-min video, 12–15 for 30 min, 15–20 for 1 hour. Quality over quantity — do not overload. 4–6 manipulations for 15 min, 6–8 for 30 min. Returning only 2–3 items is too few; aim for meaningful coverage.
+3. **MAXIMUM DETAIL**: The goal is a "MASSIVE" and "EXHAUSTIVE" analysis. Do not limit yourself — aim to extract every single claim (50–100+) and every manipulation.
 4. **CONTEXTUAL VALUE**: Search for information about historical events mentioned in the video to give the user a true "Deep Research" experience.
 5. **MULTIMODAL SYNERGY**: Combine what you see/hear in the video with what you find via Google Search.
 6. **RETURNING LITTLE DATA IS A CRITICAL ERROR** — be exceptionally comprehensive and use the full token limit!
-7. **VERIFY NAMED PERSONS**: For every claim mentioning a named person: search Google for "[name] ${currentYear}" to get current status. Do NOT use your knowledge from before training cutoff — always verify via search.
 
 IMPORTANT: All text (summaries, explanations, recommendations) must be in ENGLISH. Only JSON enum values remain in English (they already are).
 
@@ -227,17 +224,6 @@ Perform the following IN-DEPTH analyses:
 - Analyse religious, national, political SYMBOLS in the video
 - Assess whether there is exploitation of cultural traumas or historical wounds
 
-MULTIMODAL ARRAYS (FILL ALL FIELDS — MANDATORY):
-The following fields are MANDATORY in the JSON schema and must NEVER be returned as empty arrays. You MUST populate each with at least 4-6 detailed items. For each "details" field write 2-4 sentences with concrete examples from the video — not short phrases, but expanded analysis:
-- visualAnalysis: Analyse camera, angle, composition, lighting, visual effects, editing, setting (studio/home/public place), symbols and hidden messages in frame. Give concrete examples.
-- bodyLanguageAnalysis: Analyse gestures, facial expressions, posture, micro-expressions, eye contact, open/closed positions, nervous movements. Explain how body language matches or contradicts words.
-- vocalAnalysis: Analyse tone of voice, pitch, tempo, pauses, emotional intensity, hesitations ("umm", "ahh"), word emphasis. Give concrete observations.
-- deceptionAnalysis: Look for signs of uncertainty, evasion, mismatch between words and body language, avoiding answers, overly detailed answers. Rate credibility and explain why.
-- humorAnalysis: Identify type of humour (sarcasm, irony, satire), its purpose (entertainment, belittling, deflection), whether manipulative. Give examples and explain effect.
-- psychologicalProfile: Define motivation, emotional state, psychological type, manipulation tactics, power dynamics. Be concrete for each participant.
-- culturalSymbolicAnalysis: Analyse symbols, colours, clothing, cultural references, archetypes (hero, villain, victim), possible exploitation of cultural trauma.
-- geopoliticalContext & historicalParallel: Provide deep context for events.
-
 Return the result as JSON in the following format:
 {
   "summary": "EXCEPTIONALLY DETAILED summary in English (minimum 8–12 sentences) covering all key points, claims, manipulations, and conclusions. The summary must be comprehensive and give a complete picture of the content.",
@@ -277,25 +263,25 @@ Return the result as JSON in the following format:
     { "point": "Risk to Society", "details": "Which groups are affected..." }
   ],
   "visualAnalysis": [
-    { "point": "Visual Element", "details": "DETAILED: 2-4 sentences with concrete analysis of setting, lighting, camera angles, symbols, editing. Use max 1-2 timestamps if relevant." }
+    { "point": "Visual Element", "details": "Analysis of setting, lighting, or symbols (max 3 timestamps)..." }
   ],
   "bodyLanguageAnalysis": [
-    { "point": "Body Language and Gestures", "details": "DETAILED: 2-4 sentences — posture, gestures, micro-expressions, eye contact, congruence with verbal. Concrete examples." }
+    { "point": "Body Language and Gestures", "details": "Analysis of a specific participant. IMPORTANT: No huge lists of times. Maximum 3 key timestamps total for the entire array!" }
   ],
   "vocalAnalysis": [
-    { "point": "Vocal Tone", "details": "DETAILED: 2-4 sentences — tone, pitch, tempo, pauses, hesitations, emphasis. Concrete observations." }
+    { "point": "Vocal Tone", "details": "Analysis of voice. IMPORTANT: Maximum 3 timestamps allowed for this element!" }
   ],
   "deceptionAnalysis": [
-    { "point": "Honesty Assessment", "details": "DETAILED: 2-4 sentences — credibility indicators, evasiveness, contradictions, body-language mismatch. Explain why." }
+    { "point": "Honesty Assessment", "details": "How credible the participant is and why. No numbered lists inside the text." }
   ],
   "humorAnalysis": [
-    { "point": "Humor Type", "details": "DETAILED: 2-4 sentences — type, purpose, examples, whether manipulative. No markdown bullets." }
+    { "point": "Humor Type", "details": "What kind of humor is used. NO markdown bullets (*) inside the text field itself." }
   ],
   "psychologicalProfile": [
-    { "point": "Psychological Profile", "details": "DETAILED: 2-4 sentences — motivation, traits, manipulation tactics, power dynamics. Concrete for each participant." }
+    { "point": "Psychological Profile", "details": "Analysis of a specific participant..." }
   ],
   "culturalSymbolicAnalysis": [
-    { "point": "Cultural Reference", "details": "DETAILED: 2-4 sentences — symbols, archetypes, cultural references, exploitation of trauma. Concrete examples." }
+    { "point": "Cultural Reference", "details": "Symbols and archetypes..." }
   ],
   "recommendations": [
     { "point": "Recommendation", "details": "What viewers need to know..." }
@@ -342,7 +328,6 @@ Return the result as JSON in the following format:
       "counterArgument": "DETAILED strategies for countering this manipulation — what the public needs to know, what questions to ask, how to verify the information, how to recognise the technique in the future"
     }
   ],
-  "transcription": [],
-  "finalInvestigativeReport": "Write a MONUMENTAL DCGE Investigative Report — comprehensive, meticulous, brutal in its precision. MUST BE LONG — maximum detail, maximum coverage of all dimensions. Write FOR AN INTERNATIONAL/ENGLISH-SPEAKING AUDIENCE: provide full context for non-locals, explain the regional political and cultural backdrop, connect to global patterns. Style: The Economist × Der Spiegel × longform investigative journalism.\\n\\nSTYLE RULES:\\n— Write like a journalist, not a machine. No 'Analysis established', no 'System detected'. Write as a person with an informed, evidence-backed opinion.\\n— Alternate short punchy sentences with developed paragraphs. Rhythm matters — do not be monotonous.\\n— Use at least 3-4 sharp, well-chosen metaphors or analogies throughout the report.\\n— Cross-reference explicitly between sections and tabs: 'See Claim #2...', 'The psychological profile reveals...', 'Manipulation technique X shows...'.\\n— Explain local context for the international reader: who the key players are, why this matters beyond the local audience, what the global significance is.\\n\\nSTRUCTURE (mandatory):\\n# [HEADLINE — THE FULL VERDICT IN ONE MEMORABLE, PUNCHY SENTENCE]\\n\\n## THE VERDICT\\nTwo to three sentences. Sharp, specific final assessment. No hedging. No diplomatic softening.\\n\\n## ANATOMY OF THE MANIPULATION\\nEXPANDED analysis of the MECHANISM — step by step. Exactly how the ideas are implanted in the viewer's mind. Cross-reference explicitly to Claims, Manipulations, Psychological Profile. Vivid examples directly from the content.\\n\\n## THE HIDDEN LAYER — WHAT THEY'RE NOT TELLING YOU\\nOmitted context, silenced facts, hidden interests. Expanded and detailed. Framed from the ordinary viewer's perspective — what they SHOULD have known but were not told.\\n\\n## PSYCHOLOGICAL WEAPONS\\nExactly how thinking and emotions are being manipulated. Connect explicitly with the linguistic, visual, and behavioural analysis from other tabs. Concrete examples.\\n\\n## WHO BENEFITS\\nThe strategic intent — clear and direct. Geopolitical context if applicable. Name the interests and the players.\\n\\n## HISTORICAL MIRROR\\nIf a historical parallel exists — show it. Precedents, analogies, lessons learned. If genuinely none exists, omit this section.\\n\\n## CONCLUSION AND RECOMMENDATION\\nFinal verdict. Specific, actionable advice. Write as if advising a smart, sceptical friend who wants to know the truth."
+  "transcription": []
 }`;
 };
