@@ -62,7 +62,20 @@ const MultimodalSection: React.FC<{ title: string; content?: string | unknown; c
         : (typeof content === 'string' ? content : (content && typeof content === 'object' && content !== null
             ? String((content as { text?: string }).text ?? (content as { summary?: string }).summary ?? (content as Record<string, unknown>).content ?? '')
             : ''));
-    if (!text || text === t('analysis.noData')) return null;
+    if (!text?.trim()) {
+        return (
+            <div className="editorial-card p-6 md:p-10 border-l-2 border-l-[#968B74]/50 animate-fadeIn">
+                <div className="mb-6 pb-4 border-b border-[#333] flex items-center gap-3">
+                    {icon && <span className="text-[#968B74]">{icon}</span>}
+                    <h3 className="text-xl md:text-2xl font-black text-[#C4B091] uppercase tracking-tight">{title}</h3>
+                </div>
+                <p className="text-[#888] text-[15px]">{t('analysis.noData')}</p>
+            </div>
+        );
+    }
+    if (text === t('analysis.noData')) {
+        return null;
+    }
 
     const segments = text.split(/(?=\d+\.\s)/).map((s: string) => s.trim()).filter(Boolean);
 

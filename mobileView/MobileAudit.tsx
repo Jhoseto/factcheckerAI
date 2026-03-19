@@ -9,6 +9,7 @@ import { validateYouTubeUrl, validateNewsUrl } from '../services/validation';
 import { analyzeLinkDeep } from '../services/linkAudit/linkService';
 import { FIXED_PRICES } from '../config/pricingConfig';
 import type { AnalysisMode, YouTubeVideoMetadata, CostEstimate } from '../types';
+import { clearAnalysisSession } from '../services/analysisSession';
 import MobileSafeArea from './components/MobileSafeArea';
 import MobileHeader from './components/MobileHeader';
 
@@ -95,6 +96,7 @@ const MobileAudit: React.FC = () => {
     setLoading(true);
     setError(null);
     setElapsedSeconds(0);
+    clearAnalysisSession();
     try {
       const response = await analyzeYouTubeStandard(
         youtubeUrl,
@@ -143,6 +145,7 @@ const MobileAudit: React.FC = () => {
     setLinkLoading(true);
     setError(null);
     setElapsedSeconds(0);
+    clearAnalysisSession();
     try {
       const { analysis: result, usage, billingPayload } = await analyzeLinkDeep(linkUrl, (status) => {
         setStreamingProgress(status);

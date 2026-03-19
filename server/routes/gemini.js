@@ -9,6 +9,7 @@
  */
 
 import express from 'express';
+import { randomUUID } from 'node:crypto';
 import { GoogleGenAI } from '@google/genai';
 import { requireAuth } from '../middleware/auth.js';
 import { analysisRateLimiter } from '../middleware/rateLimiter.js';
@@ -89,6 +90,242 @@ function parseJsonRobust(rawText) {
         return { ok: true, parsed: JSON.parse(escapeControlCharsInJson(t)) };
     } catch (_) { }
     return { ok: false, error: 'parse failed' };
+}
+
+/**
+ * When Flash fills visualAnalysis/bodyLanguage… arrays but omits multimodalObservations string, rebuild marker text.
+ */
+function serializeMultimodalFromStage1Arrays(parsed) {
+    if (!parsed || typeof parsed !== 'object') return '';
+    const map = [
+        ['VISUAL', 'visualAnalysis'],
+        ['BODY LANGUAGE', 'bodyLanguageAnalysis'],
+        ['VOCAL', 'vocalAnalysis'],
+        ['DECEPTION', 'deceptionAnalysis'],
+        ['HUMOR', 'humorAnalysis']
+    ];
+    const blocks = [];
+    for (const [label, key] of map) {
+        const arr = parsed[key];
+        if (!Array.isArray(arr)) continue;
+        const lines = [];
+        let n = 0;
+        for (const item of arr) {
+            const p = String(item?.point ?? '').trim();
+            const d = String(item?.details ?? item?.description ?? '').trim();
+            const low = `${p} ${d}`.toLowerCase();
+            if (!p && !d) continue;
+            if (low.includes('no significant observations')) continue;
+            n += 1;
+            lines.push(p && d ? `${n}. ${p}: ${d}` : `${n}. ${p || d}`);
+        }
+        if (lines.length) blocks.push(`[${label}]\n${lines.join('\n')}`);
+    }
+    return blocks.join('\n\n');
+}
+
+/**
+ * Turn Stage 1 `multimodalObservations` text (with [VISUAL]…[HUMOR] markers) into
+ * VIDEO_DEEP_SCHEMA arrays. Used to OVERRIDE Stage 2 output — Pro does not see video and
+ * often hallucinates visual/vocal/body content if left to fill JSON alone.
+ */
+function textChunkToPointDetails(body, fallbackPoint) {
+    const t = (body || '').trim();
+    if (!t) {
+        return [{ point: fallbackPoint, details: 'No significant observations were noted in the video analysis.' }];
+    }
+    let chunks = t.split(/\n(?=\d+\.\s)/).map(s => s.trim()).filter(Boolean);
+    if (chunks.length <= 1) {
+        chunks = t.split(/\n(?=[•\-\*\u2022]\s)/u).map(s => s.trim()).filter(Boolean);
+    }
+    if (chunks.length <= 1) {
+        chunks = t.split(/\n{2,}/).map(s => s.trim()).filter(Boolean);
+    }
+    if (chunks.length <= 1 && !/^\d+\.\s/.test(t)) {
+        return [{ point: fallbackPoint, details: t }];
+    }
+    const out = [];
+    for (const chunk of chunks) {
+        const stripped = chunk.replace(/^\d+\.\s*/, '').trim();
+        const colonIdx = stripped.indexOf(':');
+        if (colonIdx > 0 && colonIdx < 120) {
+            out.push({
+                point: stripped.slice(0, colonIdx).trim(),
+                details: stripped.slice(colonIdx + 1).trim()
+            });
+        } else {
+            out.push({ point: fallbackPoint, details: stripped });
+        }
+    }
+    return out.length ? out : [{ point: fallbackPoint, details: t }];
+}
+
+/** Non-marker prose length — detects empty skeleton [VISUAL]\\n[BODY]... with no substance */
+function bareMultimodalProseLen(mm) {
+    if (!mm || typeof mm !== 'string') return 0;
+    return mm.replace(/\[[^\]]+\]/g, ' ').replace(/\s+/g, ' ').trim().length;
+}
+
+function multimodalArrayKeys() {
+    return ['visualAnalysis', 'bodyLanguageAnalysis', 'vocalAnalysis', 'deceptionAnalysis', 'humorAnalysis'];
+}
+
+function itemIsMultimodalPlaceholder(it) {
+    const p = String(it?.point ?? '').trim().toLowerCase();
+    const d = String(it?.details ?? '').trim().toLowerCase();
+    const b = `${p} ${d}`;
+    if (/no significant observations/.test(b)) return true;
+    if (/^no significant observations$/.test(p)) return true;
+    if (/няма значими наблюдения/.test(b)) return true;
+    if (/няма върнати наблюдения/.test(b)) return true;
+    if (/не са отбелязани значими наблюдения/.test(b)) return true;
+    if (/в\s+видеоанализа\s+не\s+са\s+отбелязани/i.test(b)) return true;
+    if (/не\s+са\s+намерени\s+значими/i.test(b)) return true;
+    return false;
+}
+
+function isPlaceholderArray(arr) {
+    if (!Array.isArray(arr) || arr.length === 0) return true;
+    return arr.every(itemIsMultimodalPlaceholder);
+}
+
+/**
+ * Patch multimodal tabs from Stage 1: only overwrite tabs that are empty or placeholder-only,
+ * so a partial [VISUAL] parse does not replace good Stage 2 text with English "no observations" slots.
+ */
+function mergeMultimodalTabs(stage2, patchObj, onlyFillPlaceholders) {
+    if (!stage2 || !patchObj || typeof patchObj !== 'object') {
+        return { parsed: stage2, patched: false };
+    }
+    const merged = { ...stage2 };
+    let patched = false;
+    for (const k of multimodalArrayKeys()) {
+        const patch = patchObj[k];
+        if (!Array.isArray(patch) || patch.length === 0) continue;
+        if (isPlaceholderArray(patch)) continue;
+        const cur = stage2[k];
+        const curWeak = isPlaceholderArray(cur);
+        if (onlyFillPlaceholders ? curWeak : true) {
+            merged[k] = patch;
+            patched = true;
+        }
+    }
+    return { parsed: merged, patched };
+}
+
+function multimodalTabLabelFallback(lang, field) {
+    const en = String(lang || 'bg').toLowerCase().startsWith('en');
+    const names = en
+        ? { visualAnalysis: 'Visual', bodyLanguageAnalysis: 'Body language', vocalAnalysis: 'Vocal', deceptionAnalysis: 'Deception', humorAnalysis: 'Humor' }
+        : { visualAnalysis: 'Визуален', bodyLanguageAnalysis: 'Тяло / език на тялото', vocalAnalysis: 'Вокал', deceptionAnalysis: 'Измама / несъответствие', humorAnalysis: 'Хумор' };
+    return `${names[field] || field} (${en ? 'Stage 1' : 'етап 1'})`;
+}
+
+function pickMultimodalArraysFromParsed(parsed) {
+    if (!parsed || typeof parsed !== 'object') return {};
+    const o = {};
+    for (const k of multimodalArrayKeys()) {
+        if (Array.isArray(parsed[k])) o[k] = parsed[k];
+    }
+    return o;
+}
+
+/** Normalize BG/EN marker variants so extraction does not miss sections → empty UI tabs */
+function normalizeMultimodalMarkerText(mm) {
+    if (!mm || typeof mm !== 'string') return mm;
+    let s = mm.replace(/\r\n/g, '\n');
+    // Plain-line section titles (models often omit square brackets; UI labels Визуален / Тяло / …)
+    s = s.replace(/^\s*визуален(\s+анализ|\s+слой)?\s*:?\s*$/gim, '\n[VISUAL]\n');
+    s = s.replace(/^\s*тяло(\s+и\s+език|\s+език\s+на\s*тялото)?\s*:?\s*$/gim, '\n[BODY LANGUAGE]\n');
+    s = s.replace(/^\s*вокал(?:ен)?(?:\s+анализ)?\s*:?\s*$/gim, '\n[VOCAL]\n');
+    s = s.replace(/^\s*измама(\s+и\s+несъответствие)?\s*:?\s*$/gim, '\n[DECEPTION]\n');
+    s = s.replace(/^\s*хумор(\s+и\s+ирония)?\s*:?\s*$/gim, '\n[HUMOR]\n');
+    s = s.replace(/\[(измама|ИЗМАМА|Измама)\]/g, '[DECEPTION]');
+    s = s.replace(/\[(хумор|ХУМОР|Хумор)\]/g, '[HUMOR]');
+    s = s.replace(/\[(визуален|ВИЗУАЛЕН|визуално|ВИЗУАЛНО)\]/gi, '[VISUAL]');
+    s = s.replace(/\[(език\s*на\s*тялото|ЕЗИК\s*НА\s*ТЯЛОТО|език-на-тялото)\]/gi, '[BODY LANGUAGE]');
+    s = s.replace(/\[(вокален|ВОКАЛЕН|вокал|ВОКАЛ)\]/gi, '[VOCAL]');
+    // lowercase English markers often produced by models
+    s = s.replace(/\[(visual)\]/gi, '[VISUAL]');
+    s = s.replace(/\[(body\s*language)\]/gi, '[BODY LANGUAGE]');
+    s = s.replace(/\[(vocal)\]/gi, '[VOCAL]');
+    s = s.replace(/\[(deception)\]/gi, '[DECEPTION]');
+    s = s.replace(/\[(humo?r)\]/gi, '[HUMOR]');
+    // After normalizing BG/EN tags, break glued headers onto their own lines
+    s = s.replace(/\[VISUAL\]\s*:?\s*/gi, '\n[VISUAL]\n');
+    s = s.replace(/\[BODY\s+LANGUAGE\]\s*:?\s*/gi, '\n[BODY LANGUAGE]\n');
+    s = s.replace(/\[VOCAL\]\s*:?\s*/gi, '\n[VOCAL]\n');
+    s = s.replace(/\[DECEPTION\]\s*:?\s*/gi, '\n[DECEPTION]\n');
+    s = s.replace(/\[HUMOR\]\s*:?\s*/gi, '\n[HUMOR]\n');
+    s = s.replace(/\n{3,}/g, '\n\n').trim();
+    return s;
+}
+
+/** Model “I can’t see video” / metadata-only disclaimers — reject for multimodal merge */
+function isLikelyMultimodalRefusal(text) {
+    if (!text || typeof text !== 'string') return false;
+    const t = text.toLowerCase();
+    const needles = [
+        'нямам достъп', 'не мога да гледам', 'не мога да анализирам видео', 'извън моите', 'изцяло на предоставеното заглавие',
+        'само заглавие', 'само метаданни', 'моят анализ се базира', 'тези секции биха изисквали', 'директен анализ на видео',
+        'cannot watch', 'cannot access the video', 'do not have the video', 'i do not have access to the video',
+        'based solely on the title', 'based only on the title', 'without seeing the video', 'without watching',
+        'outside my current capabilities', 'beyond my current capabilities', 'cannot perform video analysis'
+    ];
+    return needles.some(n => t.includes(n));
+}
+
+/** Replace tab items that are “I can’t see video” disclaimers with neutral placeholder */
+function stripRefusalFromMultimodalFields(obj) {
+    if (!obj || typeof obj !== 'object') return;
+    const fields = ['visualAnalysis', 'bodyLanguageAnalysis', 'vocalAnalysis', 'deceptionAnalysis', 'humorAnalysis'];
+    const neutral = {
+        point: 'Наблюдение недостъпно',
+        details: 'Текстът беше филтриран (съдържаше отказ за видеоанализ вместо наблюдения от записа). Пускайте анализ отново; ако проблемът се повтаря, опитайте по-кратък клип.'
+    };
+    for (const f of fields) {
+        const arr = obj[f];
+        if (!Array.isArray(arr)) continue;
+        obj[f] = arr.map((it) => {
+            const blob = `${it?.details ?? ''}\n${it?.point ?? ''}`;
+            if (isLikelyMultimodalRefusal(blob)) return { ...neutral };
+            return it;
+        });
+    }
+}
+
+function parseMultimodalObservationsToSchemaArrays(multimodalText) {
+    if (!multimodalText || typeof multimodalText !== 'string') return null;
+    const mm = normalizeMultimodalMarkerText(multimodalText).trim();
+    if (!mm || mm === 'MISSING_STAGE_1_MULTIMODAL_OBSERVATIONS') return null;
+
+    const sections = [
+        ['VISUAL', 'visualAnalysis', 'Visual'],
+        ['BODY LANGUAGE', 'bodyLanguageAnalysis', 'Body language'],
+        ['VOCAL', 'vocalAnalysis', 'Vocal'],
+        ['DECEPTION', 'deceptionAnalysis', 'Deception / congruence'],
+        ['HUMOR', 'humorAnalysis', 'Humor']
+    ];
+    const result = {};
+    for (let i = 0; i < sections.length; i++) {
+        const [label, field, fb] = sections[i];
+        const tag = `[${label}]`;
+        const start = mm.indexOf(tag);
+        if (start < 0) {
+            result[field] = [{ point: fb, details: 'No significant observations were noted in the video analysis.' }];
+            continue;
+        }
+        const after = start + tag.length;
+        let end = mm.length;
+        for (let j = i + 1; j < sections.length; j++) {
+            const nextTag = `[${sections[j][0]}]`;
+            const ni = mm.indexOf(nextTag, after);
+            if (ni >= 0) end = Math.min(end, ni);
+        }
+        const body = mm.slice(after, end).trim();
+        result[field] = textChunkToPointDetails(body, fb);
+    }
+    return result;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -593,6 +830,7 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
         // ── Prepare billing payload ──────────────────────────────────────────
         const billingPayload = {
             userId,
+            billingIntentId: randomUUID(),
             points: finalPoints,
             serviceType,
             mode,
@@ -721,10 +959,14 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
         let finalUsage = null;
         let totalPromptTokens = 0;
         let totalCandidatesTokens = 0;
+        /** Stage 1 multimodal blob — used to overwrite Pro 3.1 hallucinations in visual/vocal/body tabs */
+        let deepStage1MultimodalRaw = null;
+        /** Parsed Stage 1 JSON — fallback when Pro fills only placeholder tab arrays */
+        let deepStage1Parsed = null;
 
         if (isDeepMode && tools) {
-            // DEEP MODE: 1) generateContent with googleSearch (Google does search on its servers)
-            // 2) ALWAYS final JSON step with responseSchema — guarantees valid JSON (tools + schema incompatible)
+            // DEEP MODE: 1) Flash + video + googleSearch → Stage 1 JSON
+            // 2) final JSON step with responseSchema (Pro)
             sendSSE('progress', { status: getProgressMsg(lang, 'deepPreparing') });
 
             const extractionConfig = {
@@ -766,9 +1008,52 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             }
             console.log('[Gemini Stream] Deep stage1 rawText length:', rawText?.length || 0, 'parts:', parts?.length || 0);
 
+            // Extract authoritative multimodal observations from Stage 1 output.
+            // This prevents Stage 2 (text-only) from inventing content for visual/body/vocal tabs.
+            let stage1MultimodalObservations = '';
+            const s1JsonTry = parseJsonRobust(rawText);
+            if (s1JsonTry?.ok && s1JsonTry.parsed && typeof s1JsonTry.parsed === 'object') {
+                deepStage1Parsed = s1JsonTry.parsed;
+            }
+            if (s1JsonTry?.ok && s1JsonTry.parsed && typeof s1JsonTry.parsed === 'object') {
+                const mm = s1JsonTry.parsed.multimodalObservations;
+                if (typeof mm === 'string' && mm.trim().length > 10) stage1MultimodalObservations = mm.trim();
+            }
+            if (!stage1MultimodalObservations) {
+                // Fallback: rebuild from explicit markers found in the raw text.
+                const markers = ['[VISUAL]', '[BODY LANGUAGE]', '[VOCAL]', '[DECEPTION]', '[HUMOR]'];
+                const found = markers
+                    .map(m => ({ m, i: rawText.indexOf(m) }))
+                    .filter(x => x.i >= 0)
+                    .sort((a, b) => a.i - b.i);
+                if (found.length) {
+                    const start = found[0].i;
+                    stage1MultimodalObservations = rawText.substring(start).trim();
+                }
+            }
+            // Flash often fills visualAnalysis[] etc. but leaves multimodalObservations empty — synthesize marker string
+            if (s1JsonTry?.ok && s1JsonTry.parsed && typeof s1JsonTry.parsed === 'object') {
+                const synthesized = serializeMultimodalFromStage1Arrays(s1JsonTry.parsed);
+                if (synthesized.length > (stage1MultimodalObservations?.length || 0)) {
+                    stage1MultimodalObservations = synthesized;
+                }
+            }
+            if (!stage1MultimodalObservations || stage1MultimodalObservations.trim().length < 20) {
+                stage1MultimodalObservations = 'MISSING_STAGE_1_MULTIMODAL_OBSERVATIONS';
+            }
+            deepStage1MultimodalRaw = stage1MultimodalObservations;
+            if (deepStage1MultimodalRaw !== 'MISSING_STAGE_1_MULTIMODAL_OBSERVATIONS' && isLikelyMultimodalRefusal(deepStage1MultimodalRaw)) {
+                deepStage1MultimodalRaw = 'MISSING_STAGE_1_MULTIMODAL_OBSERVATIONS';
+            }
+
+            const mmForPro = deepStage1MultimodalRaw !== 'MISSING_STAGE_1_MULTIMODAL_OBSERVATIONS'
+                ? deepStage1MultimodalRaw
+                : 'DERIVE_FROM_STAGE1_JSON: Populate the five multimodal tabs only from the arrays visualAnalysis, bodyLanguageAnalysis, vocalAnalysis, deceptionAnalysis, humorAnalysis inside the Stage 1 JSON above. Keep each item as analytic point + details; refine wording only; do not invent scenes.';
+
             // Build conversation for final JSON step (model's analysis as context)
             let currentContents = [...contents];
-            let hasGrounding = rawText && rawText.trim().length > 50;
+            // Any non-empty Stage 1 text must reach Pro — short replies used to skip context and broke Stage 2
+            let hasGrounding = rawText && rawText.trim().length > 0;
             const durationMin = Math.round((metadata.videoDuration || metadata.duration || 0) / 60) || 10;
             const targetClaims = Math.min(20, Math.max(6, Math.round(durationMin * 0.6)));
             const targetManipulations = Math.min(10, Math.max(4, Math.round(durationMin * 0.4)));
@@ -779,17 +1064,26 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
 For EVERY claim: use Google Search to verify it against today's date. Return information current as of the moment this report is created. Verify events and cite accurate dates from your search results. Use the research above as base, but always confirm facts and dates via search.`;
                 currentContents.push({
                     role: 'user',
-                    parts: [{ text: `${videoContextStr}ESTABLISHED RESEARCH DATA (from Stage 1):\n\n${rawText.substring(0, 60000)}\n\n${verificationInstruction}\n\nDo not use placeholders. Every claim MUST be evaluated against these findings.` }]
+                    parts: [{
+                        text: `${videoContextStr}ESTABLISHED RESEARCH DATA (from Stage 1):\n\n${rawText.substring(0, 120000)}\n\nMULTIMODAL_OBSERVATIONS_FROM_STAGE_1 (ONLY for visual/body/vocal/behavioral tabs; authoritative):\n${mmForPro}\n\n${verificationInstruction}\n\nDo not use placeholders. Every claim MUST be evaluated against these findings.`
+                    }]
                 });
             }
 
+            const multimodalRule = `For visualAnalysis, bodyLanguageAnalysis, vocalAnalysis, deceptionAnalysis, humorAnalysis:
+- Source of truth: MULTIMODAL_OBSERVATIONS_FROM_STAGE_1 above, OR (if it says DERIVE_FROM_STAGE1_JSON) the visualAnalysis / bodyLanguageAnalysis / vocalAnalysis / deceptionAnalysis / humorAnalysis arrays inside ESTABLISHED RESEARCH DATA JSON. Do NOT invent AV content you cannot find there.
+- Split into items where each "point" is a short analytic headline (thesis), "details" is 2–5 sentences of interpretation grounded in Stage 1 — NOT a timeline of mm:ss events unless Stage 1 used timestamps sparingly as anchors.
+- Preserve participant names from Stage 1 when attributing behaviour; do not merge distinct people.
+- Do NOT add new scenes/facts beyond Stage 1; you cannot see the video.
+- If a category has no substance in Stage 1, return one fallback object:
+  {"point":"No significant observations","details":"No significant observations were noted in the video analysis."}`;
             const jsonPromptsWithContext = [
-                `Return the complete analysis as JSON. For each claim: verify via Google Search against today's date; give current information and accurate dates. For this ~${durationMin}-min video, aim for around ${targetClaims} claims and ${targetManipulations} manipulations. Populate EVERY array. For visualAnalysis, bodyLanguageAnalysis, vocalAnalysis, deceptionAnalysis, humorAnalysis, psychologicalProfile, culturalSymbolicAnalysis: 4-6 items each, 2-4 sentences per "details" field. INTEGRATE research into explanation and logic. Ensure valid JSON. Do not truncate.`,
-                `Format as valid JSON. Use the research above. For each claim: verify via Google Search against today; give current info and accurate dates. Aim for ~${targetClaims} claims and ~${targetManipulations} manipulations. Multimodal arrays: 4-6 items each with detailed 2-4 sentence analysis. Populate all fields. No placeholders. Keep JSON complete.`
+                `Return the complete analysis as JSON. For each claim: verify via Google Search against today's date; give current information and accurate dates. For this ~${durationMin}-min video, aim for around ${targetClaims} claims and ${targetManipulations} manipulations. Populate EVERY array. ${multimodalRule} For psychologicalProfile, culturalSymbolicAnalysis: 4-6 items each, 2-4 sentences per "details" field. INTEGRATE research into explanation and logic. Ensure valid JSON. Do not truncate.`,
+                `Format as valid JSON. Use the research above. For each claim: verify via Google Search against today; give current info and accurate dates. Aim for ~${targetClaims} claims and ~${targetManipulations} manipulations. ${multimodalRule} Populate all fields. No placeholders. Keep JSON complete.`
             ];
             const jsonPromptsNoContext = [
-                'Analyze the VIDEO and return complete fact-check analysis as JSON. Populate EVERY array (visualAnalysis, bodyLanguageAnalysis, etc). Be extremely concise to avoid JSON truncation.',
-                'Format as valid JSON. Analyze the video for all behavioral metrics. Extract as many claims and manipulations as the content supports. No placeholders. Ensure complete valid JSON.'
+                'Return complete fact-check analysis as JSON. You do NOT have video — use ONLY the user text and MULTIMODAL_OBSERVATIONS_FROM_STAGE_1 for visual/body/vocal tabs. Populate claims/manipulations from available text. Be concise.',
+                'Valid JSON only. No video input: never invent visual/audio/body observations; use MULTIMODAL_OBSERVATIONS_FROM_STAGE_1 or single-item fallback arrays. No placeholders.'
             ];
             const jsonPrompts = hasGrounding ? jsonPromptsWithContext : jsonPromptsNoContext;
             const finalConfig = {
@@ -973,7 +1267,7 @@ For EVERY claim: use Google Search to verify it against today's date. Return inf
         }
 
         // ── Validate response ─────────────────────────────────────────────────
-        const validation = validateJsonResponse(fullText, serviceType || 'video');
+        let validation = validateJsonResponse(fullText, serviceType || 'video');
         if (!validation.valid) {
             console.error(`[Gemini Stream] Validation failed: ${validation.code}`, validation.error || '', `(${fullText.length} chars)`);
 
@@ -991,6 +1285,35 @@ For EVERY claim: use Google Search to verify it against today's date. Return inf
             }
             endStream();
             return;
+        }
+
+        // Deep: fill weak multimodal tabs from Stage 1 (per-tab), never replace good Stage 2 with parsed placeholders.
+        if (isDeepMode && validation.parsed) {
+            let v = validation.parsed;
+            const apply = (patchObj) => {
+                if (!patchObj) return;
+                const { parsed: next, patched } = mergeMultimodalTabs(v, patchObj, true);
+                if (patched) v = next;
+            };
+            if (deepStage1Parsed) {
+                apply(pickMultimodalArraysFromParsed(deepStage1Parsed));
+            }
+            if (deepStage1MultimodalRaw && deepStage1MultimodalRaw !== 'MISSING_STAGE_1_MULTIMODAL_OBSERVATIONS') {
+                const mmArrays = parseMultimodalObservationsToSchemaArrays(deepStage1MultimodalRaw);
+                if (mmArrays) apply(mmArrays);
+                const bare = bareMultimodalProseLen(deepStage1MultimodalRaw);
+                if (bare >= 60) {
+                    const mmNorm = normalizeMultimodalMarkerText(deepStage1MultimodalRaw).trim();
+                    for (const k of multimodalArrayKeys()) {
+                        if (!isPlaceholderArray(v[k])) continue;
+                        apply({
+                            [k]: [{ point: multimodalTabLabelFallback(lang, k), details: mmNorm }]
+                        });
+                    }
+                }
+            }
+            stripRefusalFromMultimodalFields(v);
+            validation = { valid: true, parsed: v, cleanedText: JSON.stringify(v) };
         }
 
         // ── Calculate cost ────────────────────────────────────────────────────
@@ -1037,6 +1360,7 @@ For EVERY claim: use Google Search to verify it against today's date. Return inf
         // ── Prepare billing payload ──────────────────────────────────────────
         const billingPayload = {
             userId,
+            billingIntentId: randomUUID(),
             points: finalPoints,
             serviceType: serviceType || 'video',
             mode,
@@ -1184,7 +1508,7 @@ router.post('/finalize-billing', requireAuth, async (req, res) => {
             return res.status(403).json({ error: 'Unauthorized billing request' });
         }
 
-        const { userId, points, serviceType, mode, metadata } = billingPayload;
+        const { userId, points, serviceType, mode, metadata, billingIntentId } = billingPayload;
 
         let description = 'Анализ на съдържание';
         if (serviceType === 'linkArticle') {
@@ -1195,7 +1519,7 @@ router.post('/finalize-billing', requireAuth, async (req, res) => {
             description = mode === 'deep' ? 'Дълбок видео анализ' : 'Стандартен видео анализ';
         }
 
-        const deductResult = await deductPointsFromUser(userId, points, description, metadata);
+        const deductResult = await deductPointsFromUser(userId, points, description, metadata, billingIntentId || null);
         if (!deductResult.success) {
             return res.status(403).json({
                 error: 'Insufficient points for finalization.',
@@ -1204,12 +1528,15 @@ router.post('/finalize-billing', requireAuth, async (req, res) => {
             });
         }
 
-        logActivity(userId, serviceType === 'linkArticle' ? 'analysis_link' : 'analysis_video', { points }).catch(() => { });
+        if (!deductResult.alreadyProcessed) {
+            logActivity(userId, serviceType === 'linkArticle' ? 'analysis_link' : 'analysis_video', { points }).catch(() => { });
+        }
 
         res.json({
             success: true,
             newBalance: deductResult.newBalance,
-            pointsDeducted: points
+            pointsDeducted: deductResult.alreadyProcessed ? 0 : points,
+            alreadyProcessed: !!deductResult.alreadyProcessed
         });
     } catch (error) {
         console.error('[Gemini Billing] Error:', error.message);

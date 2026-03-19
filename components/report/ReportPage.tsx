@@ -1,8 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getAnalysisById, saveAnalysis, getAnalysisCountByType } from '../../services/archiveService';
 import { synthesizeReport, finalizeBilling } from '../../services/geminiService';
+import {
+    saveAnalysisSession,
+    loadAnalysisSession,
+    getCachedSynthesizedReport,
+    setCachedSynthesizedReport,
+    isBillingMarkedDoneClient,
+    markBillingDoneClient
+} from '../../services/analysisSession';
 import VideoResultView from '../common/result-views/VideoResultView';
 import LinkResultView from '../common/result-views/LinkResultView';
 import { VideoAnalysis } from '../../types';
@@ -28,10 +36,11 @@ const ReportPage: React.FC = () => {
     const [reportLoading, setReportLoading] = useState(false);
     const [isNewAnalysis, setIsNewAnalysis] = useState(false);
     const [billingPayload, setBillingPayload] = useState<any>(null);
-    const [billingFinalized, setBillingFinalized] = useState(false);
+    const synthStartedRef = useRef(false);
+    const billingFinalizeRequestedRef = useRef(false);
 
     useEffect(() => {
-        const state = location.state as { analysis?: VideoAnalysis; type?: 'video' | 'link'; url?: string } | undefined;
+        const state = location.state as { analysis?: VideoAnalysis; type?: 'video' | 'link'; url?: string; billingPayload?: unknown } | undefined;
         if (state?.analysis && state?.type) {
             setAnalysis(state.analysis);
             setType(state.type);
@@ -39,24 +48,26 @@ const ReportPage: React.FC = () => {
             setIsSaved(false);
             setLoading(false);
             setIsNewAnalysis(true);
-            if ((state as any).billingPayload) {
-                setBillingPayload((state as any).billingPayload);
-            } else if ((state.analysis as any).billingPayload) {
-                setBillingPayload((state.analysis as any).billingPayload);
-            }
-
-            // For fresh deep video analysis — synthesize the final report in background
-            if (state.type === 'video' && state.analysis.analysisMode === 'deep' && !state.analysis.synthesizedReport) {
-                setReportLoading(true);
-                synthesizeReport(state.analysis)
-                    .then(report => {
-                        if (report) {
-                            setAnalysis(prev => prev ? { ...prev, synthesizedReport: report } : null);
-                        }
-                    })
-                    .catch(err => console.error('[ReportPage] Report synthesis failed:', err?.message))
-                    .finally(() => setReportLoading(false));
-            }
+            const bp = (state as { billingPayload?: unknown }).billingPayload
+                ?? (state.analysis as { billingPayload?: unknown })?.billingPayload;
+            if (bp) setBillingPayload(bp);
+            saveAnalysisSession({
+                analysis: state.analysis,
+                billingPayload: bp,
+                type: state.type,
+                url: state.url || ''
+            });
+            return;
+        }
+        const restored = loadAnalysisSession();
+        if (restored?.analysis && restored.type) {
+            setAnalysis(restored.analysis as VideoAnalysis);
+            setType(restored.type);
+            setUrl(restored.url || '');
+            setIsSaved(false);
+            setLoading(false);
+            setIsNewAnalysis(true);
+            if (restored.billingPayload) setBillingPayload(restored.billingPayload as object);
             return;
         }
         if (!id) {
@@ -80,7 +91,9 @@ const ReportPage: React.FC = () => {
                 setAnalysis(analysisWithId);
                 setType(report.type);
                 setUrl(report.url || '');
-                setIsSaved(true); // loaded from archive → already saved
+                setIsSaved(true);
+                setIsNewAnalysis(false);
+                setBillingPayload(null);
             })
             .catch(() => setError(t('report.loadReportError')))
             .finally(() => setLoading(false));
@@ -92,37 +105,71 @@ const ReportPage: React.FC = () => {
         }
     }, [analysis, loading, error]);
 
-    // ── HITRO I TOCHNO BILLING LOGIC ─────────────────────────────────────────
+    // ── Billing: server idempotent via billingIntentId; client skips if already marked in this tab
     useEffect(() => {
-        // Trigger billing ONLY if:
-        // 1. It's a new analysis (not from archive)
-        // 2. We have a billing payload
-        // 3. We haven't finalized it yet
-        // 4. IMPORTANT: There is actual content visible (e.g. claims or summary)
-        if (isNewAnalysis && billingPayload && !billingFinalized && analysis) {
-            const hasContent = (analysis.claims && analysis.claims.length > 0) || 
-                               (analysis.summary && (analysis.summary.overallSummary || (analysis.summary as any).text));
-            
-            if (hasContent) {
-                console.log('[Billing] Content detected, finalizing points deduction...');
-                setBillingFinalized(true); // Prevent double calls
-                finalizeBilling(billingPayload)
-                    .then(res => {
-                        console.log('[Billing] Success, points deducted:', res.pointsDeducted || billingPayload.points);
-                        if (updateLocalBalance && res.newBalance !== undefined) {
-                            updateLocalBalance(res.newBalance);
-                        } else if (refreshProfile) {
-                            refreshProfile();
-                        }
-                    })
-                    .catch(err => {
-                        console.error('[Billing] Failed to finalize points deduction:', err.message);
-                        // We don't block the user, but log it. 
-                        // If it fails, they actually got it for free (which satisfies the MUST NOT PAY ON ERROR rule)
-                    });
-            }
+        if (!isNewAnalysis || !billingPayload || !analysis || loading || error) return;
+
+        const intent = billingPayload.billingIntentId as string | undefined;
+        if (intent && isBillingMarkedDoneClient(intent)) {
+            refreshProfile?.();
+            return;
         }
-    }, [analysis, isNewAnalysis, billingPayload, billingFinalized, updateLocalBalance, refreshProfile]);
+        if (billingFinalizeRequestedRef.current) return;
+
+        const hasContent =
+            (analysis.claims && analysis.claims.length > 0) ||
+            !!(analysis.summary && (analysis.summary.overallSummary || (analysis.summary as { text?: string }).text));
+        if (!hasContent) return;
+
+        billingFinalizeRequestedRef.current = true;
+        finalizeBilling(billingPayload)
+            .then((res) => {
+                if (intent) markBillingDoneClient(intent);
+                const msg = res.alreadyProcessed
+                    ? '[Billing] Already finalized (idempotent) — balance synced'
+                    : `[Billing] Success, points deducted: ${res.pointsDeducted ?? billingPayload.points}`;
+                console.log(msg);
+                if (updateLocalBalance && res.newBalance !== undefined) {
+                    updateLocalBalance(res.newBalance);
+                } else {
+                    refreshProfile?.();
+                }
+            })
+            .catch((err) => {
+                billingFinalizeRequestedRef.current = false;
+                console.error('[Billing] Failed to finalize points deduction:', err.message);
+            });
+    }, [analysis, isNewAnalysis, billingPayload, loading, error, updateLocalBalance, refreshProfile]);
+
+    // ── Deep mode: один synthesis; кеш по billingIntentId за refresh
+    useEffect(() => {
+        if (!isNewAnalysis || !analysis || type !== 'video' || analysis.analysisMode !== 'deep') return;
+        if (analysis.synthesizedReport) return;
+        const intent = billingPayload?.billingIntentId as string | undefined;
+        if (!intent) return;
+        if (synthStartedRef.current) return;
+
+        const cached = getCachedSynthesizedReport(intent);
+        if (cached) {
+            setAnalysis((prev) => (prev ? { ...prev, synthesizedReport: cached } : null));
+            return;
+        }
+
+        synthStartedRef.current = true;
+        setReportLoading(true);
+        synthesizeReport(analysis)
+            .then((report) => {
+                if (report) {
+                    setCachedSynthesizedReport(intent, report);
+                    setAnalysis((prev) => (prev ? { ...prev, synthesizedReport: report } : null));
+                }
+            })
+            .catch((err) => {
+                synthStartedRef.current = false;
+                console.error('[ReportPage] Report synthesis failed:', err?.message);
+            })
+            .finally(() => setReportLoading(false));
+    }, [analysis, isNewAnalysis, type, billingPayload]);
 
     useEffect(() => {
         if (!currentUser || !type) return;

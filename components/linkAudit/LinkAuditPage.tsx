@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { validateNewsUrl } from '../../services/validation';
 import AnalysisLoadingOverlay from '../common/AnalysisLoadingOverlay';
+import { clearAnalysisSession } from '../../services/analysisSession';
 
 const LinkAuditPage: React.FC = () => {
     const { t } = useTranslation();
@@ -36,6 +37,7 @@ const LinkAuditPage: React.FC = () => {
 
         setLoading(true);
         setError(null);
+        clearAnalysisSession();
 
         try {
             const result = await analyzeLinkDeep(url);

@@ -5,6 +5,7 @@ import { AnalysisMode, YouTubeVideoMetadata, CostEstimate } from './types';
 import { getYouTubeMetadata } from './services/youtubeMetadataService';
 import { getAllCostEstimates } from './services/costEstimationService';
 import { validateYouTubeUrl } from './services/validation';
+import { clearAnalysisSession } from './services/analysisSession';
 import { useAuth } from './contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import LinkAuditPage from './components/linkAudit/LinkAuditPage';
@@ -71,6 +72,7 @@ const App: React.FC = () => {
 
     setLoading(true);
     setError(null);
+    clearAnalysisSession();
 
     try {
       const response = await analyzeYouTubeStandard(url, videoMetadata || undefined, 'gemini-2.5-flash', analysisMode || 'standard', setStreamingProgress);

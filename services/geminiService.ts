@@ -186,7 +186,7 @@ const callGeminiStreamAPI = async (payload: any, token: string, onProgress?: (st
 /**
  * Finalize billing by sending the billing payload back to the server
  */
-export const finalizeBilling = async (billingPayload: any): Promise<{ success: boolean; newBalance: number; pointsDeducted?: number }> => {
+export const finalizeBilling = async (billingPayload: any): Promise<{ success: boolean; newBalance: number; pointsDeducted?: number; alreadyProcessed?: boolean }> => {
   const user = auth.currentUser;
   if (!user) throw new Error('User not authenticated');
   const token = await user.getIdToken();
@@ -217,14 +217,18 @@ const getAnalysisPrompt = (url: string, mode: AnalysisMode): string => {
 };
 
 /** Convert deep-analysis array format [{ point, details }, ...] to string for MultimodalSection (numbered list). */
-function formatMultimodalField(value: unknown): string | undefined {
-  if (typeof value === 'string') return value || undefined;
-  if (!Array.isArray(value) || value.length === 0) return undefined;
-  return value.map((item: any, i: number) => {
+function formatMultimodalField(value: unknown, emptyFallback?: string): string | undefined {
+  if (typeof value === 'string') {
+    const s = value.trim();
+    return s || emptyFallback;
+  }
+  if (!Array.isArray(value) || value.length === 0) return emptyFallback;
+  const formatted = value.map((item: any, i: number) => {
     const point = item?.point ?? item?.title ?? '';
     const details = item?.details ?? item?.description ?? item?.text ?? '';
     return `${i + 1}. ${point}${details ? ': ' + details : ''}`;
-  }).join('\n\n').trim() || undefined;
+  }).join('\n\n').trim();
+  return formatted || emptyFallback;
 }
 
 /** Convert any value to display string — avoids [object Object] for arrays/objects. */
@@ -255,6 +259,13 @@ const transformGeminiResponse = (
     };
     return map[verdict?.toUpperCase()] || 'непроверимо';
   };
+
+  const multimodalTabEmpty =
+    mode === 'deep'
+      ? (responseLang === 'en'
+          ? '—\n\nNo observations were returned for this tab (empty array from API).'
+          : '—\n\nНяма върнати наблюдения за този таб (празен отговор от API).')
+      : undefined;
 
   const mapAssessment = (assessment: string): string => {
     if (responseLang === 'en') {
@@ -454,12 +465,12 @@ ${metadataSection}
     pointsCost: 0, // Will be set by caller
     analysisMode: mode,
 
-    // Multimodal analysis fields (deep analysis only) — Gemini returns arrays of { point, details }; convert to string for UI
-    visualAnalysis: formatMultimodalField(rawResponse?.visualAnalysis),
-    bodyLanguageAnalysis: formatMultimodalField(rawResponse?.bodyLanguageAnalysis),
-    vocalAnalysis: formatMultimodalField(rawResponse?.vocalAnalysis),
-    deceptionAnalysis: formatMultimodalField(rawResponse?.deceptionAnalysis),
-    humorAnalysis: formatMultimodalField(rawResponse?.humorAnalysis),
+    // Multimodal analysis fields — Gemini returns arrays of { point, details }; convert to string for UI
+    visualAnalysis: formatMultimodalField(rawResponse?.visualAnalysis, multimodalTabEmpty),
+    bodyLanguageAnalysis: formatMultimodalField(rawResponse?.bodyLanguageAnalysis, multimodalTabEmpty),
+    vocalAnalysis: formatMultimodalField(rawResponse?.vocalAnalysis, multimodalTabEmpty),
+    deceptionAnalysis: formatMultimodalField(rawResponse?.deceptionAnalysis, multimodalTabEmpty),
+    humorAnalysis: formatMultimodalField(rawResponse?.humorAnalysis, multimodalTabEmpty),
     psychologicalProfile: formatMultimodalField(rawResponse?.psychologicalProfile),
     culturalSymbolicAnalysis: formatMultimodalField(rawResponse?.culturalSymbolicAnalysis)
   };

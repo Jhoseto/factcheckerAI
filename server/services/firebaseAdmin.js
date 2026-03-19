@@ -215,15 +215,31 @@ export async function addPointsToUser(userId, points, orderId = null, options = 
  * Deduct points from user account
  * @param userId - Firebase user UID
  * @param points - Number of points to deduct
+ * @param billingIntentId - Optional UUID from /api/gemini; same id → deduct at most once (idempotent finalize)
  * @returns Object with success status and new balance
  */
-export async function deductPointsFromUser(userId, points, description = 'Използване на услуги', metadata = {}) {
+export async function deductPointsFromUser(userId, points, description = 'Използване на услуги', metadata = {}, billingIntentId = null) {
     try {
         const db = getFirestore();
         const userRef = db.collection('users').doc(userId);
         const transactionRef = db.collection('transactions').doc(); // Auto-ID
+        const intentRef = billingIntentId
+            ? userRef.collection('billingIntents').doc(String(billingIntentId))
+            : null;
 
         const result = await db.runTransaction(async (transaction) => {
+            if (intentRef) {
+                const intentSnap = await transaction.get(intentRef);
+                if (intentSnap.exists) {
+                    const userDoc = await transaction.get(userRef);
+                    if (!userDoc.exists) {
+                        throw new Error(`User ${userId} not found in Firestore`);
+                    }
+                    const bal = userDoc.data()?.pointsBalance || 0;
+                    return { success: true, newBalance: bal, alreadyProcessed: true };
+                }
+            }
+
             const userDoc = await transaction.get(userRef);
 
             if (!userDoc.exists) {
@@ -234,29 +250,26 @@ export async function deductPointsFromUser(userId, points, description = 'Изп
 
             if (currentPoints < points) {
                 console.error(`[Firebase Admin] Insufficient points for user ${userId}: has ${currentPoints}, needs ${points}`);
-                // Return explicit failure object instead of throwing, to handle gracefully
                 return { success: false, newBalance: currentPoints, error: 'insufficient_points' };
             }
 
             const newPoints = currentPoints - points;
 
-            // 1. Update User Balance
             transaction.update(userRef, {
                 pointsBalance: newPoints,
                 lastPointsUpdate: admin.firestore.FieldValue.serverTimestamp()
             });
 
-            // 2. Create Transaction Record
             transaction.set(transactionRef, {
                 userId: userId,
-                type: 'deduction', // Changed back from 'usage' to match frontend
-                amount: -points, // Negative for deduction
+                type: 'deduction',
+                amount: -points,
                 description: description,
                 timestamp: admin.firestore.FieldValue.serverTimestamp(),
                 createdAt: new Date().toISOString(),
                 metadata: {
+                    ...(billingIntentId ? { billingIntentId } : {}),
                     ...metadata,
-                    // For video analysis: preserve video metadata
                     videoTitle: metadata.videoTitle || metadata.title || null,
                     videoAuthor: metadata.videoAuthor || metadata.author || metadata.siteName || null,
                     videoId: metadata.videoId || null,
@@ -264,6 +277,15 @@ export async function deductPointsFromUser(userId, points, description = 'Изп
                     thumbnailUrl: metadata.thumbnailUrl || null
                 }
             });
+
+            if (intentRef) {
+                transaction.set(intentRef, {
+                    points,
+                    description,
+                    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                    transactionId: transactionRef.id
+                });
+            }
 
             return { success: true, newBalance: newPoints };
         });

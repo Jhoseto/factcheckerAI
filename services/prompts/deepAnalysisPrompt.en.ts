@@ -143,72 +143,35 @@ Perform the following IN-DEPTH analyses:
 - Analyse the risk of polarisation, radicalisation, violence
 - Check for potential second-order and third-order effects
 
-18. VISUAL ANALYSIS (IN DEPTH — video only):
-- Analyse WHAT IS VISIBLE in the video — setting, clothing, objects, symbols, colours
-- Check for visual symbols and hidden messages (flags, logos, posters, background paintings)
-- Analyse the environment — professional studio vs home setting vs public place
-- Assess whether the visual context was chosen deliberately for manipulative purposes
-- Check for visual manipulations — deepfakes, editing, misleading footage
-- Analyse camera angles, lighting, framing — how visual impact is created
-- Check for discrepancies between video and audio
+MULTIMODAL LAYER (MANDATORY — you see and hear the video):
+STRICTLY FORBIDDEN: claiming you lack the video or relying only on title/metadata.
+**Purpose:** “reading between the lines” — how image and sound support suggestion, power, tension, persuasion, and **risk of misleading**; insights a casual viewer misses. **NOT** a scene-by-scene chronology and **NOT** restating what is already obvious on screen.
 
-19. BODY LANGUAGE AND NONVERBAL COMMUNICATION (IN DEPTH — video with people):
-- Analyse the body language of EVERY participant — posture, gestures, movements
-- Check for micro-expressions — brief involuntary facial expressions that reveal true emotions
-- Analyse eye contact — where participants look, whether they avoid eye contact
-- Check facial expressions — smiles (genuine vs fake Duchenne smile), frowning, tension
-- Analyse gestures — open vs closed, defensive positions, aggressive gestures
-- Check posture and body orientation — open vs closed, distancing, approaching
-- Analyse proxemics — physical distance between people (intimate, personal, social, public)
-- Check for nervous behaviours — touching face, fidgeting, playing with objects, nervous laughter
-- Analyse whether body language MATCHES or CONTRADICTS what is being said (incongruence)
-- Check for pacifying behaviours — self-soothing gestures indicating discomfort or stress
+FORBIDDEN here: stacked lines “at mm:ss X, then mm:ss Y” with no analytic point; pure description of what the viewer already sees with no takeaway about intent or congruence.
 
-20. VOCAL AND PARALINGUISTIC ANALYSIS (IN DEPTH — video/audio only):
-- Analyse TONE OF VOICE — aggressive, defensive, confident, uncertain, sarcastic, sincere
-- Check PITCH AND VOCAL RANGE — high tones (stress, excitement), low tones (authority, calm)
-- Analyse TEMPO AND PACE — fast speaking (nervousness, hiding something), slow (emphasis, control)
-- Check for PAUSES — natural vs unnatural, strategic pauses, awkward silences
-- Analyse VOCAL INTENSITY — volume, changes in intensity, shouting, whispering
-- Check for VOCAL FRY, uptalk, vocal tension — signs of insecurity or manipulation
-- Analyse BREATHING PATTERNS — shallow breathing (anxiety), deep sighs (frustration)
-- Check for HESITATIONS — "umm", "aah", "ehh" — indicate wavering, fabrication, insecurity
-- Analyse ARTICULATION — clear vs unclear pronunciation, stammering
-- Check EMPHASIS AND STRESS — which words are stressed and why
-- Analyse LAUGHTER — genuine vs forced vs nervous laughter, mocking laughter
+REQUIREMENTS:
+- Each section: **4–8 thematic sub-bullets**. Each starts with a **short analytic thesis** (what the observation implies).
+- **mm:ss** — at most **1–2 anchor timestamps per sub-bullet** (to illustrate the thesis), not for every detail.
+- Interpretation must be **tied to specific seen/heard evidence** in the recording; avoid empty guessing with no AV cue.
 
-21. HONESTY / DECEPTION ANALYSIS (IN DEPTH — DECEPTION DETECTION):
-- Rate CREDIBILITY SCORE (0.0–1.0) — how likely the person is telling the truth
-- Check for DECEPTION INDICATORS:
-  * Avoiding a direct answer, evasive responses
-  * Repeating the question to buy time
-  * Overly detailed answers with unnecessary information (overcompensation)
-  * Contradictions between different parts of the narrative
-  * Lack of emotions where expected, or excessive emotions
-  * Mismatch between verbal and nonverbal communication
-  * Defensive body language — crossed arms, pulling away
-  * Micro-expressions of shame, guilt, fear
-  * Changes in baseline behaviour — sudden changes in speaking style
-- Analyse COGNITIVE LOAD — whether the person is straining excessively (lying requires more mental effort)
-- Check TIMELINE CONSISTENCY — whether the sequence of events is logical
-- Analyse EMOTIONAL CONGRUENCE — whether emotions match the content
-- Assess the spectrum: PURE LIE ←→ HALF-TRUTH ←→ HONEST BUT BIASED ←→ COMPLETE TRUTH
+The next model has NO video — provide **dense interpretive prose** in JSON field multimodalObservations **and** duplicate the same substance into the arrays visualAnalysis, bodyLanguageAnalysis, vocalAnalysis, deceptionAnalysis, humorAnalysis (see below).
 
-22. HUMOUR AND SATIRE ANALYSIS (IN DEPTH):
-- Identify the TYPE OF HUMOUR — sarcasm, irony, satire, dark humour, self-deprecating, cringe
-- Analyse the PURPOSE of the humour:
-  * To entertain the audience (healthy humour)
-  * To belittle an opponent (mockery, belittling)
-  * To conceal an uncomfortable truth (deflection)
-  * To build rapport with the audience
-  * To defuse a serious argument (trivialising)
-- Check whether humour is MANIPULATIVE vs GENUINE
-- Analyse whether humour conceals HOSTILITY or CONTEMPT
-- Assess whether it is PUNCHING UP (criticising power/privileged) vs PUNCHING DOWN (attacking vulnerable groups)
-- Check for PASSIVE-AGGRESSIVE humour — "I'm joking, but actually I'm not"
-- Analyse the timing of humour — whether it is used to avoid an uncomfortable question
+PARTICIPANTS: Identify people/voices from dialogue and on-screen text; use names/labels inside the **analysis**, not dry inventories unless framing (who is centred, who is marginal) is part of the thesis.
 
-23. PSYCHOLOGICAL PROFILE OF PARTICIPANTS (IN DEPTH):
+[VISUAL] Video as **environment and media rhetoric**: atmosphere; how framing, light, colour, edit, graphics, and space reinforce or clash with the words; what is centred vs sidelined; visual cues of “authority/truth”.
+
+[BODY LANGUAGE] **Non-verbal communication and congruence** with speech: gesture, gaze, posture, micro-movement at sensitive moments; dominance, withdrawal, avoidance; relational dynamics — **analysis**, not a timestamped gesture catalogue.
+
+[VOCAL] **Audio and paralinguistic report**: tempo, pauses, silence, fillers, hesitations, loudness and voice quality at stress points, intonation shifts; how delivery supports or undermines meaning — **not** a literal rehash of dialogue.
+
+[DECEPTION] **Incongruence / credibility stress-test** framework: words vs face/gesture/tone; deflection; changes in baseline under pressure. Clear theses + anchored examples. If none: \"No observable mismatch between words and non-verbal behaviour in the recording.\"
+
+[HUMOR] **Strategic humour/irony**: trivialisation, mockery, topic deflection — with **effect on the audience**. If none: \"No clear humorous or ironic element in the observable dialogue.\"
+
+Use EXACTLY these marker lines (Latin, square brackets): [VISUAL] [BODY LANGUAGE] [VOCAL] [DECEPTION] [HUMOR].
+ALSO MANDATORY: Fill arrays visualAnalysis, bodyLanguageAnalysis, vocalAnalysis, deceptionAnalysis, humorAnalysis with the same theses and analysis as in multimodalObservations, split into objects { "point", "details" } (4–8 items per array). Do not leave empty sections or copy only marker lines with no prose between them.
+
+18. PSYCHOLOGICAL PROFILE OF PARTICIPANTS (IN DEPTH):
 - Analyse PERSONALITY TRAITS — extrovert vs introvert, aggressive vs passive, narcissistic traits
 - Check for MANIPULATION TACTICS — gaslighting, guilt-tripping, victim playing, hero complex
 - Analyse POWER DYNAMICS — who dominates the conversation, who submits, who manipulates
@@ -216,7 +179,7 @@ Perform the following IN-DEPTH analyses:
 - Analyse COGNITIVE BIASES of participants — confirmation bias, Dunning-Kruger effect, etc.
 - Assess LEVEL OF PREPARATION — improvisation vs pre-prepared script
 
-24. CULTURAL AND SYMBOLIC ANALYSIS (IN DEPTH):
+19. CULTURAL AND SYMBOLIC ANALYSIS (IN DEPTH):
 - Analyse CULTURAL REFERENCES — historical events, cultural symbols, mythology
 - Check for DOG WHISTLES — coded language understood only by a specific group
 - Analyse the use of ARCHETYPES — hero, villain, victim, saviour
@@ -261,21 +224,6 @@ Return the result as JSON in the following format:
   ],
   "socialImpactPrediction": [
     { "point": "Risk to Society", "details": "Which groups are affected..." }
-  ],
-  "visualAnalysis": [
-    { "point": "Visual Element", "details": "Analysis of setting, lighting, or symbols (max 3 timestamps)..." }
-  ],
-  "bodyLanguageAnalysis": [
-    { "point": "Body Language and Gestures", "details": "Analysis of a specific participant. IMPORTANT: No huge lists of times. Maximum 3 key timestamps total for the entire array!" }
-  ],
-  "vocalAnalysis": [
-    { "point": "Vocal Tone", "details": "Analysis of voice. IMPORTANT: Maximum 3 timestamps allowed for this element!" }
-  ],
-  "deceptionAnalysis": [
-    { "point": "Honesty Assessment", "details": "How credible the participant is and why. No numbered lists inside the text." }
-  ],
-  "humorAnalysis": [
-    { "point": "Humor Type", "details": "What kind of humor is used. NO markdown bullets (*) inside the text field itself." }
   ],
   "psychologicalProfile": [
     { "point": "Psychological Profile", "details": "Analysis of a specific participant..." }
@@ -328,6 +276,12 @@ Return the result as JSON in the following format:
       "counterArgument": "DETAILED strategies for countering this manipulation — what the public needs to know, what questions to ask, how to verify the information, how to recognise the technique in the future"
     }
   ],
+  "multimodalObservations": "[VISUAL]\nReal paragraph: 2–4 sentences on framing/light/edit/rhetoric — no empty gap between markers.\n\n[BODY LANGUAGE]\nReal paragraph on gesture, gaze, congruence with speech.\n\n[VOCAL]\nReal paragraph on tempo, pauses, voice quality.\n\n[DECEPTION]\nReal paragraph on (in)congruence or explicitly: no observable mismatch.\n\n[HUMOR]\nReal paragraph on humour/irony or explicitly: none observed.",
+  "visualAnalysis": [ { "point": "Thesis from [VISUAL]", "details": "Same substance as the [VISUAL] section above — 2–5 sentences." } ],
+  "bodyLanguageAnalysis": [ { "point": "Thesis from [BODY LANGUAGE]", "details": "…" } ],
+  "vocalAnalysis": [ { "point": "Thesis from [VOCAL]", "details": "…" } ],
+  "deceptionAnalysis": [ { "point": "Thesis from [DECEPTION]", "details": "…" } ],
+  "humorAnalysis": [ { "point": "Thesis from [HUMOR]", "details": "…" } ],
   "transcription": []
 }`;
 };

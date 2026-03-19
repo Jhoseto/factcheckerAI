@@ -17,11 +17,11 @@ interface MobileResultViewProps {
 }
 
 const SectionBlock: React.FC<{ title: string; content?: string; noDataLabel: string }> = ({ title, content, noDataLabel }) => {
-  if (!content || content === noDataLabel) return null;
+  const body = (content && String(content).trim()) || '';
   return (
     <div className="rounded-xl p-4 mb-4 bg-[#252525] border border-[#333]">
       <h3 className="text-[9px] font-black text-[#C4B091] uppercase tracking-widest border-b border-[#333] pb-1 mb-3">{title}</h3>
-      <p className="text-sm text-[#ccc] leading-relaxed whitespace-pre-wrap">{content}</p>
+      <p className="text-sm text-[#ccc] leading-relaxed whitespace-pre-wrap">{body || noDataLabel}</p>
     </div>
   );
 };
@@ -301,14 +301,14 @@ const MobileResultView: React.FC<MobileResultViewProps> = ({ analysis, reportLoa
               title={allTabs.find(tab => tab.id === activeTab)?.label || activeTab}
               noDataLabel={t('analysis.noData')}
               content={
-                analysis.visualAnalysis && activeTab === 'visual' ? analysis.visualAnalysis :
-                  analysis.bodyLanguageAnalysis && activeTab === 'bodyLanguage' ? analysis.bodyLanguageAnalysis :
-                    analysis.vocalAnalysis && activeTab === 'vocal' ? analysis.vocalAnalysis :
-                      analysis.deceptionAnalysis && activeTab === 'deception' ? analysis.deceptionAnalysis :
-                        analysis.humorAnalysis && activeTab === 'humor' ? analysis.humorAnalysis :
-                          analysis.psychologicalProfile && activeTab === 'psychological' ? analysis.psychologicalProfile :
-                            analysis.culturalSymbolicAnalysis && activeTab === 'cultural' ? analysis.culturalSymbolicAnalysis :
-                              t('analysis.noData')
+                activeTab === 'visual' ? analysis.visualAnalysis :
+                  activeTab === 'bodyLanguage' ? analysis.bodyLanguageAnalysis :
+                    activeTab === 'vocal' ? analysis.vocalAnalysis :
+                      activeTab === 'deception' ? analysis.deceptionAnalysis :
+                        activeTab === 'humor' ? analysis.humorAnalysis :
+                          activeTab === 'psychological' ? (typeof analysis.psychologicalProfile === 'string' ? analysis.psychologicalProfile : '') :
+                            activeTab === 'cultural' ? analysis.culturalSymbolicAnalysis :
+                              ''
               }
             />
           )}
