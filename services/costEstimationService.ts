@@ -52,9 +52,9 @@ export const calculateCostEstimate = (
     // ── Stage 2: Pro 3.1 (Text-only Synthesis) ───────────────────────────
     // Both modes have Google Search in Stage 2 — grounding chunks add tokens
     const proInputTokens = isDeep
-      ? flashOutputTokens + 10000 + 400000   // ~425k — Deep: more searches
-      : flashOutputTokens + 10000 + 300000;  // ~317k — Standard: moderate grounding
-    const proOutputTokens = isDeep ? 25000 : 12000;
+      ? flashOutputTokens + 10000 + 120000   // ~155k — Deep (calibrated to real usage)
+      : flashOutputTokens + 10000 + 90000;   // ~107k — Standard (calibrated to real usage)
+    const proOutputTokens = isDeep ? 10000 : 8000;
 
     const proCostUSD = calculateModelCostUSD(
         'gemini-3.1-pro-preview',
