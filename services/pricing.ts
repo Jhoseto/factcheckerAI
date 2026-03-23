@@ -31,6 +31,17 @@ export const GEMINI_PRICING = {
     inputPerMillionHigh: 4.00,
     outputPerMillionHigh: 18.00,
   },
+  'gemini-3-flash-preview': {
+    // Gemini 3 Flash Preview няма отделна >200k tier в pricing таблицата,
+    // затова high стойностите са равни на base.
+    contextThreshold: 1e18,
+    inputPerMillion: 0.50,          // $0.50/M (text/image/video)
+    audioInputPerMillion: 1.00,    // $1.00/M (audio)
+    outputPerMillion: 3.00,         // $3.00/M (including thinking tokens)
+    inputPerMillionHigh: 0.50,
+    audioInputPerMillionHigh: 1.00,
+    outputPerMillionHigh: 3.00
+  },
 } as const;
 
 // Video token rates (official documentation)

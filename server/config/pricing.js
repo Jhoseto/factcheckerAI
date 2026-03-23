@@ -35,6 +35,17 @@ const GEMINI_API_PRICING = {
     inputPerMillionHigh: 4.00,             // $4.00/M
     outputPerMillionHigh: 18.00,           // $18.00/M
   },
+  'gemini-3-flash-preview': {
+    // Gemini 3 Flash Preview няма отделна >200k tier в pricing таблицата,
+    // но ние пазим същата структура: high стойностите са равни на base.
+    contextThreshold: 1e18,
+    inputPerMillion: 0.50,                 // $0.50/M (text/image/video)
+    audioInputPerMillion: 1.00,           // $1.00/M (audio)
+    outputPerMillion: 3.00,               // $3.00/M (including thinking tokens)
+    inputPerMillionHigh: 0.50,
+    audioInputPerMillionHigh: 1.00,
+    outputPerMillionHigh: 3.00
+  },
   'gemini-2.5-pro': {
     contextThreshold: 200000,
     inputPerMillion: 1.25,
@@ -190,7 +201,7 @@ function estimateVideoCostInPoints(durationSeconds, isDeep = false) {
     : stage1Output + 10000 + 90000;   // ~107k — Standard (calibrated to real usage)
   const proOutputTokens = isDeep ? 10000 : 8000;
 
-  const proCostUSD = calculateModelCostUSD('gemini-3.1-pro-preview', proInputTokens, proOutputTokens);
+  const proCostUSD = calculateModelCostUSD('gemini-3-flash-preview', proInputTokens, proOutputTokens);
 
   const totalCostUSD = flashCostUSD + proCostUSD;
   const totalCostEUR = totalCostUSD * USD_TO_EUR_RATE;

@@ -545,7 +545,7 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
                                     <blockquote className="text-base md:text-xl font-black text-[#E8E8E8] leading-snug  tracking-tight">„{claim.quote}“</blockquote>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-sm">
                                         <div className="space-y-2"><h5 className="text-[9px] font-black text-[#968B74] uppercase tracking-widest border-b border-[#968B74]/50 pb-0.5 inline-block">{t('analysis.logicalAudit')}</h5><p className="text-[#ccc] leading-[1.6] font-medium">{claim.explanation || t('analysis.noInfoAvailable')}</p></div>
-                                        <div className="space-y-2"><h5 className="text-[9px] font-black text-[#968B74] uppercase tracking-widest border-b border-[#968B74]/50 pb-0.5 inline-block">{t('analysis.context')}</h5><p className="text-[#ccc] leading-[1.6]">{claim.missingContext}</p></div>
+                                        <div className="space-y-2"><h5 className="text-[9px] font-black text-[#968B74] uppercase tracking-widest border-b border-[#968B74]/50 pb-0.5 inline-block">{t('analysis.context')}</h5><p className="text-[#ccc] leading-[1.6]">{typeof claim.missingContext === 'string' && claim.missingContext.trim().length > 0 ? claim.missingContext : t('analysis.noInfoAvailable')}</p></div>
                                     </div>
                                 </div>
                             ))}

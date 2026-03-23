@@ -49,7 +49,7 @@ export const calculateCostEstimate = (
         (audioTokens / 1_000_000) * audioInputRate +
         (flashOutputTokens / 1_000_000) * flashOutputRate;
 
-    // ── Stage 2: Pro 3.1 (Text-only Synthesis) ───────────────────────────
+    // ── Stage 2: Flash 3 (Text-only Synthesis) ─────────────────────────
     // Both modes have Google Search in Stage 2 — grounding chunks add tokens
     const proInputTokens = isDeep
       ? flashOutputTokens + 10000 + 120000   // ~155k — Deep (calibrated to real usage)
@@ -57,7 +57,7 @@ export const calculateCostEstimate = (
     const proOutputTokens = isDeep ? 10000 : 8000;
 
     const proCostUSD = calculateModelCostUSD(
-        'gemini-3.1-pro-preview',
+        'gemini-3-flash-preview',
         proInputTokens,
         proOutputTokens,
         false // no video — text only

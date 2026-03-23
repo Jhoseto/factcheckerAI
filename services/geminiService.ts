@@ -312,17 +312,25 @@ const transformGeminiResponse = (
   const credibilityIndex = claims.length > 0 ? (trueClaimsCount / claims.length) : 0.5;
   const manipulationIndex = Math.min(manipulations.length * 0.15, 1);
 
-  const transformedClaims = allClaims.map((c: any) => ({
-    quote: c.claim || c.quote || c.text || '',
-    formulation: c.claim || c.quote || c.text || '',
-    category: responseLang === 'en' ? 'Fact' : 'Факт',
-    weight: 'средна' as 'ниска' | 'средна' | 'висока',
-    confidence: c.confidence || (c.verdict === 'TRUE' ? 0.9 : c.verdict === 'FALSE' ? 0.1 : 0.5),
-    veracity: mapVerdict(c.verdict) as 'вярно' | 'предимно вярно' | 'частично вярно' | 'подвеждащо' | 'невярно' | 'непроверимо',
-    verdict: (c.verdict?.toUpperCase?.() || 'UNVERIFIABLE') as string,
-    explanation: c.explanation || c.logicalAnalysis || c.evidence || (responseLang === 'en' ? 'No information available' : 'Няма налична информация'),
-    missingContext: c.missingContext || c.context || ''
-  }));
+  const transformedClaims = allClaims.map((c: any) => {
+    const rawMissingContext = c.missingContext ?? c.context ?? '';
+    const cleanedMissingContext = typeof rawMissingContext === 'string' ? rawMissingContext.trim() : '';
+    const missingContextFallback = responseLang === 'en'
+      ? 'No additional context was provided for this claim.'
+      : 'Няма предоставен допълнителен контекст за това твърдение.';
+
+    return ({
+      quote: c.claim || c.quote || c.text || '',
+      formulation: c.claim || c.quote || c.text || '',
+      category: responseLang === 'en' ? 'Fact' : 'Факт',
+      weight: 'средна' as 'ниска' | 'средна' | 'висока',
+      confidence: c.confidence || (c.verdict === 'TRUE' ? 0.9 : c.verdict === 'FALSE' ? 0.1 : 0.5),
+      veracity: mapVerdict(c.verdict) as 'вярно' | 'предимно вярно' | 'частично вярно' | 'подвеждащо' | 'невярно' | 'непроверимо',
+      verdict: (c.verdict?.toUpperCase?.() || 'UNVERIFIABLE') as string,
+      explanation: c.explanation || c.logicalAnalysis || c.evidence || (responseLang === 'en' ? 'No information available' : 'Няма налична информация'),
+      missingContext: cleanedMissingContext || missingContextFallback
+    });
+  });
 
   const transformedManipulations = manipulations.map((m: any, idx: number) => ({
     technique: m.technique || (responseLang === 'en' ? 'Unknown technique' : 'Неизвестна'),
