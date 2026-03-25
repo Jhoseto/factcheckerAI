@@ -247,18 +247,21 @@ router.post('/scrape', requireAuth, async (req, res) => {
         }
 
         const lower = (content || '').toLowerCase();
-        const isCookieLike = lower.includes('бисквит') ||
-            lower.includes('cookies') ||
-            lower.includes('gdpr') ||
-            lower.includes('поверителност') ||
-            lower.includes('privacy policy') ||
-            lower.includes('terms of use') ||
-            lower.includes('условия за ползване') ||
-            lower.includes('съгласие') ||
-            lower.includes('consent');
+        const cookieTokens = [
+            'бисквит', 'cookies', 'gdpr', 'поверителност', 'privacy policy', 'terms of use',
+            'условия за ползване', 'съгласие', 'consent', 'personal data', 'лични данни'
+        ];
+        const cookieHits = cookieTokens.reduce((acc, t) => acc + (lower.includes(t) ? 1 : 0), 0);
+        const isCookieLike = cookieHits >= 3;
+
+        const cameFromJina = !direct; // if we never needed direct fetch, content is from Jina
 
         // Mark as partial if we likely extracted cookie/paywall text instead of article body.
-        const isPartial = (!content || content.length < 300) || (!!direct?.cookieWall) || (isCookieLike && content.length < 6000);
+        // Important: do NOT aggressively mark Jina text as partial; it often includes nav/footer tokens.
+        const isPartial =
+            (!content || content.length < 600) ||
+            (!!direct?.cookieWall) ||
+            (!cameFromJina && isCookieLike && content.length < 6000);
         if (isPartial) {
             console.warn(`[Scraper] ⚠️ Partial content (${content?.length || 0} chars) — Gemini will use Google Search`);
         }

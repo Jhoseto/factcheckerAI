@@ -787,9 +787,10 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                         undefined
                     ];
 
+                    // Hard cap output to prevent LLM looping / huge payloads (link analysis only).
                     const budgets = [
-                        { maxOutputTokens: 65536, thinkingBudget: 4000, temperature: 0.1 },
-                        { maxOutputTokens: 32768, thinkingBudget: 1500, temperature: 0.2 }
+                        { maxOutputTokens: 20000, thinkingBudget: 3000, temperature: 0.1 },
+                        { maxOutputTokens: 12000, thinkingBudget: 1500, temperature: 0.2 }
                     ];
 
                     let finalResponse = null;

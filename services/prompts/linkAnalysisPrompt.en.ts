@@ -30,6 +30,11 @@ CRITICAL REQUIREMENTS:
 7. **COMPARE WITH OTHER MEDIA**: Find how 2–3 DIFFERENT media outlets cover the SAME topic.
 8. **RETURNING LITTLE DATA IS A CRITICAL ERROR** — be exceptionally thorough!
 
+ANTI-LOOP / QUALITY GUARDRAILS (CRITICAL):
+- Avoid repetition/looping. Never repeat the same phrase/headline many times.
+- If a field lacks reliable information, return a short "N/A" or an empty array ([]) rather than hallucinating or repeating text.
+- For manipulations and claims: output ONLY what is actually present in the recovered/article text. If fewer than 5 exist, return fewer (do not pad to 5–10).
+
 IMPORTANT: All text must be in ENGLISH. Only JSON enum values in English (already).
 
 
