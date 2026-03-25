@@ -85,7 +85,7 @@ export const analyzeLinkDeep = async (
                 'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-3-pro-preview',
                 prompt: finalPrompt,
                 mode: 'deep',
                 serviceType: 'linkArticle',
@@ -157,10 +157,19 @@ const deriveClassification = (overallAssessment: string, metrics: any): string =
 const transformAnalysis = (rawText: string, pointsCost: number): VideoAnalysis => {
     let raw: any = {};
     try {
-        raw = JSON.parse(rawText);
+        // Robust: extract JSON object even if model adds extra text.
+        const firstBrace = rawText.indexOf('{');
+        const lastBrace = rawText.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+            const cleanJson = rawText.substring(firstBrace, lastBrace + 1);
+            raw = JSON.parse(cleanJson);
+        } else {
+            raw = JSON.parse(rawText);
+        }
     } catch (e) {
         console.error('[LinkService] Failed to parse response JSON:', e);
-        throw new Error('Невалиден формат на отговора от сървъра. Моля, опитайте отново.');
+        console.error('[LinkService] Failed to parse response JSON. Length:', (rawText || '').length);
+        throw new Error('Моделът върна невалиден формат. Моля, опитайте отново.');
     }
 
     const classification = deriveClassification(raw.overallAssessment, raw.detailedMetrics);

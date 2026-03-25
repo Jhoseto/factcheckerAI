@@ -83,11 +83,18 @@ function parseJsonRobust(rawText) {
     else t = t.replace(/```json\s*/g, '').replace(/\s*```/g, '').trim();
     if (!t.length) return { ok: false, error: 'empty' };
 
+    // Common case: model adds prefix/suffix or multiple objects; extract the outermost JSON object.
+    const firstBrace = t.indexOf('{');
+    const lastBrace = t.lastIndexOf('}');
+    const candidate = (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace)
+        ? t.substring(firstBrace, lastBrace + 1)
+        : t;
+
     try {
-        return { ok: true, parsed: JSON.parse(t) };
+        return { ok: true, parsed: JSON.parse(candidate) };
     } catch (_) { }
     try {
-        return { ok: true, parsed: JSON.parse(escapeControlCharsInJson(t)) };
+        return { ok: true, parsed: JSON.parse(escapeControlCharsInJson(candidate)) };
     } catch (_) { }
     return { ok: false, error: 'parse failed' };
 }
@@ -509,14 +516,54 @@ const VIDEO_DEEP_SCHEMA = {
 
 const LINK_RESPONSE_SCHEMA = {
     type: 'object',
+    required: ['title', 'siteName', 'summary', 'overallAssessment', 'detailedMetrics', 'factualClaims', 'manipulationTechniques', 'recommendations', 'finalInvestigativeReport'],
     properties: {
         title: { type: 'string' },
         siteName: { type: 'string' },
         summary: { type: 'string' },
         overallAssessment: { type: 'string' },
-        detailedMetrics: { type: 'object' },
-        authorProfile: { type: 'object' },
-        mediaProfile: { type: 'object' },
+        detailedMetrics: {
+            type: 'object',
+            required: [
+                'factualAccuracy', 'logicalSoundness', 'emotionalBias',
+                'propagandaScore', 'sourceReliability', 'subjectivityScore',
+                'objectivityScore', 'biasIntensity', 'narrativeConsistencyScore',
+                'semanticDensity', 'contextualStability'
+            ],
+            properties: {
+                factualAccuracy: { type: 'number', description: '0.0–1.0' },
+                logicalSoundness: { type: 'number', description: '0.0–1.0' },
+                emotionalBias: { type: 'number', description: '0.0–1.0' },
+                propagandaScore: { type: 'number', description: '0.0–1.0' },
+                sourceReliability: { type: 'number', description: '0.0–1.0' },
+                subjectivityScore: { type: 'number', description: '0.0–1.0' },
+                objectivityScore: { type: 'number', description: '0.0–1.0' },
+                biasIntensity: { type: 'number', description: '0.0–1.0' },
+                narrativeConsistencyScore: { type: 'number', description: '0.0–1.0' },
+                semanticDensity: { type: 'number', description: '0.0–1.0' },
+                contextualStability: { type: 'number', description: '0.0–1.0' }
+            }
+        },
+        authorProfile: {
+            type: 'object',
+            properties: {
+                name: { type: 'string' },
+                knownBias: { type: 'string' },
+                typicalTopics: { type: 'array', items: { type: 'string' } },
+                credibilityNote: { type: 'string' },
+                affiliations: { type: 'array', items: { type: 'string' } }
+            }
+        },
+        mediaProfile: {
+            type: 'object',
+            properties: {
+                ownership: { type: 'string' },
+                politicalLean: { type: 'string' },
+                reliabilityRating: { type: 'number' },
+                knownFor: { type: 'string' },
+                fundingSource: { type: 'string' }
+            }
+        },
         headlineAnalysis: {
             type: 'object',
             properties: {
@@ -526,7 +573,17 @@ const LINK_RESPONSE_SCHEMA = {
                 sensationalWords: { type: 'array', items: { type: 'string' } }
             }
         },
-        emotionalTriggers: { type: 'array', items: { type: 'object' } },
+        emotionalTriggers: {
+            type: 'array',
+            items: {
+                type: 'object',
+                properties: {
+                    word: { type: 'string' },
+                    emotion: { type: 'string' },
+                    context: { type: 'string' }
+                }
+            }
+        },
         sensationalismIndex: { type: 'number' },
         circularCitation: { type: 'string' },
         missingVoices: { type: 'array', items: { type: 'string' } },
@@ -643,6 +700,13 @@ function validateJsonResponse(responseText, serviceType = 'link') {
 
     const hasSomething = parsed.summary || parsed.title || parsed.overallAssessment || parsed.factualClaims;
     if (!hasSomething) return { valid: false, code: 'AI_INCOMPLETE_RESPONSE', parsed };
+
+    // Stronger guard for linkArticle: we must have report content for the Report tab.
+    if (serviceType === 'link' || serviceType === 'linkArticle') {
+        if (typeof parsed.finalInvestigativeReport !== 'string' || parsed.finalInvestigativeReport.trim().length < 200) {
+            return { valid: false, code: 'AI_INCOMPLETE_RESPONSE', parsed };
+        }
+    }
     return { valid: true, parsed, cleanedText: JSON.stringify(parsed) };
 }
 
@@ -657,7 +721,8 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
     try {
         const ai = getAI();
         const userId = req.userId;
-        const { model, prompt, systemInstruction, videoUrl, isBatch, enableGoogleSearch, mode, serviceType, lang, images } = req.body;
+        const { model, prompt, systemInstruction, videoUrl, isBatch, enableGoogleSearch, mode, serviceType, lang, images, metadata: reqMetadata } = req.body;
+        const metadata = reqMetadata || {};
         const _dbgId = newRequestId();
         logRequest({ requestId: _dbgId, route: '/generate', stage: 'init', model: model || 'auto', serviceType, mode, userId, hasGoogleSearch: !!(enableGoogleSearch || mode === 'deep') });
 
@@ -754,7 +819,14 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                 }
             } else {
                 const jsonRuleShort = 'CRITICAL: Respond with exactly one valid JSON object. Start with {, end with }. No markdown. Escape " in strings as \\". Never truncate.';
-                const sysInstr = (systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON.') + '\n\n' + getLanguageInstruction(lang) + '\n\n' + jsonRuleShort;
+                const linkJsonRules = serviceType === 'linkArticle'
+                    ? '\n\nLINK JSON RULES (CRITICAL):' +
+                      '\n- Do NOT put JSON fragments inside string fields (e.g. never include \\"siteName\\": inside "title").' +
+                      '\n- "title" must be a short single-line headline (no quotes/backslashes/newlines). If unsure, use a short neutral title.' +
+                      '\n- Do NOT include literal newlines inside JSON strings; use \\\\n.' +
+                      '\n- If a field has no data, use "N/A" or [] (not repetition).'
+                    : '';
+                const sysInstr = (systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON.') + '\n\n' + getLanguageInstruction(lang) + '\n\n' + jsonRuleShort + linkJsonRules;
                 const modelExtractor = MODELS.VIDEO_EXTRACTOR;
                 const modelSynthesizer = MODELS.REPORT_SYNTHESIZER;
 
@@ -789,7 +861,7 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
 
                     // Hard cap output to prevent LLM looping / huge payloads (link analysis only).
                     const budgets = [
-                        { maxOutputTokens: 20000, thinkingBudget: 3000, temperature: 0.1 },
+                        { maxOutputTokens: 16000, thinkingBudget: 2500, temperature: 0.1 },
                         { maxOutputTokens: 12000, thinkingBudget: 1500, temperature: 0.2 }
                     ];
 
@@ -802,7 +874,15 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                             for (let netAttempt = 0; netAttempt < 3 && !succeeded; netAttempt++) {
                                 try {
                                     finalResponse = await ai.models.generateContent({
-                                        model: modelSynthesizer,
+                                        // Guard: reject unknown/unsupported link model ids to avoid 404 NOT_FOUND.
+                                        model: (typeof model === 'string' && [
+                                            'gemini-1.5-pro-latest',
+                                            'gemini-1.5-pro',
+                                            'gemini-3-pro-preview',
+                                            'gemini-3-flash-preview',
+                                            'gemini-1.5-flash-latest',
+                                            'gemini-1.5-flash'
+                                        ].includes(model)) ? model : modelSynthesizer,
                                         contents,
                                         config: {
                                             systemInstruction: sysInstr,

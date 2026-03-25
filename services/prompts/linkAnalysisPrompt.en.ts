@@ -33,7 +33,8 @@ CRITICAL REQUIREMENTS:
 ANTI-LOOP / QUALITY GUARDRAILS (CRITICAL):
 - Avoid repetition/looping. Never repeat the same phrase/headline many times.
 - If a field lacks reliable information, return a short "N/A" or an empty array ([]) rather than hallucinating or repeating text.
-- For manipulations and claims: output ONLY what is actually present in the recovered/article text. If fewer than 5 exist, return fewer (do not pad to 5–10).
+- For manipulations and claims: output ONLY what is actually present in the recovered/article text, but be maximally complete. TARGET: 5–10 claims and 5–10 manipulations for a standard article; if the article is short or has no manipulations, return fewer/0 without inventing.
+- All detailedMetrics values must be numbers in the 0.0–1.0 range (do not leave them blank or at a default 0.0 without reasoning).
 
 IMPORTANT: All text must be in ENGLISH. Only JSON enum values in English (already).
 
@@ -41,13 +42,14 @@ IMPORTANT: All text must be in ENGLISH. Only JSON enum values in English (alread
 Perform the following IN-DEPTH analyses:
 
 1. FACTUAL ACCURACY:
-- Verify EVERY concrete claim, number and quote against MULTIPLE reliable sources
+- Verify the key concrete claims, numbers and quotes against reliable sources.
 - Names, positions, facts, numbers — EVERYTHING must be cross-checked with the current state of things TODAY according to the latest facts and Google Search. Prioritize current reality over your internal pre-trained memory.
-- Extract MINIMUM 5–10 verifiable claims (more for longer articles)
+- If the article is short, extract only the claims actually present (even 1–2). Do NOT invent claims and do NOT repeat the same point.
 - For each — URL for verification and a detailed explanation
 
 2. MANIPULATION TECHNIQUES (IN DEPTH):
-- Identify ALL manipulation techniques — MINIMUM 5–10 for a standard article
+- Identify only the manipulation techniques actually used in the text.
+- If the text is purely informative and contains no manipulations, return an empty array for manipulations. Do NOT invent techniques to fill a quota.
 - Look for: Cherry-picking, Emotional loading, False dilemma, Ad hominem, Fear-mongering, Enemy creation, Euphemisms/dysphemisms, Statistical manipulation, Repetition, False authority, Out-of-context usage, Gaslighting, Bandwagon, Framing, Anchoring, Dog whistles
 - For EVERY technique: exactly how it is applied, a SPECIFIC quote from the article, impact on the reader, how to counter it
 

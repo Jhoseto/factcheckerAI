@@ -35,6 +35,7 @@ export default function ChatWidget() {
     return id;
   });
   const [socket, setSocket] = useState<Socket | null>(null);
+  const socketRef = useRef<Socket | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [adminTyping, setAdminTyping] = useState(false);
   const [showRating, setShowRating] = useState(false);
@@ -101,13 +102,19 @@ export default function ChatWidget() {
   }[i18n.language === 'en' ? 'en' : 'bg'];
   notifyTitleRef.current = t.newMessage;
 
+  // Connect socket ONLY when chat is open.
   useEffect(() => {
-    const newSocket = io();
-    setSocket(newSocket);
+    if (!isOpen) {
+      if (socketRef.current) {
+        try { socketRef.current.close(); } catch { }
+        socketRef.current = null;
+      }
+      setSocket(null);
+      setSocketDisconnected(false);
+      return;
+    }
 
-    newSocket.emit('join_session', sessionId);
-
-    // Check if resolved
+    // Check if resolved (on open)
     fetch(`${API_BASE}/sessions?status=resolved`)
       .then(res => res.ok ? res.json() : [])
       .then((data: any[]) => {
@@ -120,11 +127,22 @@ export default function ChatWidget() {
       })
       .catch(() => { });
 
-    // Load history
+    // Load history (on open)
     fetch(`${API_BASE}/messages/${sessionId}`)
       .then(res => res.ok ? res.json() : [])
       .then((data: any[]) => setMessages(Array.isArray(data) ? data : []))
       .catch(() => setMessages([]));
+
+    if (socketRef.current) {
+      // Already connected for this open session
+      setSocket(socketRef.current);
+      socketRef.current.emit('join_session', sessionId);
+      return;
+    }
+
+    const newSocket = io();
+    socketRef.current = newSocket;
+    setSocket(newSocket);
 
     newSocket.on('connect', () => {
       console.log('[ChatWidget] Socket connected, joining session:', sessionId);
@@ -150,12 +168,6 @@ export default function ChatWidget() {
         setIsTyping(false);
         setAdminTyping(false);
       }
-      if (msg.sender === 'admin' && !isOpenRef.current) {
-        setUnreadCount(prev => prev + 1);
-        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-          new Notification(notifyTitleRef.current, { body: (msg.content || '').slice(0, 100) + (msg.content?.length > 100 ? '...' : ''), icon: '/favicon.ico' });
-        }
-      }
     });
 
     newSocket.on('user_typing', (data) => {
@@ -165,9 +177,11 @@ export default function ChatWidget() {
     });
 
     return () => {
-      newSocket.close();
+      try { newSocket.close(); } catch { }
+      if (socketRef.current === newSocket) socketRef.current = null;
+      setSocket(null);
     };
-  }, [sessionId]);
+  }, [isOpen, sessionId]);
 
   useEffect(() => {
     isOpenRef.current = isOpen;
