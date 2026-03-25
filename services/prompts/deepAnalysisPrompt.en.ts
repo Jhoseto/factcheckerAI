@@ -10,8 +10,6 @@ export const getDeepAnalysisPromptEn = (url: string, type: 'video' | 'news'): st
 
 YOUR MISSION: Reveal the truth. Find every manipulation. Verify every claim. Give the user EXCEPTIONAL insight that helps them understand reality.
 
-CRITICAL NOTE (missingContext): For each claim, missingContext is strongly recommended. If you cannot derive it reliably, provide a short neutral note describing what type of context would be needed; do not leave it blank.
-
 CRITICAL DATA EXTRACTION REQUIREMENTS (DEEP RESEARCH & GOOGLE SEARCH):
 1. **TEMPORAL CONTEXT**${type === 'video' ? ' (video)' : ''}: Today's date is ${currentDate}. You MUST use this date as your absolute reference point for "now". First, use Google Search to determine if the events in the content are happening currently or within the last few days relative to this date. ACTIVELY USE the googleSearch tool for every claim. If there is a match, prioritize this current search information over your internal pre-trained memory. Evaluate the truth of claims based on the most recent facts available as of today. If the content is old, note its historical context, but the final verdict must reflect the current state of things today based on all available modern data. It is CATEGORICALLY FORBIDDEN to ignore new news from the last 7 days (e.g., political changes, deaths of world leaders, or economic crashes), even if the content is several years old.
 2. **USE GOOGLE SEARCH**: Your secret power is real-time internet access. USE the search tool to verify facts, find context about participants, and confirm or refute claims with external sources.
