@@ -149,9 +149,11 @@ STRICTLY FORBIDDEN: claiming you lack the video or relying only on title/metadat
 
 FORBIDDEN here: stacked lines “at mm:ss X, then mm:ss Y” with no analytic point; pure description of what the viewer already sees with no takeaway about intent or congruence.
 
-REQUIREMENTS:
-- Each section: **4–8 thematic sub-bullets**. Each starts with a **short analytic thesis** (what the observation implies).
-- **mm:ss** — at most **1–2 anchor timestamps per sub-bullet** (to illustrate the thesis), not for every detail.
+REQUIREMENTS (Visual / Body / Vocal / Deception / Humor tabs):
+- For EACH of visualAnalysis, bodyLanguageAnalysis, vocalAnalysis, deceptionAnalysis, humorAnalysis: **minimum 6–10 objects** { "point", "details" }.
+- "point" = clear analytic thesis (one sentence).
+- "details" = **minimum 3–5 full sentences**: specifics from the recording, why it matters for persuasion/manipulation, how it ties to the words; no generic filler.
+- **mm:ss** — at most **1–2 anchor timestamps per sub-bullet** (to illustrate the thesis), not a full chronology.
 - Interpretation must be **tied to specific seen/heard evidence** in the recording; avoid empty guessing with no AV cue.
 
 The next model has NO video — provide **dense interpretive prose** in JSON field multimodalObservations **and** duplicate the same substance into the arrays visualAnalysis, bodyLanguageAnalysis, vocalAnalysis, deceptionAnalysis, humorAnalysis (see below).
@@ -169,7 +171,9 @@ PARTICIPANTS: Identify people/voices from dialogue and on-screen text; use names
 [HUMOR] **Strategic humour/irony**: trivialisation, mockery, topic deflection — with **effect on the audience**. If none: \"No clear humorous or ironic element in the observable dialogue.\"
 
 Use EXACTLY these marker lines (Latin, square brackets): [VISUAL] [BODY LANGUAGE] [VOCAL] [DECEPTION] [HUMOR].
-ALSO MANDATORY: Fill arrays visualAnalysis, bodyLanguageAnalysis, vocalAnalysis, deceptionAnalysis, humorAnalysis with the same theses and analysis as in multimodalObservations, split into objects { "point", "details" } (4–8 items per array). Do not leave empty sections or copy only marker lines with no prose between them.
+ALSO MANDATORY: Fill arrays visualAnalysis, bodyLanguageAnalysis, vocalAnalysis, deceptionAnalysis, humorAnalysis with the same substance as multimodalObservations, split into objects { "point", "details" } (see minimums above).
+- **psychologicalProfile** (Psycho tab): **minimum 6–10 objects**; motivation, emotional tone, cognitive biases, manipulation risk toward the audience — **3–5 sentences** in "details" with examples from the recording.
+- **culturalSymbolicAnalysis** (Cultural tab): **minimum 6–10 objects**; symbols, colour, dress, culturally loaded gestures, myth/religion/national identity/pop-culture references — **3–5 sentences** in "details" tied to specific shots/lines.
 
 18. PSYCHOLOGICAL PROFILE OF PARTICIPANTS (IN DEPTH):
 - Analyse PERSONALITY TRAITS — extrovert vs introvert, aggressive vs passive, narcissistic traits
@@ -226,10 +230,10 @@ Return the result as JSON in the following format:
     { "point": "Risk to Society", "details": "Which groups are affected..." }
   ],
   "psychologicalProfile": [
-    { "point": "Psychological Profile", "details": "Analysis of a specific participant..." }
+    { "point": "Psychological Profile", "details": "Minimum 3–5 sentences with examples from the recording." }
   ],
   "culturalSymbolicAnalysis": [
-    { "point": "Cultural Reference", "details": "Symbols and archetypes..." }
+    { "point": "Cultural Reference", "details": "Minimum 3–5 sentences: symbol/reference tied to shot or dialogue." }
   ],
   "recommendations": [
     { "point": "Recommendation", "details": "What viewers need to know..." }
@@ -239,20 +243,18 @@ Return the result as JSON in the following format:
     "emotionalLanguage": "DETAILED examples of emotionally charged language in English with analysis of each example",
     "selectiveReporting": "DETAILED evidence for cherry-picking of facts in English with concrete examples of what was omitted and why it matters"
   },
-  "factualClaims": [
+  "claims": [
     {
       "claim": "The FULL claim as stated (do not truncate — include all context)",
+      "quote": "A full direct quote from the video/transcript (include enough surrounding context to avoid misquoting)",
       "verdict": "TRUE" | "MOSTLY_TRUE" | "MIXED" | "MOSTLY_FALSE" | "FALSE" | "UNVERIFIABLE",
-      "evidence": "EXCEPTIONALLY DETAILED evidence or rebuttal with factual data, statistics, historical facts, and comparisons with multiple sources. Use concrete examples and real data. Provide a full picture with all nuances.",
-      "sources": ["URL of a reliable source for verification"],
+      "explanation": "EXCEPTIONALLY DETAILED verification + reasoning. If verdict is not UNVERIFIABLE, include at least 1 source URL here and cite the key date/fact found today.",
       "confidence": 0.0,
       "speaker": "REAL name of the speaker (if mentioned in the video, otherwise 'Speaker 1', 'Speaker 2', etc.)",
       "timestamp": "Exact timestamp from the video",
-      "context": "EXCEPTIONALLY FULL context around the claim — what was said before and after, how it fits into the overall conversation, what the history of the discussion is, what the biases of participants are",
       "missingContext": "EXCEPTIONALLY FULL missing context — what critical information is omitted/hidden, what was said immediately before/after (if inferable), and how that changes interpretation. Minimum 2–3 full sentences.",
-      "logicalAnalysis": "IN-DEPTH logical analysis — are there logical fallacies (which ones), what is the structure of the argument (premise, conclusion, warrants), is it consistent, are there hidden assumptions",
-      "factualVerification": "DETAILED verification process — how this claim is verified against multiple real sources, statistics, historical facts, expert consensus. Give concrete sources and data.",
-      "comparison": "BROAD comparison with other sources and opinions — what multiple experts/sources say on the same topic, what the different perspectives are, where there is consensus and where there are disagreements"
+      "category": "Fact",
+      "timestamp": "00:00"
     }
   ],
   "quotes": [
@@ -265,24 +267,22 @@ Return the result as JSON in the following format:
       "analysis": "IN-DEPTH analysis of the quote — what it means at multiple levels (literal, implicit, symbolic), what the implications are (immediate, long-term), whether it is manipulative (how and why), what psychological techniques are present"
     }
   ],
-  "manipulationTechniques": [
+  "manipulations": [
     {
       "technique": "Name of the technique in English, followed by the Bulgarian translation in brackets (e.g. 'Emotional manipulation (Емоционална манипулация)', 'Cherry-picking', 'Appeal to Authority (Апел към авторитета)')",
-      "description": "EXCEPTIONALLY DETAILED description of exactly how it is used, with multiple concrete examples from the video. Explain the mechanism of the manipulation at a psychological, social, and cognitive level.",
       "timestamp": "Exact timestamp from the video",
+      "logic": "EXCEPTIONALLY DETAILED analysis of the manipulative logic and mechanism with concrete examples from the video.",
       "severity": 0.0,
-      "example": "FULL quote/example from the video demonstrating the technique",
-      "speaker": "REAL name of the person using it",
-      "impact": "DETAILED description of the impact on the audience — cognitive/emotional/behavioural mechanisms + short-term and long-term effects. Minimum 3–5 full sentences.",
+      "effect": "DETAILED description of the impact on the audience — cognitive/emotional/behavioural mechanisms + short-term and long-term effects. Minimum 3–5 full sentences.",
       "counterArgument": "DETAILED strategies for countering this manipulation — include a 3–7 step checklist + 2–3 verification questions the audience should ask. Not a one-liner."
     }
   ],
   "multimodalObservations": "[VISUAL]\nReal paragraph: 2–4 sentences on framing/light/edit/rhetoric — no empty gap between markers.\n\n[BODY LANGUAGE]\nReal paragraph on gesture, gaze, congruence with speech.\n\n[VOCAL]\nReal paragraph on tempo, pauses, voice quality.\n\n[DECEPTION]\nReal paragraph on (in)congruence or explicitly: no observable mismatch.\n\n[HUMOR]\nReal paragraph on humour/irony or explicitly: none observed.",
-  "visualAnalysis": [ { "point": "Thesis from [VISUAL]", "details": "Same substance as the [VISUAL] section above — 2–5 sentences." } ],
-  "bodyLanguageAnalysis": [ { "point": "Thesis from [BODY LANGUAGE]", "details": "…" } ],
-  "vocalAnalysis": [ { "point": "Thesis from [VOCAL]", "details": "…" } ],
-  "deceptionAnalysis": [ { "point": "Thesis from [DECEPTION]", "details": "…" } ],
-  "humorAnalysis": [ { "point": "Thesis from [HUMOR]", "details": "…" } ],
+  "visualAnalysis": [ { "point": "Thesis from [VISUAL]", "details": "Minimum 3–5 sentences: specifics from the frame and why it is rhetorically significant." } ],
+  "bodyLanguageAnalysis": [ { "point": "Thesis from [BODY LANGUAGE]", "details": "Minimum 3–5 sentences: gesture/gaze/posture and congruence with speech." } ],
+  "vocalAnalysis": [ { "point": "Thesis from [VOCAL]", "details": "Minimum 3–5 sentences: tempo, pauses, timbre, effect on trust." } ],
+  "deceptionAnalysis": [ { "point": "Thesis from [DECEPTION]", "details": "Minimum 3–5 sentences: mismatch or explicit absence of cues." } ],
+  "humorAnalysis": [ { "point": "Thesis from [HUMOR]", "details": "Minimum 3–5 sentences: irony/mockery and audience effect." } ],
   "transcription": []
 }`;
 };

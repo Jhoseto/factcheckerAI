@@ -252,6 +252,14 @@ const transformGeminiResponse = (
 ): VideoAnalysis => {
   const responseLang = getApiLang();
 
+  const normalizeScore01 = (v: unknown): number | null => {
+    const n = typeof v === 'number' ? v : (typeof v === 'string' ? Number(v) : NaN);
+    if (!Number.isFinite(n)) return null;
+    if (n >= 0 && n <= 1) return n;
+    if (n > 1 && n <= 100) return n / 100;
+    return null;
+  };
+
   const normalizeTechniqueKey = (s: unknown) =>
     (typeof s === 'string' ? s : String(s ?? ''))
       .toLowerCase()
@@ -404,9 +412,18 @@ const transformGeminiResponse = (
     console.error('[Transform] Error merging quotes:', e);
   }
 
-  const trueClaimsCount = claims.filter((c: any) => c && ['TRUE', 'MOSTLY_TRUE'].includes(c.verdict?.toUpperCase())).length;
-  const credibilityIndex = claims.length > 0 ? (trueClaimsCount / claims.length) : 0.5;
-  const manipulationIndex = Math.min(manipulations.length * 0.15, 1);
+  const verdictOf = (c: any) => String(c?.verdict ?? '').toUpperCase();
+  const baseForIndex = allClaims.length ? allClaims : claims;
+  const trueClaimsCount = baseForIndex.filter((c: any) => ['TRUE', 'MOSTLY_TRUE'].includes(verdictOf(c))).length;
+  const unverifiableCount = baseForIndex.filter((c: any) => verdictOf(c) === 'UNVERIFIABLE').length;
+  const computedCredibilityIndex = baseForIndex.length > 0 ? (trueClaimsCount / baseForIndex.length) : 0.5;
+  const computedUnverifiablePercent = baseForIndex.length > 0 ? (unverifiableCount / baseForIndex.length) : 0;
+
+  const modelCred = normalizeScore01(rawResponse?.summary?.credibilityIndex ?? rawResponse?.credibilityIndex);
+  const modelManip = normalizeScore01(rawResponse?.summary?.manipulationIndex ?? rawResponse?.manipulationIndex);
+
+  const credibilityIndex = modelCred ?? computedCredibilityIndex;
+  const manipulationIndex = modelManip ?? Math.min(manipulations.length * 0.12, 1);
 
   const transformedClaims = allClaims.map((c: any) => {
     const rawMissingContext = c.missingContext ?? c.context ?? '';
@@ -526,7 +543,7 @@ ${metadataSection}
     summary: {
       credibilityIndex: credibilityIndex,
       manipulationIndex: manipulationIndex,
-      unverifiablePercent: 0.1,
+      unverifiablePercent: normalizeScore01(rawResponse?.summary?.unverifiablePercent ?? rawResponse?.unverifiablePercent) ?? computedUnverifiablePercent,
       finalClassification: mapAssessment(rawResponse?.summary?.finalClassification || rawResponse?.overallAssessment),
       overallSummary: (rawResponse?.summary?.overallSummary || rawResponse?.summary || 'Анализът е завършен.') + metadataSection,
       totalDuration: fullMetadata?.durationFormatted || 'N/A',

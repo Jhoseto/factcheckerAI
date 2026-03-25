@@ -148,7 +148,7 @@ function serializeMultimodalFromStage1Arrays(parsed) {
 function textChunkToPointDetails(body, fallbackPoint) {
     const t = (body || '').trim();
     if (!t) {
-        return [{ point: fallbackPoint, details: 'No significant observations were noted in the video analysis.' }];
+        return [{ point: fallbackPoint, details: 'Няма значими наблюдения, отбелязани във видеоанализа.' }];
     }
     let chunks = t.split(/\n(?=\d+\.\s)/).map(s => s.trim()).filter(Boolean);
     if (chunks.length <= 1) {
@@ -328,7 +328,7 @@ function parseMultimodalObservationsToSchemaArrays(multimodalText) {
         const tag = `[${label}]`;
         const start = mm.indexOf(tag);
         if (start < 0) {
-            result[field] = [{ point: fb, details: 'No significant observations were noted in the video analysis.' }];
+            result[field] = [{ point: fb, details: 'Няма значими наблюдения, отбелязани във видеоанализа.' }];
             continue;
         }
         const after = start + tag.length;
@@ -352,7 +352,7 @@ function getLanguageInstruction(lang) {
     if (normalized === 'en' || normalized.startsWith('en-')) {
         return 'Output language: you must write the entire analysis and all text only in English.';
     }
-    return 'Output language: you must write the entire analysis and all text only in Bulgarian.';
+    return 'Език на изхода: трябва да напишеш целия анализ и всички текстове само на български език.';
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -987,7 +987,9 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                 } else {
                     // Stage 1: Extraction (Flash)
                     const extractionConfig = {
-                        systemInstruction: (systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON.') + '\n\n' + getLanguageInstruction(lang),
+                        systemInstruction: (systemInstruction || ((lang || 'bg') === 'en'
+                            ? 'You are a professional fact-checker. Respond ONLY with valid JSON.'
+                            : 'Ти си професионален фактчекър. Отговори САМО с валиден JSON.')) + '\n\n' + getLanguageInstruction(lang),
                         temperature: 0.1,
                         maxOutputTokens: 65536,
                         mediaResolution: 'MEDIA_RESOLUTION_LOW',
@@ -1007,11 +1009,26 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                     { const sm = extractSearchMetadata(response); logGoogleSearches(_dbgId + '_s1', sm.searchQueries, sm.groundingChunks); logThinking(_dbgId + '_s1', sm.thinkingText); }
                     logRawResponse(_dbgId, 'stage1_extraction', rawText, researchTokens);
 
-                    // Stage 2: Smart Synthesis (Pro 3.1)
-                    const videoContextStr = req.body.metadata?.title ? `VIDEO METADATA:\n- Title: ${req.body.metadata.title}\n\n` : '';
+                    // Stage 2: Smart Synthesis (Phase 2 model)
+                    const isBgLang3 = (lang || 'bg') !== 'en';
+                    const L3 = (bg, en) => (isBgLang3 ? bg : en);
+                    const videoContextStr = req.body.metadata?.title
+                        ? L3(
+                            `ВИДЕО МЕТАДАННИ:\n- Заглавие: ${req.body.metadata.title}\n\n`,
+                            `VIDEO METADATA:\n- Title: ${req.body.metadata.title}\n\n`
+                        )
+                        : '';
                     const synthesisContents = [
                         ...contents,
-                        { role: 'user', parts: [{ text: `${videoContextStr}ESTABLISHED RESEARCH DATA (GROUND TRUTH):\n\n${rawText}\n\nINSTRUCTION: Using the data above and MARCH 2026 as current context, synthesize the final analysis exactly according to the schema. If needed, perform additional Google Search to verify the latest facts.` }] }
+                        {
+                            role: 'user',
+                            parts: [{
+                                text: `${videoContextStr}${L3('УСТАНОВЕНИ ДАННИ ОТ ПРОУЧВАНЕ (ground truth):', 'ESTABLISHED RESEARCH DATA (GROUND TRUTH):')}\n\n${rawText}\n\n${L3(
+                                    'ИНСТРУКЦИЯ: Използвай данните по-горе и Март 2026 като текущ контекст. Синтезирай финалния анализ точно по схемата. При нужда направи допълнително Google Search за проверка на актуални факти. Не измисляй факти "към днешна дата".',
+                                    'INSTRUCTION: Using the data above and MARCH 2026 as current context, synthesize the final analysis exactly according to the schema. If needed, perform additional Google Search to verify the latest facts. Never invent "as of today" facts.'
+                                )}`
+                            }]
+                        }
                     ];
 
                     const finalResponse = await ai.models.generateContent({
@@ -1243,19 +1260,27 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
         sendSSE('progress', { status: getProgressMsg(lang, 'start') });
 
         // Strict JSON output — Gemini must return valid JSON; we do not repair complex breakage
+        const isBgLang = (lang || 'bg') !== 'en';
+        const L = (bg, en) => (isBgLang ? bg : en);
         const jsonRule = [
-            'CRITICAL — Your entire response MUST be exactly one valid JSON object.',
-            'Start with { and end with }. No markdown (no ```), no text before or after.',
-            'Inside string values: escape double quotes as \\", and escape newlines as \\n.',
-            'Never truncate: always output the full JSON and close every bracket.',
-            'Keep ALL schema fields populated (summary, claims, manipulations, etc.); only shorten long text strings if needed to avoid truncation. Always close all brackets and quotes.'
+            L('КРИТИЧНО — целият ти отговор ТРЯБВА да е точно един валиден JSON обект.', 'CRITICAL — Your entire response MUST be exactly one valid JSON object.'),
+            L('Започни с { и завърши с }. Без markdown (без ```), без текст преди/след JSON.', 'Start with { and end with }. No markdown (no ```), no text before or after.'),
+            L('В string стойности: ескейпвай двойни кавички като \\\\" и нови редове като \\\\n.', 'Inside string values: escape double quotes as \\\\", and escape newlines as \\\\n.'),
+            L('Не прекъсвай/не трънкейтвай: винаги затваряй всички скоби и кавички.', 'Never truncate: always output the full JSON and close every bracket.'),
+            L('Попълни ВСИЧКИ полета от схемата (summary, claims, manipulations и т.н.). Ако трябва, съкращавай по-малко важни дълги текстове, но никога не оставяй JSON незатворен.', 'Keep ALL schema fields populated (summary, claims, manipulations, etc.); only shorten long text strings if needed to avoid truncation. Always close all brackets and quotes.')
         ].join(' ');
         let enhancedSystemInstruction = (systemInstruction || '') + '\n\n' + getLanguageInstruction(lang) + '\n\n' + jsonRule;
         if (isDeepMode && tools) {
             enhancedSystemInstruction +=
-                ' After tool use, respond with one complete JSON object only; integrate all tool results into it.';
+                L(
+                    ' След използване на инструменти, отговори само с един завършен JSON обект; интегрирай резултатите от инструментите в него.',
+                    ' After tool use, respond with one complete JSON object only; integrate all tool results into it.'
+                );
         } else if (!systemInstruction) {
-            enhancedSystemInstruction = 'You are a professional fact-checker. Your response must be valid JSON only.\n\n' + getLanguageInstruction(lang) + '\n\n' + jsonRule;
+            enhancedSystemInstruction = L(
+                'Ти си професионален фактчекър. Отговорът ти трябва да е само валиден JSON.\n\n',
+                'You are a professional fact-checker. Your response must be valid JSON only.\n\n'
+            ) + getLanguageInstruction(lang) + '\n\n' + jsonRule;
         }
 
         let fullText = '';
@@ -1355,54 +1380,121 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
 
             const mmForPro = deepStage1MultimodalRaw !== 'MISSING_STAGE_1_MULTIMODAL_OBSERVATIONS'
                 ? deepStage1MultimodalRaw
-                : 'DERIVE_FROM_STAGE1_JSON: Populate the five multimodal tabs only from the arrays visualAnalysis, bodyLanguageAnalysis, vocalAnalysis, deceptionAnalysis, humorAnalysis inside the Stage 1 JSON above. Keep each item as analytic point + details; refine wording only; do not invent scenes.';
+                : 'DERIVE_FROM_STAGE1_JSON: Попълни петте мултимодални таба САМО от масивите visualAnalysis, bodyLanguageAnalysis, vocalAnalysis, deceptionAnalysis, humorAnalysis в Stage 1 JSON по-горе. Всеки елемент: аналитична теза (point) + детайли (details). Преформулирай леко за яснота, но НЕ измисляй сцени/аудио/визуални факти.';
 
             // Build conversation for final JSON step (model's analysis as context)
             let currentContents = [...contents];
             // Any non-empty Stage 1 text must reach Pro — short replies used to skip context and broke Stage 2
             let hasGrounding = rawText && rawText.trim().length > 0;
             const durationMin = Math.round((metadata.videoDuration || metadata.duration || 0) / 60) || 10;
-            const targetClaims = Math.min(20, Math.max(6, Math.round(durationMin * 0.6)));
-            const targetManipulations = Math.min(10, Math.max(4, Math.round(durationMin * 0.4)));
+            const isLongVideo = durationMin >= 30;
+            // Scale targets with duration (previous caps were too low for long videos).
+            // Note: Phase 2 can hit output-length caps; tokenBudgetRule will adapt density accordingly.
+            const targetClaims = Math.min(80, Math.max(10, Math.round(durationMin * 0.9)));
+            const targetManipulations = Math.min(45, Math.max(8, Math.round(durationMin * 0.6)));
             if (hasGrounding) {
+                const isBgLang2 = (lang || 'bg') !== 'en';
+                const L2 = (bg, en) => (isBgLang2 ? bg : en);
                 const todayStr = new Date().toLocaleDateString('en-US', { dateStyle: 'full' });
-                const videoContextStr = metadata.title ? `VIDEO METADATA (Reference Point):\n- Title: ${metadata.title}\n- Author: ${metadata.author || 'Unknown'}\n- Duration: ~${durationMin} minutes\n- Uploaded/Published: ${metadata.date || 'Refer to content'}\n\n` : '';
-                const verificationInstruction = `VERIFICATION RULE (today: ${todayStr}):
-For EVERY claim: use Google Search to verify it against today's date. Return information current as of the moment this report is created. Verify events and cite accurate dates from your search results. Use the research above as base, but always confirm facts and dates via search.`;
+                const videoContextStr = metadata.title
+                    ? L2(
+                        `ВИДЕО МЕТАДАННИ (референтна точка):\n- Заглавие: ${metadata.title}\n- Автор: ${metadata.author || 'Неизвестен'}\n- Продължителност: ~${durationMin} минути\n- Качено/публикувано: ${metadata.date || 'Виж съдържанието'}\n\n`,
+                        `VIDEO METADATA (Reference Point):\n- Title: ${metadata.title}\n- Author: ${metadata.author || 'Unknown'}\n- Duration: ~${durationMin} minutes\n- Uploaded/Published: ${metadata.date || 'Refer to content'}\n\n`
+                    )
+                    : '';
+                const verificationInstruction = L2(
+                    `ПРАВИЛО ЗА ВЕРИФИКАЦИЯ (днес: ${todayStr}):
+За ВСЯКО твърдение: използвай Google Search, за да го провериш спрямо днешната дата. Върни информация, актуална към момента на изготвяне на доклада. Посочи точни дати/факти от резултатите. Използвай Stage 1 като база, но ВИНАГИ потвърждавай фактите и датите чрез търсене.`,
+                    `VERIFICATION RULE (today: ${todayStr}):
+For EVERY claim: use Google Search to verify it against today's date. Return information current as of the moment this report is created. Verify events and cite accurate dates from your search results. Use the research above as base, but always confirm facts and dates via search.`
+                );
                 currentContents.push({
                     role: 'user',
                     parts: [{
-                        text: `${videoContextStr}ESTABLISHED RESEARCH DATA (from Stage 1):\n\n${rawText.substring(0, 120000)}\n\nMULTIMODAL_OBSERVATIONS_FROM_STAGE_1 (ONLY for visual/body/vocal/behavioral tabs; authoritative):\n${mmForPro}\n\n${verificationInstruction}\n\nDo not use placeholders. Every claim MUST be evaluated against these findings.`
+                        text: `${videoContextStr}${L2('УСТАНОВЕНИ ДАННИ ОТ ПРОУЧВАНЕ (от етап 1):', 'ESTABLISHED RESEARCH DATA (from Stage 1):')}\n\n${rawText.substring(0, 120000)}\n\n${L2('МУЛТИМОДАЛНИ НАБЛЮДЕНИЯ ОТ ЕТАП 1 (САМО за табовете визуален/тяло/вокал/поведение; авторитетен източник):', 'MULTIMODAL_OBSERVATIONS_FROM_STAGE_1 (ONLY for visual/body/vocal/behavioral tabs; authoritative):')}\n${mmForPro}\n\n${verificationInstruction}\n\n${L2('Без плейсхолдъри. Всяко твърдение ТРЯБВА да бъде оценено спрямо тези данни.', 'Do not use placeholders. Every claim MUST be evaluated against these findings.')}`
                     }]
                 });
             }
 
-            const multimodalRule = `For visualAnalysis, bodyLanguageAnalysis, vocalAnalysis, deceptionAnalysis, humorAnalysis:
-- Source of truth: MULTIMODAL_OBSERVATIONS_FROM_STAGE_1 above, OR (if it says DERIVE_FROM_STAGE1_JSON) the visualAnalysis / bodyLanguageAnalysis / vocalAnalysis / deceptionAnalysis / humorAnalysis arrays inside ESTABLISHED RESEARCH DATA JSON. Do NOT invent AV content you cannot find there.
-- Split into items where each "point" is a short analytic headline (thesis), "details" is 2–5 sentences of interpretation grounded in Stage 1 — NOT a timeline of mm:ss events unless Stage 1 used timestamps sparingly as anchors.
-- Preserve participant names from Stage 1 when attributing behaviour; do not merge distinct people.
-- Do NOT add new scenes/facts beyond Stage 1; you cannot see the video.
-- If a category has no substance in Stage 1, return one fallback object:
-  {"point":"No significant observations","details":"No significant observations were noted in the video analysis."}`;
+            const multimodalRule = `За visualAnalysis, bodyLanguageAnalysis, vocalAnalysis, deceptionAnalysis, humorAnalysis (табове Визуален / Тяло / Вокал / Измама / Хумор):
+- Източник на истината: MULTIMODAL_OBSERVATIONS_FROM_STAGE_1 по-горе, ИЛИ (ако пише DERIVE_FROM_STAGE1_JSON) същите масиви вътре в ESTABLISHED RESEARCH DATA JSON. НЕ измисляй аудио/видео съдържание, което не присъства там.
+- **Минимум 6–10 обекта на масив** { "point", "details" }. "point" = ясна аналитична теза (1 изречение). "details" = **минимум 3–5 пълни изречения**: конкретика от етап 1, защо е реторично/убедително значимо; без общи фрази.
+- mm:ss — най-много 1–2 котви на подточка; не хронология на целия запис.
+- Запази имената на участниците от етап 1; не сливай различни хора.
+- НЕ добавяй нови сцени/факти извън етап 1; ти не виждаш видеото.
+- Ако категорията няма съдържание в етап 1, върни 1 fallback обект:
+  {"point":"Няма значими наблюдения","details":"Няма значими наблюдения, отбелязани във видеоанализа."}
+За psychologicalProfile (Психо) и culturalSymbolicAnalysis (Културен): същият минимум **6–10 обекта**, "details" **3–5 изречения**, стъпили на етап 1 — мотивация, културни символи/препратки с примери, без измисляне извън данните.`;
+            const isBgLang = (lang || 'bg') !== 'en';
+            const L = (bg, en) => (isBgLang ? bg : en);
+            const verificationRule = L(
+                `ПРАВИЛО ЗА ВЕРИФИКАЦИЯ (БЕЗ КОМПРОМИСИ):
+- Ако НЕ можеш да потвърдиш твърдение чрез Google Search ДНЕС → verdict = "UNVERIFIABLE" и ясно кажи, че не е потвърдено.
+- Никога не измисляй "към днешна дата" факти/дати/смърт/политически промени/войни/пазарни събития/съдебни развръзки.
+- За всеки verdict различен от UNVERIFIABLE (TRUE/MOSTLY_TRUE/MIXED/MOSTLY_FALSE/FALSE) добави поне 1 URL в explanation + ключов факт/дата от проверката.`,
+                `VERIFICATION HARD RULE (NON-NEGOTIABLE):
+- If you cannot confirm a claim with Google Search TODAY, set verdict to "UNVERIFIABLE" and clearly say it is not verified.
+- Never invent "as of today" facts, dates, deaths, political changes, wars, market events, or legal outcomes.
+- For any claim marked TRUE/MOSTLY_TRUE/MIXED/MOSTLY_FALSE/FALSE, include at least 1 source URL in explanation and cite the key date/fact you found.`
+            );
+            const densityRule = isLongVideo
+                ? L(
+                    `РЕЖИМ "ДЪЛГО ВИДЕО": има много материал. Дай ПОВЕЧЕ елементи, но по-стегнато:
+- claims[].explanation: 1–2 изречения, но конкретно.
+- claims[].missingContext: 1–2 изречения, ясно какво липсва.
+- manipulations[].effect: 2–3 изречения.
+- manipulations[].counterArgument: чеклист 3–5 точки + 1–2 въпроса.`,
+                    `LONG VIDEO MODE: lots of material. Return MORE items, but concise:
+- claims[].explanation: 1–2 sentences, concrete.
+- claims[].missingContext: 1–2 sentences, concrete.
+- manipulations[].effect: 2–3 sentences.
+- manipulations[].counterArgument: 3–5 step checklist + 1–2 questions.`
+                )
+                : L(
+                    `РЕЖИМ "КЪСО/СРЕДНО ВИДЕО": по-малко елементи, но по-дълбоки текстове (както е описано по-горе).`,
+                    `SHORT/MEDIUM VIDEO MODE: fewer items, deeper text (as specified above).`
+                );
+
+            const tokenBudgetRule = L(
+                `ПРАВИЛО ЗА ТОКЕН БЮДЖЕТ (КРИТИЧНО): Отговорът има твърд лимит за дължина.\n${densityRule}\n\nПриоритизирай:
+- claims[].explanation
+- claims[].missingContext
+- manipulations[].effect
+- manipulations[].counterArgument
+ИЗКЛЮЧЕНИЕ — табовете (Визуален/Тяло/Вокал/Измама/Хумор/Психо/Културен) НЕ са „второстепенни“: visualAnalysis, bodyLanguageAnalysis, vocalAnalysis, deceptionAnalysis, humorAnalysis, psychologicalProfile, culturalSymbolicAnalysis — **6–10 точки всяка**, **3–5 изречения** в details (виж MULTIMODAL правилото).
+historicalParallel: **6–10 точки**, 2–4 изречения в details.
+Компактно (3–4 точки, 1–2 изречения details): geopoliticalContext, strategicIntent, recommendations, psychoLinguisticAnalysis, narrativeArchitecture, technicalForensics, socialImpactPrediction (ако са в схемата).
+Върни валиден JSON. Не прекъсвай/не трънкейтвай.`,
+                `TOKEN BUDGET RULE (CRITICAL): The response has a hard max-length limit.\n${densityRule}\n\nPrioritize:
+- claims[].explanation
+- claims[].missingContext
+- manipulations[].effect
+- manipulations[].counterArgument
+EXCEPTION — UI tabs (Visual/Body/Vocal/Deception/Humor/Psycho/Cultural) are NOT secondary: visualAnalysis, bodyLanguageAnalysis, vocalAnalysis, deceptionAnalysis, humorAnalysis, psychologicalProfile, culturalSymbolicAnalysis — **6–10 items each**, **3–5 sentences** in details (see MULTIMODAL rule above).
+historicalParallel: **6–10 items**, 2–4 sentences per details.
+Keep compact (3–4 items, 1–2 sentences details): geopoliticalContext, strategicIntent, recommendations, psychoLinguisticAnalysis, narrativeArchitecture, technicalForensics, socialImpactPrediction (if in schema).
+finalInvestigativeReport: max ~900–1200 words when present.
+Ensure valid JSON. Do not truncate.`
+            );
             const jsonPromptsWithContext = [
-                `Return the complete analysis as JSON. For each claim: verify via Google Search against today's date; give current information and accurate dates. For this ~${durationMin}-min video, aim for around ${targetClaims} claims and ${targetManipulations} manipulations. Populate EVERY array. ${multimodalRule}
-
-TOKEN BUDGET RULE (CRITICAL): The response has a hard max-length limit. Prioritize depth in:
-- claims[].explanation (2–4 sentences)
-- claims[].missingContext (2–4 sentences, specific)
-- manipulations[].effect (3–5 sentences)
-- manipulations[].counterArgument (checklist + questions)
-Keep other sections compact:
-- psychologicalProfile, culturalSymbolicAnalysis, geopoliticalContext, historicalParallel, strategicIntent, recommendations: 3–4 items each, 1–2 sentences per details.
-- finalInvestigativeReport: max ~900–1200 words.
-Ensure valid JSON. Do not truncate.`,
-                `Format as valid JSON. Use the research above. For each claim: verify via Google Search against today; give current info and accurate dates. Aim for ~${targetClaims} claims and ~${targetManipulations} manipulations. ${multimodalRule}
-
-TOKEN BUDGET RULE (CRITICAL): Prioritize claims[].missingContext and manipulations[].effect/counterArgument. Keep secondary tabs compact (3–4 items, short details). Valid JSON only. No placeholders.`
+                L(
+                    `Върни пълния анализ като JSON. За всяко твърдение: провери чрез Google Search спрямо днешната дата; дай актуална информация и точни дати. За това ~${durationMin}-мин видео цел: ~${targetClaims} твърдения и ~${targetManipulations} манипулации. Попълни ВСЕКИ масив. ${multimodalRule}\n\n${verificationRule}\n\n${tokenBudgetRule}`,
+                    `Return the complete analysis as JSON. For each claim: verify via Google Search against today's date; give current information and accurate dates. For this ~${durationMin}-min video, aim for around ${targetClaims} claims and ${targetManipulations} manipulations. Populate EVERY array. ${multimodalRule}\n\n${verificationRule}\n\n${tokenBudgetRule}`
+                ),
+                L(
+                    `Форматирай като валиден JSON. Използвай проучването по-горе. За всяко твърдение: проверка с Google Search спрямо днешната дата; актуални данни и точни дати. Цел: ~${targetClaims} твърдения и ~${targetManipulations} манипулации. ${multimodalRule}\n\n${verificationRule}\n\nПРИОРИТЕТ: claims[].missingContext и manipulations[].effect/counterArgument. Табовете Визуален–Културен: пълни масиви (6–10 точки, 3–5 изречения details), не ги съкращавай. ${tokenBudgetRule} Валиден JSON. Без плейсхолдъри.`,
+                    `Format as valid JSON. Use the research above. For each claim: verify via Google Search against today; give current info and accurate dates. Aim for ~${targetClaims} claims and ~${targetManipulations} manipulations. ${multimodalRule}\n\n${verificationRule}\n\nPrioritize claims[].missingContext and manipulations[].effect/counterArgument. Visual–Cultural tabs: full arrays (6–10 items, 3–5 sentence details), do not shrink them. ${tokenBudgetRule} Valid JSON only. No placeholders.`
+                )
             ];
             const jsonPromptsNoContext = [
-                'Return complete fact-check analysis as JSON. You do NOT have video — use ONLY the user text and MULTIMODAL_OBSERVATIONS_FROM_STAGE_1 for visual/body/vocal tabs. Populate claims/manipulations from available text. Be concise.',
-                'Valid JSON only. No video input: never invent visual/audio/body observations; use MULTIMODAL_OBSERVATIONS_FROM_STAGE_1 or single-item fallback arrays. No placeholders.'
+                L(
+                    'Върни пълен фактчек анализ като JSON. Нямаш видео — използвай САМО текста и MULTIMODAL_OBSERVATIONS_FROM_STAGE_1 за визуални/тяло/вокал табове. Попълни claims/manipulations от наличния текст. Бъди стегнат.',
+                    'Return complete fact-check analysis as JSON. You do NOT have video — use ONLY the user text and MULTIMODAL_OBSERVATIONS_FROM_STAGE_1 for visual/body/vocal tabs. Populate claims/manipulations from available text. Be concise.'
+                ),
+                L(
+                    'Само валиден JSON. Без видео вход: никога не измисляй визуални/аудио/тяло наблюдения; използвай MULTIMODAL_OBSERVATIONS_FROM_STAGE_1 или едно fallback наблюдение. Без плейсхолдъри.',
+                    'Valid JSON only. No video input: never invent visual/audio/body observations; use MULTIMODAL_OBSERVATIONS_FROM_STAGE_1 or single-item fallback arrays. No placeholders.'
+                )
             ];
             const jsonPrompts = hasGrounding ? jsonPromptsWithContext : jsonPromptsNoContext;
             // Deep Stage 2 must use Gemini 3 Flash Preview (user requirement).
@@ -1508,6 +1600,7 @@ TOKEN BUDGET RULE (CRITICAL): Prioritize claims[].missingContext and manipulatio
                                 if (low === 'проверка на първоизточници.' || low === 'verify primary sources.') return true;
                                 return t.length < 120; // ~2–3 short sentences threshold
                             };
+                            const hasUrl = (s) => typeof s === 'string' && /(https?:\/\/|www\.)/i.test(s);
 
                             const claimSample = claimsArr.slice(0, 25);
                             const weakContext = claimSample.filter(c => isWeakText(c?.missingContext ?? c?.context)).length;
@@ -1519,16 +1612,26 @@ TOKEN BUDGET RULE (CRITICAL): Prioritize claims[].missingContext and manipulatio
                             const weakImpactRatio = manSample.length ? (weakImpact / manSample.length) : 0;
                             const weakDefenseRatio = manSample.length ? (weakDefense / manSample.length) : 0;
 
+                            // Verification gate: if we output confident verdicts but no source URLs, it's likely hallucinated.
+                            const nonUnverifiable = claimSample.filter(c => {
+                                const v = String(c?.verdict ?? '').toUpperCase();
+                                return v && v !== 'UNVERIFIABLE';
+                            });
+                            const withSources = nonUnverifiable.filter(c => hasUrl(c?.explanation) || hasUrl(c?.evidence) || (Array.isArray(c?.sources) && c.sources.some(u => hasUrl(String(u)))));
+                            const sourcesRatio = nonUnverifiable.length ? (withSources.length / nonUnverifiable.length) : 1;
+
                             // Only enforce when we have enough items to judge.
                             const enforceContext = claimSample.length >= Math.min(10, minClaims) && weakContextRatio >= 0.5;
                             const enforceManip = manSample.length >= Math.min(6, minManipulations) && (weakImpactRatio >= 0.5 || weakDefenseRatio >= 0.5);
+                            const enforceSources = nonUnverifiable.length >= 6 && sourcesRatio < 0.34;
 
-                            if (enforceContext || enforceManip) {
+                            if (enforceContext || enforceManip || enforceSources) {
                                 console.warn(
                                     '[Gemini Stream] Deep quality gate: thin text',
                                     '| weakContextRatio:', weakContextRatio.toFixed(2),
                                     '| weakImpactRatio:', weakImpactRatio.toFixed(2),
-                                    '| weakDefenseRatio:', weakDefenseRatio.toFixed(2)
+                                    '| weakDefenseRatio:', weakDefenseRatio.toFixed(2),
+                                    '| sourcesRatio:', sourcesRatio.toFixed(2)
                                 );
                                 continue; // retry once with stronger prompt
                             }

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 import { auth } from '../services/firebase';
@@ -19,7 +19,8 @@ export const useNotifications = () => useContext(NotificationContext);
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { userProfile } = useAuth();
     const [notifications, setNotifications] = useState<ChatNotification[]>([]);
-    const [socket, setSocket] = useState<Socket | null>(null);
+    /** Single admin notification socket — must not reconnect on unrelated re-renders */
+    const adminSocketRef = useRef<Socket | null>(null);
     const [isAdmin, setIsAdmin] = useState<boolean>(false);
     const [permissionStatus, setPermissionStatus] = useState<NotificationPermission>(
         typeof window !== 'undefined' ? Notification.permission : 'default'
@@ -60,7 +61,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
         verify();
         return () => { cancelled = true; };
-    }, [userProfile]);
+    }, [userProfile?.uid]);
 
     const requestPermission = async () => {
         if (typeof window === 'undefined' || !('Notification' in window)) return false;
@@ -83,17 +84,29 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }
     }, [permissionStatus]);
 
+    const playSoundRef = useRef(playNotificationSound);
+    const showNotifRef = useRef(showBrowserNotification);
     useEffect(() => {
-        if (!userProfile || !isAdmin) {
-            if (socket) {
-                socket.disconnect();
-                setSocket(null);
+        playSoundRef.current = playNotificationSound;
+        showNotifRef.current = showBrowserNotification;
+    }, [playNotificationSound, showBrowserNotification]);
+
+    useEffect(() => {
+        if (!userProfile?.uid || !isAdmin) {
+            if (adminSocketRef.current) {
+                try { adminSocketRef.current.disconnect(); } catch { /* noop */ }
+                adminSocketRef.current = null;
             }
             return;
         }
 
+        if (adminSocketRef.current) {
+            try { adminSocketRef.current.disconnect(); } catch { /* noop */ }
+            adminSocketRef.current = null;
+        }
+
         const newSocket = io();
-        setSocket(newSocket);
+        adminSocketRef.current = newSocket;
 
         newSocket.on('admin_update', (data) => {
             // Notify admin only when user explicitly chose "Real administrator" (handoff)
@@ -108,8 +121,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             };
 
             setNotifications(prev => [...prev, notification]);
-            playNotificationSound();
-            showBrowserNotification(`🆘 ${notification.userName}`, notification.message);
+            playSoundRef.current();
+            showNotifRef.current(`🆘 ${notification.userName}`, notification.message);
 
             setTimeout(() => {
                 setNotifications(prev => prev.filter(n => n.id !== notification.id));
@@ -117,9 +130,10 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         });
 
         return () => {
-            newSocket.disconnect();
+            try { newSocket.disconnect(); } catch { /* noop */ }
+            if (adminSocketRef.current === newSocket) adminSocketRef.current = null;
         };
-    }, [userProfile, isAdmin, playNotificationSound, showBrowserNotification]);
+    }, [userProfile?.uid, isAdmin]);
 
     const removeNotification = (id: number) => {
         setNotifications(prev => prev.filter(n => n.id !== id));
