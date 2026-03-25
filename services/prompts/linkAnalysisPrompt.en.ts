@@ -22,8 +22,8 @@ ${scrapedContent!.substring(0, 32000)}
 ` : ''}
 CRITICAL REQUIREMENTS:
 1. **VERIFICATION AT MOMENT (CRITICAL)**: ${currentDate} is the actual analysis date. You MUST use this as your absolute reference point for "now". First, use Google Search to determine if the article and its events are happening currently or within the last few days relative to this date. If there is a match, prioritize this current search information over your internal pre-trained memory. EVERYTHING — names, positions, facts, numbers, quotes — must be cross-checked with current information as of TODAY. ACTIVELY USE the googleSearch tool for every claim. It is CATEGORICALLY FORBIDDEN to ignore new news from the last 7 days (e.g., political changes, deaths of world leaders, or economic crashes), even if the article is old.
-2. **PRIMARY SOURCE**: ${hasContent ? 'Use the ARTICLE TEXT above as your primary source. Analyse ONLY this article — do not invent or substitute with another.' : 'Search Google by URL and headline to find the full article text. That text is your primary source for analysis.'}
-3. **GOOGLE SEARCH — VERIFICATION ONLY**: Use Google Search exclusively for: verifying factual claims, finding context about the author and media outlet, finding comments and alternative media coverage. Do NOT use it to find the article text.
+2. **PRIMARY SOURCE**: ${hasContent ? 'Use the ARTICLE TEXT above as your primary source. Analyse ONLY this article — do not invent or substitute with another.' : 'If the ARTICLE TEXT is missing/partial, use Google Search (by URL and headline) to reconstruct the article content via reputable snippets/archived copies and proceed. Treat that reconstructed text as your primary source.'}
+3. **GOOGLE SEARCH — VERIFICATION & RECOVERY**: Use Google Search for: (a) recovering missing article text when needed, (b) verifying factual claims, (c) finding context about the author and media outlet, (d) finding comments and alternative media coverage.
 4. **READ THE ENTIRE ARTICLE**: Read EVERY paragraph, EVERY claim, EVERY number.
 5. **MAXIMUM DETAIL**: The goal is an EXHAUSTIVE analysis. Extract EVERY claim and EVERY manipulation.
 6. **FIND THE COMMENTS**: Search Google for comments on this article (Disqus, Facebook, Reddit, Twitter/X). If found — analyse. If not — commentsAnalysis: null.
@@ -64,6 +64,10 @@ Perform the following IN-DEPTH analyses:
 6. ALTERNATIVE SOURCES:
 - Find 3–5 SPECIFIC alternative materials with REAL URLs
 - Explain why they are useful for a full picture
+
+7. FINAL INVESTIGATIVE REPORT:
+- Write 4–8 paragraphs synthesizing ALL findings, verdicts, manipulations, and key conclusions
+- Separate paragraphs with blank lines (\\n\\n)
 
 Return ONLY valid JSON (no Markdown wrapper):
 {
@@ -115,6 +119,7 @@ Return ONLY valid JSON (no Markdown wrapper):
   "narrativeArchitecture": "How the story is structured — heroes, villains, victims. What storytelling techniques are used for impact.",
   "technicalForensics": "Check ALL data, statistics, and charts for manipulations. Is there cherry-picking, misleading visualisations, false correlations?",
   "socialImpactPrediction": "How it could affect society. Polarisation risks. Second-order effects.",
+  "finalInvestigativeReport": "FINAL INVESTIGATIVE REPORT: 4–8 paragraphs synthesizing all findings, factual claims, verdicts, manipulations, and key conclusions. Keep it as a single string and separate paragraphs with blank lines (\\n\\n).",
   "recommendations": "DETAILED recommendations for the reader — how to verify, what questions to ask, what red flags to look for. Specific URLs. TEXT ONLY, NOT an array.",
   "factualClaims": [
     {

@@ -517,11 +517,92 @@ const LINK_RESPONSE_SCHEMA = {
         detailedMetrics: { type: 'object' },
         authorProfile: { type: 'object' },
         mediaProfile: { type: 'object' },
-        headlineAnalysis: { type: 'object' },
-        factualClaims: { type: 'array', items: { type: 'object' } },
-        manipulationTechniques: { type: 'array', items: { type: 'object' } },
-        alternativeSources: { type: 'array', items: { type: 'object' } },
-        commentsAnalysis: { type: 'object' }
+        headlineAnalysis: {
+            type: 'object',
+            properties: {
+                isClickbait: { type: 'boolean' },
+                matchScore: { type: 'number' },
+                explanation: { type: 'string' },
+                sensationalWords: { type: 'array', items: { type: 'string' } }
+            }
+        },
+        emotionalTriggers: { type: 'array', items: { type: 'object' } },
+        sensationalismIndex: { type: 'number' },
+        circularCitation: { type: 'string' },
+        missingVoices: { type: 'array', items: { type: 'string' } },
+        timingAnalysis: { type: 'string' },
+        freshnessCheck: { type: 'string' },
+        alternativeSources: {
+            type: 'array',
+            items: {
+                type: 'object',
+                properties: {
+                    title: { type: 'string' },
+                    url: { type: 'string' },
+                    reason: { type: 'string' }
+                }
+            }
+        },
+        recommendations: { type: 'string' },
+        finalInvestigativeReport: { type: 'string' },
+        geopoliticalContext: { type: 'string' },
+        historicalParallel: { type: 'string' },
+        psychoLinguisticAnalysis: { type: 'string' },
+        strategicIntent: { type: 'string' },
+        narrativeArchitecture: { type: 'string' },
+        technicalForensics: { type: 'string' },
+        socialImpactPrediction: { type: 'string' },
+        dataPointsProcessed: { type: 'number' },
+        factualClaims: {
+            type: 'array',
+            items: {
+                type: 'object',
+                properties: {
+                    claim: { type: 'string' },
+                    verdict: { type: 'string' },
+                    evidence: { type: 'string' },
+                    sources: { type: 'array', items: { type: 'string' } },
+                    confidence: { type: 'number' },
+                    context: { type: 'string' },
+                    logicalAnalysis: { type: 'string' },
+                    factualVerification: { type: 'string' },
+                    comparison: { type: 'string' }
+                }
+            }
+        },
+        manipulationTechniques: {
+            type: 'array',
+            items: {
+                type: 'object',
+                properties: {
+                    technique: { type: 'string' },
+                    timestamp: { type: 'string' },
+                    description: { type: 'string' },
+                    impact: { type: 'string' },
+                    effect: { type: 'string' },
+                    severity: { type: 'number' },
+                    counterArgument: { type: 'string' },
+                    example: { type: 'string' },
+                    speaker: { type: 'string' },
+                    logic: { type: 'string' }
+                }
+            }
+        },
+        commentsAnalysis: {
+            type: 'object',
+            properties: {
+                found: { type: 'boolean' },
+                source: { type: 'string' },
+                totalAnalyzed: { type: 'number' },
+                sentiment: { type: 'string' },
+                overallSummary: { type: 'string' },
+                polarizationIndex: { type: 'number' },
+                botActivitySuspicion: { type: 'number' },
+                dominantThemes: { type: 'array', items: { type: 'string' } },
+                keyOpinions: { type: 'array', items: { type: 'string' } },
+                manipulationInComments: { type: 'string' }
+            }
+        }
     }
 };
 
@@ -646,8 +727,8 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
         let totalPromptTokens = 0;
         let totalCandidatesTokens = 0;
 
-        // Extra retries only for link analysis (larger JSON); video stays at 1 to avoid long waits
-        const maxRetries = (serviceType === 'linkArticle') ? 2 : 1;
+        // Retries: linkArticle can occasionally return empty text; allow 1 retry even in deep single-call.
+        const maxRetries = (serviceType === 'linkArticle' && isDeepMode) ? 1 : ((serviceType === 'linkArticle') ? 2 : 1);
         let lastValidation = null;
 
         for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -677,68 +758,164 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                 const modelExtractor = MODELS.VIDEO_EXTRACTOR;
                 const modelSynthesizer = MODELS.REPORT_SYNTHESIZER;
 
-                // Stage 1: Extraction (Flash)
-                const extractionConfig = {
-                    systemInstruction: (systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON.') + '\n\n' + getLanguageInstruction(lang),
-                    temperature: 0.1,
-                    maxOutputTokens: 65536,
-                    mediaResolution: 'MEDIA_RESOLUTION_LOW',
-                    tools: tools // Flash handles the initial search/extraction
-                };
+                // Single-call path for linkArticle (deep) — no stage1/stage2 embedding.
+                if (serviceType === 'linkArticle' && isDeepMode) {
+                    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+                    const isRetryableGeminiTransportError = (e) => {
+                        const msg = (e?.message || '').toLowerCase();
+                        return msg.includes('fetch failed') ||
+                            msg.includes('sending request') ||
+                            msg.includes('aborterror') ||
+                            msg.includes('aborted') ||
+                            msg.includes('this operation was aborted') ||
+                            msg.includes('econnreset') ||
+                            msg.includes('etimedout') ||
+                            msg.includes('enotfound');
+                    };
 
-                logSystemPrompt(_dbgId, extractionConfig.systemInstruction);
-                logUserPrompt(_dbgId, prompt, !!videoUrl);
-                const response = await ai.models.generateContent({
-                    model: modelExtractor,
-                    contents,
-                    config: extractionConfig
-                });
+                    const toolSets = [
+                        // Best: AI Studio-style URL context + verification.
+                        [
+                            { urlContext: {} },
+                            { googleSearch: { dynamicRetrievalConfig: { mode: 'MODE_DYNAMIC', dynamicThreshold: 0 } } }
+                        ],
+                        // Fallback: verification only (no URL context).
+                        [
+                            { googleSearch: { dynamicRetrievalConfig: { mode: 'MODE_DYNAMIC', dynamicThreshold: 0 } } }
+                        ],
+                        // Last resort: no tools at all (still must produce JSON).
+                        undefined
+                    ];
 
-                const researchTokens = response.usageMetadata;
-                const rawText = response.text || '';
-                { const sm = extractSearchMetadata(response); logGoogleSearches(_dbgId + '_s1', sm.searchQueries, sm.groundingChunks); logThinking(_dbgId + '_s1', sm.thinkingText); }
-                logRawResponse(_dbgId, 'stage1_extraction', rawText, researchTokens);
+                    const budgets = [
+                        { maxOutputTokens: 65536, thinkingBudget: 4000, temperature: 0.1 },
+                        { maxOutputTokens: 32768, thinkingBudget: 1500, temperature: 0.2 }
+                    ];
 
-                // Stage 2: Smart Synthesis (Pro 3.1)
-                const videoContextStr = req.body.metadata?.title ? `VIDEO METADATA:\n- Title: ${req.body.metadata.title}\n\n` : '';
-                const synthesisContents = [
-                    ...contents,
-                    { role: 'user', parts: [{ text: `${videoContextStr}ESTABLISHED RESEARCH DATA (GROUND TRUTH):\n\n${rawText}\n\nINSTRUCTION: Using the data above and MARCH 2026 as current context, synthesize the final analysis exactly according to the schema. If needed, perform additional Google Search to verify the latest facts.` }] }
-                ];
+                    let finalResponse = null;
+                    let finalUsageMeta = null;
+                    let succeeded = false;
 
-                const finalResponse = await ai.models.generateContent({
-                    model: modelSynthesizer,
-                    contents: synthesisContents,
-                    config: {
+                    for (let pass = 0; pass < toolSets.length && !succeeded; pass++) {
+                        for (let b = 0; b < budgets.length && !succeeded; b++) {
+                            for (let netAttempt = 0; netAttempt < 3 && !succeeded; netAttempt++) {
+                                try {
+                                    finalResponse = await ai.models.generateContent({
+                                        model: modelSynthesizer,
+                                        contents,
+                                        config: {
+                                            systemInstruction: sysInstr,
+                                            temperature: budgets[b].temperature,
+                                            maxOutputTokens: budgets[b].maxOutputTokens,
+                                            responseMimeType: 'application/json',
+                                            responseSchema: LINK_RESPONSE_SCHEMA,
+                                            thinkingConfig: { thinkingBudget: budgets[b].thinkingBudget },
+                                            ...(toolSets[pass] ? { tools: toolSets[pass] } : {}),
+                                            httpOptions: { timeout: 600000 }
+                                        }
+                                    });
+
+                                    responseText = finalResponse?.text || '';
+                                    finalUsageMeta = finalResponse?.usageMetadata || null;
+                                    { const sm = extractSearchMetadata(finalResponse); logGoogleSearches(_dbgId + '_link_s1', sm.searchQueries, sm.groundingChunks); logThinking(_dbgId + '_link_s1', sm.thinkingText); }
+                                    logRawResponse(_dbgId, `link_singlecall_pass${pass}_b${b}_n${netAttempt}`, responseText, finalUsageMeta);
+
+                                    if (!responseText || responseText.trim().length < 5) {
+                                        console.error('[LinkArticle] ❌ Empty response text (single-call). Will retry.');
+                                        await sleep(400 + netAttempt * 800);
+                                        continue;
+                                    }
+
+                                    succeeded = true;
+                                    break;
+                                } catch (e) {
+                                    if (!isRetryableGeminiTransportError(e)) throw e;
+                                    console.error(`[LinkArticle] ⚠️ Transport error (pass=${pass}, budget=${b}, netAttempt=${netAttempt}):`, e?.message || e);
+                                    await sleep(700 + netAttempt * 1200);
+                                }
+                            }
+                        }
+                    }
+
+                    if (!succeeded) {
+                        // Let outer handler return 500 with a stable message.
+                        throw new Error('AI_LINK_TRANSPORT_FAILURE');
+                    }
+
+                    totalPromptTokens = finalUsageMeta?.promptTokenCount || 0;
+                    totalCandidatesTokens = finalUsageMeta?.candidatesTokenCount || 0;
+                    usage = {
+                        promptTokenCount: totalPromptTokens,
+                        candidatesTokenCount: totalCandidatesTokens,
+                        totalTokenCount: finalUsageMeta?.totalTokenCount || totalPromptTokens + totalCandidatesTokens,
+                        details: [
+                            { model: modelSynthesizer, ...(finalUsageMeta || {}) }
+                        ]
+                    };
+                } else {
+                    // Stage 1: Extraction (Flash)
+                    const extractionConfig = {
+                        systemInstruction: (systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON.') + '\n\n' + getLanguageInstruction(lang),
                         temperature: 0.1,
                         maxOutputTokens: 65536,
-                        responseMimeType: 'application/json',
-                        responseSchema: serviceType === 'linkArticle' ? LINK_RESPONSE_SCHEMA : (isDeepMode ? VIDEO_DEEP_SCHEMA : VIDEO_STANDARD_SCHEMA),
-                        thinkingConfig: { thinkingBudget: 4000 },
-                        tools: [{
-                            googleSearch: {
-                                dynamicRetrievalConfig: { mode: 'MODE_DYNAMIC', dynamicThreshold: 0 }
-                            }
-                        }]
-                    }
-                });
+                        mediaResolution: 'MEDIA_RESOLUTION_LOW',
+                        tools: tools // Flash handles the initial search/extraction
+                    };
 
-                responseText = finalResponse.text || '';
-                const finalUsageMeta = finalResponse.usageMetadata;
-                { const sm = extractSearchMetadata(finalResponse); logGoogleSearches(_dbgId + '_s2', sm.searchQueries, sm.groundingChunks); logThinking(_dbgId + '_s2', sm.thinkingText); }
-                logRawResponse(_dbgId, 'stage2_synthesis', responseText, finalUsageMeta);
+                    logSystemPrompt(_dbgId, extractionConfig.systemInstruction);
+                    logUserPrompt(_dbgId, prompt, !!videoUrl);
+                    const response = await ai.models.generateContent({
+                        model: modelExtractor,
+                        contents,
+                        config: extractionConfig
+                    });
 
-                // Accumulate usage for billing
-                totalPromptTokens = (researchTokens?.promptTokenCount || 0) + (finalUsageMeta?.promptTokenCount || 0);
-                totalCandidatesTokens = (researchTokens?.candidatesTokenCount || 0) + (finalUsageMeta?.candidatesTokenCount || 0);
-                usage = {
-                    promptTokenCount: totalPromptTokens,
-                    candidatesTokenCount: totalCandidatesTokens,
-                    details: [
-                        { model: modelExtractor, ...researchTokens },
-                        { model: modelSynthesizer, ...finalUsageMeta }
-                    ]
-                };
+                    const researchTokens = response.usageMetadata;
+                    const rawText = response.text || '';
+                    { const sm = extractSearchMetadata(response); logGoogleSearches(_dbgId + '_s1', sm.searchQueries, sm.groundingChunks); logThinking(_dbgId + '_s1', sm.thinkingText); }
+                    logRawResponse(_dbgId, 'stage1_extraction', rawText, researchTokens);
+
+                    // Stage 2: Smart Synthesis (Pro 3.1)
+                    const videoContextStr = req.body.metadata?.title ? `VIDEO METADATA:\n- Title: ${req.body.metadata.title}\n\n` : '';
+                    const synthesisContents = [
+                        ...contents,
+                        { role: 'user', parts: [{ text: `${videoContextStr}ESTABLISHED RESEARCH DATA (GROUND TRUTH):\n\n${rawText}\n\nINSTRUCTION: Using the data above and MARCH 2026 as current context, synthesize the final analysis exactly according to the schema. If needed, perform additional Google Search to verify the latest facts.` }] }
+                    ];
+
+                    const finalResponse = await ai.models.generateContent({
+                        model: modelSynthesizer,
+                        contents: synthesisContents,
+                        config: {
+                            temperature: 0.1,
+                            maxOutputTokens: 65536,
+                            responseMimeType: 'application/json',
+                            responseSchema: serviceType === 'linkArticle' ? LINK_RESPONSE_SCHEMA : (isDeepMode ? VIDEO_DEEP_SCHEMA : VIDEO_STANDARD_SCHEMA),
+                            thinkingConfig: { thinkingBudget: 4000 },
+                            tools: [{
+                                googleSearch: {
+                                    dynamicRetrievalConfig: { mode: 'MODE_DYNAMIC', dynamicThreshold: 0 }
+                                }
+                            }]
+                        }
+                    });
+
+                    responseText = finalResponse.text || '';
+                    const finalUsageMeta = finalResponse.usageMetadata;
+                    { const sm = extractSearchMetadata(finalResponse); logGoogleSearches(_dbgId + '_s2', sm.searchQueries, sm.groundingChunks); logThinking(_dbgId + '_s2', sm.thinkingText); }
+                    logRawResponse(_dbgId, 'stage2_synthesis', responseText, finalUsageMeta);
+
+                    // Accumulate usage for billing
+                    totalPromptTokens = (researchTokens?.promptTokenCount || 0) + (finalUsageMeta?.promptTokenCount || 0);
+                    totalCandidatesTokens = (researchTokens?.candidatesTokenCount || 0) + (finalUsageMeta?.candidatesTokenCount || 0);
+                    usage = {
+                        promptTokenCount: totalPromptTokens,
+                        candidatesTokenCount: totalCandidatesTokens,
+                        details: [
+                            { model: modelExtractor, ...researchTokens },
+                            { model: modelSynthesizer, ...finalUsageMeta }
+                        ]
+                    };
+                }
             }
 
             // ── Log raw response for debugging ──────────────────────────────────
@@ -774,13 +951,13 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
             if (attempt >= maxRetries) break;
         }
 
-        // Fallback for linkArticle: if tools caused empty response, retry without tools
+        // Fallback for linkArticle: if tools caused empty/invalid response, retry without tools
         if (!lastValidation.valid && serviceType === 'linkArticle' && tools) {
             console.log('[LinkArticle] Fallback: retrying without googleSearch tools');
             const jsonRuleShort = 'CRITICAL: Respond with exactly one valid JSON object. Start with {, end with }. No markdown. Escape " in strings as \\". Never truncate.';
             const sysInstr = (systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON.') + '\n\n' + getLanguageInstruction(lang) + '\n\n' + jsonRuleShort;
             const fallbackResponse = await ai.models.generateContent({
-                model: model || 'gemini-2.5-flash',
+                model: (serviceType === 'linkArticle' && isDeepMode) ? MODELS.REPORT_SYNTHESIZER : (model || 'gemini-2.5-flash'),
                 contents,
                 config: {
                     systemInstruction: sysInstr,
@@ -795,10 +972,8 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                 totalCandidatesTokens = fallbackResponse.usageMetadata.candidatesTokenCount || 0;
             }
             const fallbackText = fallbackResponse.text || '';
-            if (fallbackText.length > 100) {
-                lastValidation = validateJsonResponse(fallbackText, 'link');
-                if (lastValidation.valid) usage = fallbackResponse.usageMetadata || usage;
-            }
+            lastValidation = validateJsonResponse(fallbackText, serviceType || 'link');
+            if (lastValidation.valid) usage = fallbackResponse.usageMetadata || usage;
         }
 
         if (!lastValidation.valid) {

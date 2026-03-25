@@ -75,7 +75,7 @@ export const analyzeLinkDeep = async (
                 'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
-                model: 'gemini-2.5-flash',
+                model: 'gemini-3-flash-preview',
                 prompt: lang === 'en' ? getLinkAnalysisPromptEn(url, scrapedContent) : getLinkAnalysisPrompt(url, scrapedContent),
                 mode: 'deep',
                 serviceType: 'linkArticle',
