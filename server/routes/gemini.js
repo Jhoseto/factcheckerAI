@@ -26,6 +26,7 @@ import {
     GEMINI_API_PRICING
 } from '../config/pricing.js';
 import { MODELS } from '../config/models.js';
+import { jsonrepair } from 'jsonrepair';
 import { logActivity } from '../../admin/server/activityLogger.js';
 import {
     logRequest, logSystemPrompt, logUserPrompt, logGoogleSearches,
@@ -74,6 +75,42 @@ function escapeControlCharsInJson(text) {
     return out;
 }
 
+/**
+ * Extract first top-level JSON object by brace depth (respects strings).
+ * Avoids t.lastIndexOf('}') which breaks when a string value contains "}" or when output is truncated.
+ */
+function extractBalancedJsonObject(s, startIdx) {
+    if (startIdx < 0 || startIdx >= s.length || s[startIdx] !== '{') return null;
+    let depth = 0;
+    let inStr = false;
+    let esc = false;
+    for (let i = startIdx; i < s.length; i++) {
+        const c = s[i];
+        if (inStr) {
+            if (esc) {
+                esc = false;
+                continue;
+            }
+            if (c === '\\') {
+                esc = true;
+                continue;
+            }
+            if (c === '"') inStr = false;
+            continue;
+        }
+        if (c === '"') {
+            inStr = true;
+            continue;
+        }
+        if (c === '{') depth++;
+        else if (c === '}') {
+            depth--;
+            if (depth === 0) return s.slice(startIdx, i + 1);
+        }
+    }
+    return null;
+}
+
 /** Parse JSON from Gemini response: strip markdown, then parse (with one fallback for control chars). */
 function parseJsonRobust(rawText) {
     if (!rawText || typeof rawText !== 'string') return { ok: false, error: 'empty' };
@@ -87,24 +124,37 @@ function parseJsonRobust(rawText) {
     else t = t.replace(/```json\s*/g, '').replace(/\s*```/g, '').trim();
     if (!t.length) return { ok: false, error: 'empty' };
 
-    // Common case: model adds prefix/suffix or multiple objects; extract the outermost JSON object.
     const firstBrace = t.indexOf('{');
-    const lastBrace = t.lastIndexOf('}');
-    const candidate = (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace)
-        ? t.substring(firstBrace, lastBrace + 1)
-        : t;
+    if (firstBrace === -1) return { ok: false, error: 'no-brace' };
 
-    try {
-        return { ok: true, parsed: JSON.parse(candidate) };
-    } catch (_) { }
-    try {
-        return { ok: true, parsed: JSON.parse(escapeControlCharsInJson(candidate)) };
-    } catch (_) { }
-    try {
-        // Last resort: remove trailing commas (common JSON-ish failure mode).
-        const noTrailingCommas = candidate.replace(/,\s*([}\]])/g, '$1');
-        return { ok: true, parsed: JSON.parse(noTrailingCommas) };
-    } catch (_) { }
+    const balanced = extractBalancedJsonObject(t, firstBrace);
+    const tail = t.slice(firstBrace);
+    // Prefer balanced slice when complete; else tail (often truncated) for jsonrepair.
+    const candidates = [];
+    if (balanced) candidates.push(balanced);
+    if (!balanced || tail !== balanced) candidates.push(tail);
+
+    const tryAll = (candidate) => {
+        try {
+            return { ok: true, parsed: JSON.parse(candidate) };
+        } catch (_) { }
+        try {
+            return { ok: true, parsed: JSON.parse(escapeControlCharsInJson(candidate)) };
+        } catch (_) { }
+        try {
+            const noTrailingCommas = candidate.replace(/,\s*([}\]])/g, '$1');
+            return { ok: true, parsed: JSON.parse(noTrailingCommas) };
+        } catch (_) { }
+        try {
+            return { ok: true, parsed: JSON.parse(jsonrepair(candidate)) };
+        } catch (_) { }
+        return null;
+    };
+
+    for (const cand of candidates) {
+        const r = tryAll(cand);
+        if (r) return r;
+    }
     return { ok: false, error: 'parse failed' };
 }
 
@@ -186,6 +236,11 @@ function multimodalArrayKeys() {
     return ['visualAnalysis', 'bodyLanguageAnalysis', 'vocalAnalysis', 'deceptionAnalysis', 'humorAnalysis'];
 }
 
+/** Stage 1 arrays merged into Stage 2 when Stage 2 output is empty/placeholder (incl. Психо/Културен). */
+function deepStage1MergeKeys() {
+    return [...multimodalArrayKeys(), 'psychologicalProfile', 'culturalSymbolicAnalysis'];
+}
+
 function itemIsMultimodalPlaceholder(it) {
     const p = String(it?.point ?? '').trim().toLowerCase();
     const d = String(it?.details ?? '').trim().toLowerCase();
@@ -215,7 +270,7 @@ function mergeMultimodalTabs(stage2, patchObj, onlyFillPlaceholders) {
     }
     const merged = { ...stage2 };
     let patched = false;
-    for (const k of multimodalArrayKeys()) {
+    for (const k of deepStage1MergeKeys()) {
         const patch = patchObj[k];
         if (!Array.isArray(patch) || patch.length === 0) continue;
         if (isPlaceholderArray(patch)) continue;
@@ -240,7 +295,7 @@ function multimodalTabLabelFallback(lang, field) {
 function pickMultimodalArraysFromParsed(parsed) {
     if (!parsed || typeof parsed !== 'object') return {};
     const o = {};
-    for (const k of multimodalArrayKeys()) {
+    for (const k of deepStage1MergeKeys()) {
         if (Array.isArray(parsed[k])) o[k] = parsed[k];
     }
     return o;
@@ -734,16 +789,12 @@ function validateJsonResponse(responseText, serviceType = 'link') {
     }
 
     if (serviceType === 'video') {
-        const hasSummary = typeof parsed.summary === 'string';
-        const hasAssessment = typeof parsed.overallAssessment === 'string';
-        const hasAnyContent =
-            hasSummary ||
-            hasAssessment ||
-            (Array.isArray(parsed.factualClaims) && parsed.factualClaims.length > 0) ||
-            (Array.isArray(parsed.claims) && parsed.claims.length > 0) ||
-            (Array.isArray(parsed.manipulationTechniques) && parsed.manipulationTechniques.length > 0) ||
-            (parsed.finalInvestigativeReport && typeof parsed.finalInvestigativeReport === 'string');
-        if (hasAnyContent) {
+        const summaryObj = parsed.summary && typeof parsed.summary === 'object' && !Array.isArray(parsed.summary);
+        const hasSummary = typeof parsed.summary === 'string' ||
+            (summaryObj && typeof parsed.summary.overallSummary === 'string');
+        const hasClaims = (Array.isArray(parsed.claims) && parsed.claims.length > 0) ||
+            (Array.isArray(parsed.factualClaims) && parsed.factualClaims.length > 0);
+        if (hasSummary && hasClaims) {
             return { valid: true, parsed, cleanedText: JSON.stringify(parsed) };
         }
         return { valid: false, code: 'AI_INCOMPLETE_RESPONSE', parsed };
@@ -1396,10 +1447,15 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
             let hasGrounding = rawText && rawText.trim().length > 0;
             const durationMin = Math.round((metadata.videoDuration || metadata.duration || 0) / 60) || 10;
             const isLongVideo = durationMin >= 30;
-            // Scale targets with duration (previous caps were too low for long videos).
-            // Note: Phase 2 can hit output-length caps; tokenBudgetRule will adapt density accordingly.
-            const targetClaims = Math.min(80, Math.max(10, Math.round(durationMin * 0.9)));
-            const targetManipulations = Math.min(45, Math.max(8, Math.round(durationMin * 0.6)));
+            const videoDeepStage2Model = MODELS.REPORT_SYNTHESIZER;
+            const isFlash8kStage2 = /gemini-3-flash/i.test(String(videoDeepStage2Model || ''));
+            // Stage 2 Flash ~8192 output tokens: asking for 50+ claims + 7 fat tab arrays is impossible — caps + empty tabs (server merges Stage 1).
+            const targetClaims = isFlash8kStage2
+                ? Math.min(34, Math.max(14, Math.round(durationMin / 3)))
+                : Math.min(80, Math.max(10, Math.round(durationMin * 0.9)));
+            const targetManipulations = isFlash8kStage2
+                ? Math.min(20, Math.max(6, Math.round(durationMin / 5)))
+                : Math.min(45, Math.max(8, Math.round(durationMin * 0.6)));
             if (hasGrounding) {
                 const isBgLang2 = (lang || 'bg') !== 'en';
                 const L2 = (bg, en) => (isBgLang2 ? bg : en);
@@ -1424,7 +1480,7 @@ For EVERY claim: Google Search vs TODAY; current as of report time; cite dates/f
                 });
             }
 
-            const multimodalRule = `За visualAnalysis, bodyLanguageAnalysis, vocalAnalysis, deceptionAnalysis, humorAnalysis (табове Визуален / Тяло / Вокал / Измама / Хумор):
+            const multimodalRuleFull = `За visualAnalysis, bodyLanguageAnalysis, vocalAnalysis, deceptionAnalysis, humorAnalysis (табове Визуален / Тяло / Вокал / Измама / Хумор):
 - Източник на истината: MULTIMODAL_OBSERVATIONS_FROM_STAGE_1 по-горе, ИЛИ (ако пише DERIVE_FROM_STAGE1_JSON) същите масиви вътре в ESTABLISHED RESEARCH DATA JSON. НЕ измисляй аудио/видео съдържание, което не присъства там.
 - **Минимум 6–10 обекта на масив** { "point", "details" }. "point" = ясна аналитична теза (1 изречение). "details" = **минимум 3–5 пълни изречения**: конкретика от етап 1, защо е реторично/убедително значимо; без общи фрази.
 - mm:ss — най-много 1–2 котви на подточка; не хронология на целия запис.
@@ -1433,6 +1489,10 @@ For EVERY claim: Google Search vs TODAY; current as of report time; cite dates/f
 - Ако категорията няма съдържание в етап 1, върни 1 fallback обект:
   {"point":"Няма значими наблюдения","details":"Няма значими наблюдения, отбелязани във видеоанализа."}
 За psychologicalProfile (Психо) и culturalSymbolicAnalysis (Културен): същият минимум **6–10 обекта**, "details" **3–5 изречения**, стъпили на етап 1 — мотивация, културни символи/препратки с примери, без измисляне извън данните.`;
+            const multimodalRuleFlash = String(lang || 'bg').toLowerCase().startsWith('en')
+                ? `STAGE 2 OUTPUT BUDGET (~8000 tokens max): Do NOT write long multimodal tab arrays here. Return **empty arrays []** for visualAnalysis, bodyLanguageAnalysis, vocalAnalysis, deceptionAnalysis, humorAnalysis, psychologicalProfile, and culturalSymbolicAnalysis — the server fills them from Stage 1 JSON. Spend tokens on **claims** and **manipulations** only: short explanation (1–2 sentences) + missingContext (1–2 sentences); URL in explanation when verdict is not UNVERIFIABLE.`
+                : `ИЗХОД ЕТАП 2 (макс. ~8000 токена): НЕ пълни дълги мултимодални табове тук. Върни **празни масиви []** за visualAnalysis, bodyLanguageAnalysis, vocalAnalysis, deceptionAnalysis, humorAnalysis, psychologicalProfile и culturalSymbolicAnalysis — сървърът ги попълва от JSON на етап 1. Харчи токени за **claims** и **manipulations**: кратко explanation (1–2 изр.) + missingContext (1–2 изр.); URL в explanation, ако verdict не е UNVERIFIABLE.`;
+            const multimodalRule = isFlash8kStage2 ? multimodalRuleFlash : multimodalRuleFull;
             const isBgLang = (lang || 'bg') !== 'en';
             const L = (bg, en) => (isBgLang ? bg : en);
             const verificationRule = L(
@@ -1469,8 +1529,13 @@ For EVERY claim: Google Search vs TODAY; current as of report time; cite dates/f
                     `SHORT/MEDIUM VIDEO MODE: fewer items, deeper text (as specified above).`
                 );
 
-            const tokenBudgetRule = L(
-                `ПРАВИЛО ЗА ТОКЕН БЮДЖЕТ (КРИТИЧНО): Отговорът има твърд лимит за дължина.\n${densityRule}\n\nПриоритизирай:
+            const tokenBudgetRule = isFlash8kStage2
+                ? L(
+                    `ПРАВИЛО ЗА ТОКЕН БЮДЖЕТ (етап 2 Flash): Лимит ~8000 токена изход.\n${densityRule}\n\nПриоритет: claims[] + manipulations[] (валиден, затворен JSON). Мултимодалните 7 масива — **[]** (етап 1 ги попълва). Останалите масиви: по 0–3 кратки точки или пропусни. Задължително затвори всички скоби.`,
+                    `TOKEN BUDGET (Stage 2 Flash): ~8000 output tokens max.\n${densityRule}\n\nPriority: claims[] + manipulations[] (valid closed JSON). The 7 multimodal arrays — **[]** (Stage 1 merge). Other arrays: 0–3 short items or omit. Must close all braces.`
+                )
+                : L(
+                    `ПРАВИЛО ЗА ТОКЕН БЮДЖЕТ (КРИТИЧНО): Отговорът има твърд лимит за дължина.\n${densityRule}\n\nПриоритизирай:
 - claims[].explanation
 - claims[].missingContext
 - manipulations[].effect
@@ -1479,7 +1544,7 @@ For EVERY claim: Google Search vs TODAY; current as of report time; cite dates/f
 historicalParallel: **6–10 точки**, 2–4 изречения в details.
 Компактно (3–4 точки, 1–2 изречения details): geopoliticalContext, strategicIntent, recommendations, psychoLinguisticAnalysis, narrativeArchitecture, technicalForensics, socialImpactPrediction (ако са в схемата).
 Върни валиден JSON. Не прекъсвай/не трънкейтвай.`,
-                `TOKEN BUDGET RULE (CRITICAL): The response has a hard max-length limit.\n${densityRule}\n\nPrioritize:
+                    `TOKEN BUDGET RULE (CRITICAL): The response has a hard max-length limit.\n${densityRule}\n\nPrioritize:
 - claims[].explanation
 - claims[].missingContext
 - manipulations[].effect
@@ -1489,15 +1554,23 @@ historicalParallel: **6–10 items**, 2–4 sentences per details.
 Keep compact (3–4 items, 1–2 sentences details): geopoliticalContext, strategicIntent, recommendations, psychoLinguisticAnalysis, narrativeArchitecture, technicalForensics, socialImpactPrediction (if in schema).
 finalInvestigativeReport: max ~900–1200 words when present.
 Ensure valid JSON. Do not truncate.`
-            );
+                );
             const jsonPromptsWithContext = [
                 L(
-                    `Върни пълния анализ като JSON. За всяко твърдение: провери чрез Google Search спрямо днешната дата; дай актуална информация и точни дати. За това ~${durationMin}-мин видео цел: ~${targetClaims} твърдения и ~${targetManipulations} манипулации. Попълни ВСЕКИ масив. ${multimodalRule}\n\n${verificationRule}\n\n${tokenBudgetRule}`,
-                    `Return the complete analysis as JSON. For each claim: verify via Google Search against today's date; give current information and accurate dates. For this ~${durationMin}-min video, aim for around ${targetClaims} claims and ${targetManipulations} manipulations. Populate EVERY array. ${multimodalRule}\n\n${verificationRule}\n\n${tokenBudgetRule}`
+                    isFlash8kStage2
+                        ? `Върни валиден JSON. ~${durationMin} мин видео — цел ~${targetClaims} твърдения, ~${targetManipulations} манипулации. ${multimodalRule}\n\n${verificationRule}\n\n${tokenBudgetRule}`
+                        : `Върни пълния анализ като JSON. За всяко твърдение: провери чрез Google Search спрямо днешната дата; дай актуална информация и точни дати. За това ~${durationMin}-мин видео цел: ~${targetClaims} твърдения и ~${targetManipulations} манипулации. Попълни ВСЕКИ масив. ${multimodalRule}\n\n${verificationRule}\n\n${tokenBudgetRule}`,
+                    isFlash8kStage2
+                        ? `Return valid JSON. ~${durationMin}-min video — target ~${targetClaims} claims, ~${targetManipulations} manipulations. ${multimodalRule}\n\n${verificationRule}\n\n${tokenBudgetRule}`
+                        : `Return the complete analysis as JSON. For each claim: verify via Google Search against today's date; give current information and accurate dates. For this ~${durationMin}-min video, aim for around ${targetClaims} claims and ${targetManipulations} manipulations. Populate EVERY array. ${multimodalRule}\n\n${verificationRule}\n\n${tokenBudgetRule}`
                 ),
                 L(
-                    `Форматирай като валиден JSON. Използвай проучването по-горе. За всяко твърдение: проверка с Google Search спрямо днешната дата; актуални данни и точни дати. Цел: ~${targetClaims} твърдения и ~${targetManipulations} манипулации. ${multimodalRule}\n\n${verificationRule}\n\nПРИОРИТЕТ: claims[].missingContext и manipulations[].effect/counterArgument. Табовете Визуален–Културен: пълни масиви (6–10 точки, 3–5 изречения details), не ги съкращавай. ${tokenBudgetRule} Валиден JSON. Без плейсхолдъри.`,
-                    `Format as valid JSON. Use the research above. For each claim: verify via Google Search against today; give current info and accurate dates. Aim for ~${targetClaims} claims and ~${targetManipulations} manipulations. ${multimodalRule}\n\n${verificationRule}\n\nPrioritize claims[].missingContext and manipulations[].effect/counterArgument. Visual–Cultural tabs: full arrays (6–10 items, 3–5 sentence details), do not shrink them. ${tokenBudgetRule} Valid JSON only. No placeholders.`
+                    isFlash8kStage2
+                        ? `Форматирай като валиден JSON. Цел: ~${targetClaims} твърдения, ~${targetManipulations} манипулации. ${multimodalRule}\n\n${verificationRule}\n\n${tokenBudgetRule} Първо затвори валиден JSON; празни таб-масиви [] са ОК.`
+                        : `Форматирай като валиден JSON. Използвай проучването по-горе. За всяко твърдение: проверка с Google Search спрямо днешната дата; актуални данни и точни дати. Цел: ~${targetClaims} твърдения и ~${targetManipulations} манипулации. ${multimodalRule}\n\n${verificationRule}\n\nПРИОРИТЕТ: claims[].missingContext и manipulations[].effect/counterArgument. Табовете Визуален–Културен: пълни масиви (6–10 точки, 3–5 изречения details), не ги съкращавай. ${tokenBudgetRule} Валиден JSON. Без плейсхолдъри.`,
+                    isFlash8kStage2
+                        ? `Valid JSON. Target ~${targetClaims} claims, ~${targetManipulations} manipulations. ${multimodalRule}\n\n${verificationRule}\n\n${tokenBudgetRule} Close valid JSON first; empty tab arrays [] are OK.`
+                        : `Format as valid JSON. Use the research above. For each claim: verify via Google Search against today; give current info and accurate dates. Aim for ~${targetClaims} claims and ~${targetManipulations} manipulations. ${multimodalRule}\n\n${verificationRule}\n\nPrioritize claims[].missingContext and manipulations[].effect/counterArgument. Visual–Cultural tabs: full arrays (6–10 items, 3–5 sentence details), do not shrink them. ${tokenBudgetRule} Valid JSON only. No placeholders.`
                 )
             ];
             const jsonPromptsNoContext = [
@@ -1511,31 +1584,28 @@ Ensure valid JSON. Do not truncate.`
                 )
             ];
             const jsonPrompts = hasGrounding ? jsonPromptsWithContext : jsonPromptsNoContext;
-            // Deep Stage 2 must use Gemini 3 Flash Preview (user requirement).
-            // Flash may enforce an 8K output ceiling; stay within safe budget and prioritize key fields.
-            const videoDeepStage2Model = MODELS.REPORT_SYNTHESIZER;
+            // gemini-3-flash-preview returns INVALID_ARGUMENT if maxOutputTokens > 8192 with JSON schema + tools — do not attempt 20k first (wastes a round-trip and logs a warning).
             const isCandidateTooLongErr = (e) => {
                 const msg = String(e?.message || '');
                 return msg.includes('answer candidate length is too long') && msg.includes('exceeds the maximum token limit of 8192');
             };
+            const stage2ModelId = String(videoDeepStage2Model || '');
+            const finalBudgets = /gemini-3-flash/i.test(stage2ModelId) ? [8192] : [20000, 8192];
+            const stage2ThinkingBudget = /gemini-3-flash/i.test(stage2ModelId) ? 2048 : 4000;
+            const maxDeepStage2Attempts = isFlash8kStage2 ? 3 : 2;
 
-            for (let attempt = 0; attempt < 2; attempt++) {
+            for (let attempt = 0; attempt < maxDeepStage2Attempts; attempt++) {
                 if (attempt > 0) {
                     sendSSE('progress', { status: getProgressMsg(lang, 'retry') });
                     await new Promise(r => setTimeout(r, 1500));
                 }
                 sendSSE('progress', { status: getProgressMsg(lang, 'finalJson') });
-                const jsonPrompt = { role: 'user', parts: [{ text: jsonPrompts[attempt] }] };
+                const promptIdx = Math.min(attempt, jsonPrompts.length - 1);
+                const jsonPrompt = { role: 'user', parts: [{ text: jsonPrompts[promptIdx] }] };
                 const textContents = currentContents.map(c => ({
                     role: c.role,
                     parts: c.parts.filter(p => !p.fileData && !p.inlineData)
                 }));
-                const finalBudgets = [
-                    // Try higher output first (if supported by backend/model routing).
-                    20000,
-                    // Fallback: strict 8K to avoid INVALID_ARGUMENT.
-                    8192
-                ];
                 let finalResponse = null;
                 for (let b = 0; b < finalBudgets.length; b++) {
                     const finalConfig = {
@@ -1549,7 +1619,7 @@ Ensure valid JSON. Do not truncate.`
                         maxOutputTokens: finalBudgets[b],
                         responseMimeType: 'application/json',
                         responseSchema: VIDEO_DEEP_SCHEMA,
-                        thinkingConfig: { thinkingBudget: 4000 },
+                        thinkingConfig: { thinkingBudget: stage2ThinkingBudget },
                         httpOptions: { timeout: 300000 }
                     };
                     try {
@@ -1589,8 +1659,12 @@ Ensure valid JSON. Do not truncate.`
                         const p = v.parsed || {};
                         const claimsArr = Array.isArray(p.claims) ? p.claims : (Array.isArray(p.factualClaims) ? p.factualClaims : []);
                         const manArr = Array.isArray(p.manipulations) ? p.manipulations : (Array.isArray(p.manipulationTechniques) ? p.manipulationTechniques : []);
-                        const minClaims = Math.min(30, Math.max(8, Math.round(durationMin * 0.8)));
-                        const minManipulations = Math.min(20, Math.max(5, Math.round(durationMin * 0.5)));
+                        const minClaims = isFlash8kStage2
+                            ? Math.min(26, Math.max(10, Math.round(durationMin / 4)))
+                            : Math.min(30, Math.max(8, Math.round(durationMin * 0.8)));
+                        const minManipulations = isFlash8kStage2
+                            ? Math.min(14, Math.max(5, Math.round(durationMin / 6)))
+                            : Math.min(20, Math.max(5, Math.round(durationMin * 0.5)));
 
                         // Only enforce when we have grounding; if not, keep it permissive.
                         if (hasGrounding && (claimsArr.length < minClaims || manArr.length < minManipulations)) {
@@ -1599,12 +1673,12 @@ Ensure valid JSON. Do not truncate.`
                                 '| claims:', claimsArr.length, 'min:', minClaims,
                                 '| manipulations:', manArr.length, 'min:', minManipulations
                             );
-                            if (attempt < 1) continue; // retry once with stronger prompt
+                            if (attempt < maxDeepStage2Attempts - 1) continue;
                         }
 
                         // Additional deep quality gate: avoid "thin text" for Context/Impact/Defense.
-                        // Accepts the JSON, but retries once if most items have placeholder-short text.
-                        if (hasGrounding && attempt < 1) {
+                        // Skip for Flash 8K Stage 2 — prompts intentionally use shorter fields; retries rarely help.
+                        if (hasGrounding && attempt < maxDeepStage2Attempts - 1 && !isFlash8kStage2) {
                             const isWeakText = (s) => {
                                 if (typeof s !== 'string') return true;
                                 const t = s.trim();
@@ -1653,7 +1727,7 @@ Ensure valid JSON. Do not truncate.`
                     }
                     break;
                 }
-                if (attempt < 2 && (v.code === 'AI_JSON_PARSE_ERROR' || v.code === 'AI_INCOMPLETE_RESPONSE')) {
+                if (attempt < maxDeepStage2Attempts - 1 && (v.code === 'AI_JSON_PARSE_ERROR' || v.code === 'AI_INCOMPLETE_RESPONSE')) {
                     const p = v.parsed || {};
                     console.warn('[Gemini Stream] Deep attempt', attempt + 1, 'failed:', v.code, '| factualClaims:', p.factualClaims?.length, 'claims:', p.claims?.length, 'manipulationTechniques:', p.manipulationTechniques?.length);
                     continue;
