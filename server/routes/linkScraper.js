@@ -246,7 +246,19 @@ router.post('/scrape', requireAuth, async (req, res) => {
             console.log(`[Scraper] ✅ Direct fetch OK — ${content.length} chars${note}`);
         }
 
-        const isPartial = !content || content.length < 300;
+        const lower = (content || '').toLowerCase();
+        const isCookieLike = lower.includes('бисквит') ||
+            lower.includes('cookies') ||
+            lower.includes('gdpr') ||
+            lower.includes('поверителност') ||
+            lower.includes('privacy policy') ||
+            lower.includes('terms of use') ||
+            lower.includes('условия за ползване') ||
+            lower.includes('съгласие') ||
+            lower.includes('consent');
+
+        // Mark as partial if we likely extracted cookie/paywall text instead of article body.
+        const isPartial = (!content || content.length < 300) || (!!direct?.cookieWall) || (isCookieLike && content.length < 6000);
         if (isPartial) {
             console.warn(`[Scraper] ⚠️ Partial content (${content?.length || 0} chars) — Gemini will use Google Search`);
         }

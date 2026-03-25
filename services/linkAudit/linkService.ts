@@ -54,7 +54,8 @@ export const analyzeLinkDeep = async (
         onProgress?.(lang === 'en' ? 'Scraping article...' : 'Извличане на статията...');
 
         const scraped = await scrapeLinkContent(url, token);
-        const scrapedContent = (!scraped.isPartial && scraped.content.length > 300) ? scraped.content : undefined;
+        // Minimum ~600 chars to reduce cookie-wall/menu false positives
+        const scrapedContent = (!scraped.isPartial && scraped.content.length > 600) ? scraped.content : undefined;
 
         if (scraped.error && !scrapedContent) {
             const err = scraped.error.toLowerCase();
@@ -68,6 +69,15 @@ export const analyzeLinkDeep = async (
 
         onProgress?.(lang === 'en' ? 'Analysing article...' : 'Анализиране на статията...');
 
+        const basePrompt = lang === 'en'
+            ? getLinkAnalysisPromptEn(url, scrapedContent)
+            : getLinkAnalysisPrompt(url, scrapedContent);
+
+        // If scraping is partial, explicitly instruct the model to recover article content via tools.
+        const finalPrompt = !scrapedContent
+            ? `${basePrompt}\n\nIMPORTANT: The article content could not be fully scraped. You MUST use the available tools (URL context and/or Google Search) to fetch/reconstruct the content of this exact URL before analyzing. Do not hallucinate; ground claims in recovered text and cite sources as URLs in factualClaims[].sources.`
+            : basePrompt;
+
         const response = await fetch('/api/gemini/generate', {
             method: 'POST',
             headers: {
@@ -76,7 +86,7 @@ export const analyzeLinkDeep = async (
             },
             body: JSON.stringify({
                 model: 'gemini-3-flash-preview',
-                prompt: lang === 'en' ? getLinkAnalysisPromptEn(url, scrapedContent) : getLinkAnalysisPrompt(url, scrapedContent),
+                prompt: finalPrompt,
                 mode: 'deep',
                 serviceType: 'linkArticle',
                 systemInstruction: lang === 'en'
@@ -170,7 +180,14 @@ const transformAnalysis = (rawText: string, pointsCost: number): VideoAnalysis =
             confidence: c.confidence || 0,
             veracity: transformVerdict(c.verdict),
             verdict: (c.verdict?.toUpperCase?.() || 'UNVERIFIABLE') as string,
-            explanation: c.evidence || (getApiLang() === 'en' ? 'No information available' : 'Няма налична информация'),
+            explanation: (() => {
+                const lang = getApiLang();
+                const base = c.evidence || (lang === 'en' ? 'No information available' : 'Няма налична информация');
+                const src = Array.isArray(c.sources) ? c.sources.filter((s: any) => typeof s === 'string' && s.trim().length > 0) : [];
+                if (!src.length) return base;
+                const header = lang === 'en' ? 'Sources:' : 'Източници:';
+                return `${base}\n\n${header}\n- ${src.join('\n- ')}`;
+            })(),
             missingContext: c.context || ''
         })),
         manipulations: (raw.manipulationTechniques || []).map((m: any) => ({
