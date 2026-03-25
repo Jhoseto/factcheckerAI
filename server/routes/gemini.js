@@ -77,7 +77,11 @@ function escapeControlCharsInJson(text) {
 /** Parse JSON from Gemini response: strip markdown, then parse (with one fallback for control chars). */
 function parseJsonRobust(rawText) {
     if (!rawText || typeof rawText !== 'string') return { ok: false, error: 'empty' };
-    let t = rawText.trim();
+    let t = rawText
+        // Remove BOM / nulls that can break JSON.parse.
+        .replace(/\uFEFF/g, '')
+        .replace(/\u0000/g, '')
+        .trim();
     const jsonBlock = t.match(/```json\s*([\s\S]*?)\s*```/);
     if (jsonBlock) t = jsonBlock[1].trim();
     else t = t.replace(/```json\s*/g, '').replace(/\s*```/g, '').trim();
@@ -95,6 +99,11 @@ function parseJsonRobust(rawText) {
     } catch (_) { }
     try {
         return { ok: true, parsed: JSON.parse(escapeControlCharsInJson(candidate)) };
+    } catch (_) { }
+    try {
+        // Last resort: remove trailing commas (common JSON-ish failure mode).
+        const noTrailingCommas = candidate.replace(/,\s*([}\]])/g, '$1');
+        return { ok: true, parsed: JSON.parse(noTrailingCommas) };
     } catch (_) { }
     return { ok: false, error: 'parse failed' };
 }
@@ -832,13 +841,18 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
 
         for (let attempt = 0; attempt <= maxRetries; attempt++) {
             if (videoUrl) {
+                // Some Gemini Flash models enforce an 8K max candidate length; requesting more causes INVALID_ARGUMENT.
+                // For video input (mp4), keep the output within a safe cap to avoid hard failures.
+                const requestedVideoOut = isDeepMode ? 65536 : 20000;
+                const safeVideoOutCap = 8192;
+                const videoMaxOut = Math.min(requestedVideoOut, safeVideoOutCap);
                 const stream = await ai.models.generateContentStream({
                     model: model || 'gemini-2.5-flash',
                     contents,
                     config: {
                         systemInstruction: (systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON. Complete ALL fields in the response.') + '\n\n' + getLanguageInstruction(lang),
                         temperature: 0.7,
-                        maxOutputTokens: isDeepMode ? 65536 : 20000,
+                        maxOutputTokens: videoMaxOut,
                         // Always enforce structured JSON for video analyses (even with tools enabled),
                         // otherwise the model may return sparse/freeform output or non-numeric metrics.
                         responseMimeType: 'application/json',
@@ -1371,27 +1385,32 @@ For EVERY claim: use Google Search to verify it against today's date. Return inf
 - If a category has no substance in Stage 1, return one fallback object:
   {"point":"No significant observations","details":"No significant observations were noted in the video analysis."}`;
             const jsonPromptsWithContext = [
-                `Return the complete analysis as JSON. For each claim: verify via Google Search against today's date; give current information and accurate dates. For this ~${durationMin}-min video, aim for around ${targetClaims} claims and ${targetManipulations} manipulations. Populate EVERY array. ${multimodalRule} For psychologicalProfile, culturalSymbolicAnalysis: 4-6 items each, 2-4 sentences per "details" field. INTEGRATE research into explanation and logic. Ensure valid JSON. Do not truncate.`,
-                `Format as valid JSON. Use the research above. For each claim: verify via Google Search against today; give current info and accurate dates. Aim for ~${targetClaims} claims and ~${targetManipulations} manipulations. ${multimodalRule} Populate all fields. No placeholders. Keep JSON complete.`
+                `Return the complete analysis as JSON. For each claim: verify via Google Search against today's date; give current information and accurate dates. For this ~${durationMin}-min video, aim for around ${targetClaims} claims and ${targetManipulations} manipulations. Populate EVERY array. ${multimodalRule}
+
+TOKEN BUDGET RULE (CRITICAL): The response has a hard max-length limit. Prioritize depth in:
+- claims[].explanation (2–4 sentences)
+- claims[].missingContext (2–4 sentences, specific)
+- manipulations[].effect (3–5 sentences)
+- manipulations[].counterArgument (checklist + questions)
+Keep other sections compact:
+- psychologicalProfile, culturalSymbolicAnalysis, geopoliticalContext, historicalParallel, strategicIntent, recommendations: 3–4 items each, 1–2 sentences per details.
+- finalInvestigativeReport: max ~900–1200 words.
+Ensure valid JSON. Do not truncate.`,
+                `Format as valid JSON. Use the research above. For each claim: verify via Google Search against today; give current info and accurate dates. Aim for ~${targetClaims} claims and ~${targetManipulations} manipulations. ${multimodalRule}
+
+TOKEN BUDGET RULE (CRITICAL): Prioritize claims[].missingContext and manipulations[].effect/counterArgument. Keep secondary tabs compact (3–4 items, short details). Valid JSON only. No placeholders.`
             ];
             const jsonPromptsNoContext = [
                 'Return complete fact-check analysis as JSON. You do NOT have video — use ONLY the user text and MULTIMODAL_OBSERVATIONS_FROM_STAGE_1 for visual/body/vocal tabs. Populate claims/manipulations from available text. Be concise.',
                 'Valid JSON only. No video input: never invent visual/audio/body observations; use MULTIMODAL_OBSERVATIONS_FROM_STAGE_1 or single-item fallback arrays. No placeholders.'
             ];
             const jsonPrompts = hasGrounding ? jsonPromptsWithContext : jsonPromptsNoContext;
-            const finalConfig = {
-                systemInstruction: enhancedSystemInstruction,
-                tools: [{
-                    googleSearch: {
-                        dynamicRetrievalConfig: { mode: 'MODE_DYNAMIC', dynamicThreshold: 0 }
-                    }
-                }],
-                temperature: 0.1,
-                maxOutputTokens: 65536,
-                responseMimeType: 'application/json',
-                responseSchema: VIDEO_DEEP_SCHEMA,
-                thinkingConfig: { thinkingBudget: 4000 },
-                httpOptions: { timeout: 300000 }
+            // Deep Stage 2 must use Gemini 3 Flash Preview (user requirement).
+            // Flash may enforce an 8K output ceiling; stay within safe budget and prioritize key fields.
+            const videoDeepStage2Model = MODELS.REPORT_SYNTHESIZER;
+            const isCandidateTooLongErr = (e) => {
+                const msg = String(e?.message || '');
+                return msg.includes('answer candidate length is too long') && msg.includes('exceeds the maximum token limit of 8192');
             };
 
             for (let attempt = 0; attempt < 2; attempt++) {
@@ -1405,11 +1424,43 @@ For EVERY claim: use Google Search to verify it against today's date. Return inf
                     role: c.role,
                     parts: c.parts.filter(p => !p.fileData && !p.inlineData)
                 }));
-                const finalResponse = await ai.models.generateContent({
-                    model: MODELS.REPORT_SYNTHESIZER,
-                    contents: [...textContents, jsonPrompt],
-                    config: finalConfig
-                });
+                const finalBudgets = [
+                    // Try higher output first (if supported by backend/model routing).
+                    20000,
+                    // Fallback: strict 8K to avoid INVALID_ARGUMENT.
+                    8192
+                ];
+                let finalResponse = null;
+                for (let b = 0; b < finalBudgets.length; b++) {
+                    const finalConfig = {
+                        systemInstruction: enhancedSystemInstruction,
+                        tools: [{
+                            googleSearch: {
+                                dynamicRetrievalConfig: { mode: 'MODE_DYNAMIC', dynamicThreshold: 0 }
+                            }
+                        }],
+                        temperature: 0.1,
+                        maxOutputTokens: finalBudgets[b],
+                        responseMimeType: 'application/json',
+                        responseSchema: VIDEO_DEEP_SCHEMA,
+                        thinkingConfig: { thinkingBudget: 4000 },
+                        httpOptions: { timeout: 300000 }
+                    };
+                    try {
+                        finalResponse = await ai.models.generateContent({
+                            model: videoDeepStage2Model,
+                            contents: [...textContents, jsonPrompt],
+                            config: finalConfig
+                        });
+                        break;
+                    } catch (e) {
+                        if (isCandidateTooLongErr(e) && b < finalBudgets.length - 1) {
+                            console.warn('[Gemini Stream] Stage 2 output limit hit; retrying with 8K cap.');
+                            continue;
+                        }
+                        throw e;
+                    }
+                }
                 finalUsage = finalResponse.usageMetadata;
                 streamUsage = finalResponse.usageMetadata || streamUsage;
                 { const sm = extractSearchMetadata(finalResponse); logGoogleSearches(_dbgId + `_deep_s2_att${attempt}`, sm.searchQueries, sm.groundingChunks); logThinking(_dbgId + `_deep_s2_att${attempt}`, sm.thinkingText); }
