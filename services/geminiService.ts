@@ -252,6 +252,102 @@ const transformGeminiResponse = (
 ): VideoAnalysis => {
   const responseLang = getApiLang();
 
+  const normalizeTechniqueKey = (s: unknown) =>
+    (typeof s === 'string' ? s : String(s ?? ''))
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const buildRichMissingContextFallback = (c: any): string => {
+    const who = (c?.speaker && typeof c.speaker === 'string') ? c.speaker.trim() : '';
+    const ts = (c?.timestamp && typeof c.timestamp === 'string') ? c.timestamp.trim() : '';
+    const claim = (c?.claim || c?.quote || c?.text || '').toString().trim();
+    const prefix = responseLang === 'en'
+      ? `Context is unclear${who ? ` (speaker: ${who})` : ''}${ts ? ` [${ts}]` : ''}.`
+      : `Контекстът не е изрично даден${who ? ` (говорител: ${who})` : ''}${ts ? ` [${ts}]` : ''}.`;
+
+    // We avoid hallucinating "what was said before/after" if we don't have it.
+    // Instead we provide a structured, actionable context gap analysis.
+    if (responseLang === 'en') {
+      return [
+        prefix,
+        claim ? `Claim: "${claim}"` : '',
+        'Missing context to check:',
+        '- Exact definitions/terms used (what counts, what is excluded).',
+        '- Timeframe and location (when/where exactly).',
+        '- Baseline/comparison (compared to what).',
+        '- Primary source and whether it is independent/official.',
+        '- What evidence would falsify the claim.',
+        'Why it matters: without these details, the same statement can be true in a narrow sense but misleading in the broader picture.'
+      ].filter(Boolean).join('\n');
+    }
+
+    return [
+      prefix,
+      claim ? `Твърдение: „${claim}“` : '',
+      'Какъв контекст липсва/трябва да се провери:',
+      '- Дефиниции и термини (какво точно означават/какво се изключва).',
+      '- Времева рамка и място (кога/къде точно).',
+      '- База за сравнение (спрямо какво).',
+      '- Първоизточник и независима проверка (официално ли е, има ли втори източник).',
+      '- Какво би опровергало твърдението (контра-факт/данни).',
+      'Защо е важно: без тези детайли едно твърдение може да е частично вярно, но подвеждащо като внушение.'
+    ].filter(Boolean).join('\n');
+  };
+
+  const buildRichCounterArgumentFallback = (technique: unknown): string => {
+    const key = normalizeTechniqueKey(technique);
+    const baseBg = [
+      'Чеклист за защита:',
+      '- Спри и отдели 30 секунди: каква е основната теза в 1 изречение?',
+      '- Потърси първоизточника (документ/изследване/официално изявление) — не преразказ.',
+      '- Провери поне 2 независими източника (различни медии/институции).',
+      '- Провери дата/контекст: дали не е старо, извадено от контекст или пренесено в друга тема.',
+      '- Търси конкретни числа/методология; ако има само емоции и общи фрази — вероятен трик.',
+      'Въпроси за проверка:',
+      '- Кой печели от това да повярвам/споделя това?',
+      '- Какво би ме накарало да променя мнението си (какъв факт би опровергал тезата)?',
+      '- Има ли директни цитати/доказателства или само внушение?'
+    ];
+
+    const baseEn = [
+      'Defense checklist:',
+      '- Pause: restate the core claim in 1 sentence.',
+      '- Find the primary source (document/study/official statement), not a retelling.',
+      '- Cross-check with at least 2 independent sources.',
+      '- Check date and framing: out-of-context, old, or re-labeled content is common.',
+      '- Look for numbers/method; if it is mostly emotion and vague language, treat as manipulation.',
+      'Verification questions:',
+      '- Who benefits if I believe/share this?',
+      '- What evidence would falsify it?',
+      '- Are there direct quotes/data, or just implication?'
+    ];
+
+    // Technique-specific extra hints (minimal but higher value).
+    const extraBg =
+      key.includes('authority') || key.includes('авторитет')
+        ? ['Специално за „апел към авторитета“: провери дали „експертът“ е релевантен (компетентност), дали има конфликт на интереси и дали има консенсус/рецензирани източници.']
+        : key.includes('fear') || key.includes('страх')
+          ? ['Специално за „страх“: потърси реални данни за риск/вероятност и сравнение с базова линия; избягвай решения „в паника“.']
+          : key.includes('cherry') || key.includes('подбор') || key.includes('cherry-picking')
+            ? ['Специално за „cherry-picking“: потърси какво е пропуснато — други периоди, други групи, целият набор от данни.']
+            : [];
+
+    const extraEn =
+      key.includes('authority')
+        ? ['For appeal-to-authority: check domain relevance, conflicts of interest, and whether there is broader consensus / peer-reviewed support.']
+        : key.includes('fear')
+          ? ['For fear framing: look for actual risk rates and a baseline comparison; avoid panic-driven conclusions.']
+          : key.includes('cherry')
+            ? ['For cherry-picking: look for what was omitted—other time windows, groups, or the full dataset.']
+            : [];
+
+    return (responseLang === 'en'
+      ? [...baseEn, ...extraEn]
+      : [...baseBg, ...extraBg]
+    ).join('\n');
+  };
+
   const mapVerdict = (verdict: string): 'вярно' | 'предимно вярно' | 'частично вярно' | 'подвеждащо' | 'невярно' | 'непроверимо' => {
     const map: Record<string, 'вярно' | 'предимно вярно' | 'частично вярно' | 'подвеждащо' | 'невярно' | 'непроверимо'> = {
       'TRUE': 'вярно', 'MOSTLY_TRUE': 'предимно вярно', 'MIXED': 'частично вярно',
@@ -315,9 +411,7 @@ const transformGeminiResponse = (
   const transformedClaims = allClaims.map((c: any) => {
     const rawMissingContext = c.missingContext ?? c.context ?? '';
     const cleanedMissingContext = typeof rawMissingContext === 'string' ? rawMissingContext.trim() : '';
-    const missingContextFallback = responseLang === 'en'
-      ? 'No additional context was provided for this claim.'
-      : 'Няма предоставен допълнителен контекст за това твърдение.';
+    const missingContextFallback = buildRichMissingContextFallback(c);
 
     return ({
       quote: c.claim || c.quote || c.text || '',
@@ -336,9 +430,11 @@ const transformGeminiResponse = (
     technique: m.technique || (responseLang === 'en' ? 'Unknown technique' : 'Неизвестна'),
     timestamp: m.timestamp || '00:00',
     logic: m.logic || m.description || '',
-    effect: m.effect || m.impact || (responseLang === 'en' ? 'Impact on the audience' : 'Въздействие върху аудиторията'),
+    effect: m.effect || m.impact || (responseLang === 'en'
+      ? 'Impact on the audience (missing). The analysis did not provide enough detail; treat this as a flag to verify sources and context.'
+      : 'Въздействие върху аудиторията (липсва). Анализът не даде достатъчно детайл — приеми това като сигнал за проверка на източници и контекст.'),
     severity: m.severity || (0.5 + (idx * 0.1)),
-    counterArgument: m.counterArgument || (responseLang === 'en' ? 'Verify primary sources.' : 'Проверка на първоизточници.')
+    counterArgument: m.counterArgument || buildRichCounterArgumentFallback(m.technique)
   }));
 
   const timeline = allClaims.length > 0

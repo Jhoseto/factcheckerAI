@@ -446,7 +446,8 @@ const VIDEO_PROPERTIES = {
                 speaker: { type: 'string' },
                 timestamp: { type: 'string' }
             },
-            required: ['claim', 'verdict', 'explanation', 'quote']
+            // Deep UX requirement: "Контекст" must be populated per claim.
+            required: ['claim', 'verdict', 'explanation', 'quote', 'missingContext']
         }
     },
     quotes: {
@@ -476,7 +477,8 @@ const VIDEO_PROPERTIES = {
                 severity: { type: 'number' },
                 counterArgument: { type: 'string' }
             },
-            required: ['technique', 'logic', 'effect']
+            // Deep UX requirement: "Как да се защитим" must be populated per manipulation.
+            required: ['technique', 'logic', 'effect', 'counterArgument']
         }
     },
     finalInvestigativeReport: { type: 'string' },
@@ -837,7 +839,10 @@ router.post('/generate', requireAuth, analysisRateLimiter, async (req, res) => {
                         systemInstruction: (systemInstruction || 'You are a professional fact-checker. Respond ONLY with valid JSON. Complete ALL fields in the response.') + '\n\n' + getLanguageInstruction(lang),
                         temperature: 0.7,
                         maxOutputTokens: isDeepMode ? 65536 : 20000,
-                        ...(tools ? {} : { responseMimeType: 'application/json', responseSchema: isDeepMode ? VIDEO_DEEP_SCHEMA : VIDEO_STANDARD_SCHEMA }),
+                        // Always enforce structured JSON for video analyses (even with tools enabled),
+                        // otherwise the model may return sparse/freeform output or non-numeric metrics.
+                        responseMimeType: 'application/json',
+                        responseSchema: isDeepMode ? VIDEO_DEEP_SCHEMA : VIDEO_STANDARD_SCHEMA,
                         mediaResolution: 'MEDIA_RESOLUTION_LOW',
                         tools
                     }
@@ -1421,7 +1426,65 @@ For EVERY claim: use Google Search to verify it against today's date. Return inf
                 fullText = fullText || '';
 
                 const v = validateJsonResponse(fullText, serviceType || 'video');
-                if (v.valid) break;
+                if (v.valid) {
+                    // Video deep quality gate: avoid "thin" claims/manipulations output.
+                    if (isDeepMode && serviceType !== 'linkArticle') {
+                        const p = v.parsed || {};
+                        const claimsArr = Array.isArray(p.claims) ? p.claims : (Array.isArray(p.factualClaims) ? p.factualClaims : []);
+                        const manArr = Array.isArray(p.manipulations) ? p.manipulations : (Array.isArray(p.manipulationTechniques) ? p.manipulationTechniques : []);
+                        const minClaims = Math.min(30, Math.max(8, Math.round(durationMin * 0.8)));
+                        const minManipulations = Math.min(20, Math.max(5, Math.round(durationMin * 0.5)));
+
+                        // Only enforce when we have grounding; if not, keep it permissive.
+                        if (hasGrounding && (claimsArr.length < minClaims || manArr.length < minManipulations)) {
+                            console.warn(
+                                '[Gemini Stream] Deep quality gate: thin output',
+                                '| claims:', claimsArr.length, 'min:', minClaims,
+                                '| manipulations:', manArr.length, 'min:', minManipulations
+                            );
+                            if (attempt < 1) continue; // retry once with stronger prompt
+                        }
+
+                        // Additional deep quality gate: avoid "thin text" for Context/Impact/Defense.
+                        // Accepts the JSON, but retries once if most items have placeholder-short text.
+                        if (hasGrounding && attempt < 1) {
+                            const isWeakText = (s) => {
+                                if (typeof s !== 'string') return true;
+                                const t = s.trim();
+                                if (!t) return true;
+                                const low = t.toLowerCase();
+                                if (low.includes('няма предоставен') || low.includes('no additional context') || low === 'n/a') return true;
+                                if (low === 'проверка на първоизточници.' || low === 'verify primary sources.') return true;
+                                return t.length < 120; // ~2–3 short sentences threshold
+                            };
+
+                            const claimSample = claimsArr.slice(0, 25);
+                            const weakContext = claimSample.filter(c => isWeakText(c?.missingContext ?? c?.context)).length;
+                            const weakContextRatio = claimSample.length ? (weakContext / claimSample.length) : 0;
+
+                            const manSample = manArr.slice(0, 20);
+                            const weakImpact = manSample.filter(m => isWeakText(m?.effect ?? m?.impact)).length;
+                            const weakDefense = manSample.filter(m => isWeakText(m?.counterArgument)).length;
+                            const weakImpactRatio = manSample.length ? (weakImpact / manSample.length) : 0;
+                            const weakDefenseRatio = manSample.length ? (weakDefense / manSample.length) : 0;
+
+                            // Only enforce when we have enough items to judge.
+                            const enforceContext = claimSample.length >= Math.min(10, minClaims) && weakContextRatio >= 0.5;
+                            const enforceManip = manSample.length >= Math.min(6, minManipulations) && (weakImpactRatio >= 0.5 || weakDefenseRatio >= 0.5);
+
+                            if (enforceContext || enforceManip) {
+                                console.warn(
+                                    '[Gemini Stream] Deep quality gate: thin text',
+                                    '| weakContextRatio:', weakContextRatio.toFixed(2),
+                                    '| weakImpactRatio:', weakImpactRatio.toFixed(2),
+                                    '| weakDefenseRatio:', weakDefenseRatio.toFixed(2)
+                                );
+                                continue; // retry once with stronger prompt
+                            }
+                        }
+                    }
+                    break;
+                }
                 if (attempt < 2 && (v.code === 'AI_JSON_PARSE_ERROR' || v.code === 'AI_INCOMPLETE_RESPONSE')) {
                     const p = v.parsed || {};
                     console.warn('[Gemini Stream] Deep attempt', attempt + 1, 'failed:', v.code, '| factualClaims:', p.factualClaims?.length, 'claims:', p.claims?.length, 'manipulationTechniques:', p.manipulationTechniques?.length);

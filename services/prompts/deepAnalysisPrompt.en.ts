@@ -249,6 +249,7 @@ Return the result as JSON in the following format:
       "speaker": "REAL name of the speaker (if mentioned in the video, otherwise 'Speaker 1', 'Speaker 2', etc.)",
       "timestamp": "Exact timestamp from the video",
       "context": "EXCEPTIONALLY FULL context around the claim — what was said before and after, how it fits into the overall conversation, what the history of the discussion is, what the biases of participants are",
+      "missingContext": "EXCEPTIONALLY FULL missing context — what critical information is omitted/hidden, what was said immediately before/after (if inferable), and how that changes interpretation. Minimum 2–3 full sentences.",
       "logicalAnalysis": "IN-DEPTH logical analysis — are there logical fallacies (which ones), what is the structure of the argument (premise, conclusion, warrants), is it consistent, are there hidden assumptions",
       "factualVerification": "DETAILED verification process — how this claim is verified against multiple real sources, statistics, historical facts, expert consensus. Give concrete sources and data.",
       "comparison": "BROAD comparison with other sources and opinions — what multiple experts/sources say on the same topic, what the different perspectives are, where there is consensus and where there are disagreements"
@@ -272,8 +273,8 @@ Return the result as JSON in the following format:
       "severity": 0.0,
       "example": "FULL quote/example from the video demonstrating the technique",
       "speaker": "REAL name of the person using it",
-      "impact": "DETAILED description of the impact on the audience — how it manipulates thinking (cognitive), feelings (emotional), and behaviour (behavioural). What are the short-term and long-term effects.",
-      "counterArgument": "DETAILED strategies for countering this manipulation — what the public needs to know, what questions to ask, how to verify the information, how to recognise the technique in the future"
+      "impact": "DETAILED description of the impact on the audience — cognitive/emotional/behavioural mechanisms + short-term and long-term effects. Minimum 3–5 full sentences.",
+      "counterArgument": "DETAILED strategies for countering this manipulation — include a 3–7 step checklist + 2–3 verification questions the audience should ask. Not a one-liner."
     }
   ],
   "multimodalObservations": "[VISUAL]\nReal paragraph: 2–4 sentences on framing/light/edit/rhetoric — no empty gap between markers.\n\n[BODY LANGUAGE]\nReal paragraph on gesture, gaze, congruence with speech.\n\n[VOCAL]\nReal paragraph on tempo, pauses, voice quality.\n\n[DECEPTION]\nReal paragraph on (in)congruence or explicitly: no observable mismatch.\n\n[HUMOR]\nReal paragraph on humour/irony or explicitly: none observed.",
