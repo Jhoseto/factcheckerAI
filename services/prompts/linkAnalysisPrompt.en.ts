@@ -81,6 +81,18 @@ Return ONLY valid JSON (no Markdown wrapper):
   "title": "The exact headline from the article",
   "siteName": "Media outlet",
   "summary": "DETAILED summary (minimum 4–6 sentences): what the article claims, what the key facts and numbers are, what the main thesis is, who is affected, and why it matters.",
+  "summaryExtras": {
+    "tldr": ["One sentence", "One sentence", "One sentence"],
+    "keyTakeaways": ["3–7 concrete takeaways"],
+    "verifiedVsUnverified": {
+      "verifiedPct": 0,
+      "unverifiedPct": 0,
+      "notes": ["Short notes why"]
+    },
+    "nextActions": [
+      { "action": "What the reader should verify next", "why": "Why it matters", "url": "URL (if applicable)" }
+    ]
+  },
   "overallAssessment": "ACCURATE" | "MOSTLY_ACCURATE" | "MIXED" | "MISLEADING" | "FALSE",
   "detailedMetrics": {
     "factualAccuracy": 0.0, "logicalSoundness": 0.0, "emotionalBias": 0.0,
@@ -131,12 +143,15 @@ Return ONLY valid JSON (no Markdown wrapper):
   "factualClaims": [
     {
       "claim": "The FULL claim as written in the article (do not truncate)",
+      "claimType": "fact" | "interpretation" | "opinion",
       "verdict": "TRUE" | "MOSTLY_TRUE" | "MIXED" | "MOSTLY_FALSE" | "FALSE" | "UNVERIFIABLE",
       "evidence": "DETAILED evidence or rebuttal with factual data, statistics, comparisons with independent sources.",
       "sources": ["URL of a reliable source"],
       "confidence": 0.0,
       "context": "Full context — how it fits in the article, what comes before and after.",
-      "logicalAnalysis": "Logical analysis — are there fallacies, is the argumentation consistent."
+      "logicalAnalysis": "Logical analysis — are there fallacies, is the argumentation consistent.",
+      "verificationChecklist": ["1–3 concrete verification steps"],
+      "primarySourceQuote": "Short, precise quote from the article (if useful)"
     }
   ],
   "manipulationTechniques": [
@@ -146,7 +161,10 @@ Return ONLY valid JSON (no Markdown wrapper):
       "severity": 0.0,
       "example": "FULL quote from the article demonstrating the technique",
       "impact": "WHAT impact it has on the reader — how it changes thinking, feelings, and behaviour. Short-term and long-term effects.",
-      "counterArgument": "How to counter it — what the reader needs to know, what questions to ask, how to recognise the technique in the future."
+      "counterArgument": "How to counter it — what the reader needs to know, what questions to ask, how to recognise the technique in the future.",
+      "mechanism": "Mechanism: how the technique works (short and clear).",
+      "counterFrame": "Counter-frame: how to interpret/check it without the manipulation.",
+      "rationale": "Why this counts as manipulation here (1–2 sentences)."
     }
   ],
   "commentsAnalysis": {

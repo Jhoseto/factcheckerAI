@@ -173,6 +173,51 @@ const transformAnalysis = (rawText: string, pointsCost: number): VideoAnalysis =
     }
 
     const classification = deriveClassification(raw.overallAssessment, raw.detailedMetrics);
+    const lang = getApiLang();
+
+    const formatChecklist = (list: any): string => {
+        const items = Array.isArray(list) ? list.filter((s) => typeof s === 'string' && s.trim().length > 0) : [];
+        if (!items.length) return '';
+        const header = lang === 'en' ? 'Verification checklist:' : 'Чеклист за проверка:';
+        return `${header}\n- ${items.join('\n- ')}`;
+    };
+
+    const formatSummaryExtras = (se: any): string => {
+        if (!se || typeof se !== 'object') return '';
+        const blocks: string[] = [];
+        const tldr = Array.isArray(se.tldr) ? se.tldr.filter((s: any) => typeof s === 'string' && s.trim()) : [];
+        const takeaways = Array.isArray(se.keyTakeaways) ? se.keyTakeaways.filter((s: any) => typeof s === 'string' && s.trim()) : [];
+        const notes = Array.isArray(se.verifiedVsUnverified?.notes) ? se.verifiedVsUnverified.notes.filter((s: any) => typeof s === 'string' && s.trim()) : [];
+        const next = Array.isArray(se.nextActions) ? se.nextActions : [];
+
+        if (tldr.length) {
+            blocks.push((lang === 'en' ? 'TL;DR:' : 'TL;DR:') + '\n- ' + tldr.slice(0, 3).join('\n- '));
+        }
+        if (takeaways.length) {
+            blocks.push((lang === 'en' ? 'Key takeaways:' : 'Ключови изводи:') + '\n- ' + takeaways.slice(0, 7).join('\n- '));
+        }
+        const v = se.verifiedVsUnverified;
+        const verifiedPct = typeof v?.verifiedPct === 'number' ? v.verifiedPct : null;
+        const unverifiedPct = typeof v?.unverifiedPct === 'number' ? v.unverifiedPct : null;
+        if (verifiedPct !== null || unverifiedPct !== null || notes.length) {
+            const headline = lang === 'en'
+                ? `Verified vs unverified: ${verifiedPct ?? 'N/A'}% / ${unverifiedPct ?? 'N/A'}%`
+                : `Проверено vs непроверено: ${verifiedPct ?? 'N/A'}% / ${unverifiedPct ?? 'N/A'}%`;
+            blocks.push([headline, ...(notes.length ? ['- ' + notes.slice(0, 6).join('\n- ')] : [])].join('\n'));
+        }
+        if (next.length) {
+            const lines = next.slice(0, 5).map((a: any) => {
+                const action = typeof a?.action === 'string' ? a.action.trim() : '';
+                const why = typeof a?.why === 'string' ? a.why.trim() : '';
+                const url = typeof a?.url === 'string' ? a.url.trim() : '';
+                const tail = [why, url].filter(Boolean).join(' — ');
+                return tail ? `${action} (${tail})` : action;
+            }).filter(Boolean);
+            if (lines.length) blocks.push((lang === 'en' ? 'Next actions:' : 'Следващи действия:') + '\n- ' + lines.join('\n- '));
+        }
+
+        return blocks.length ? '\n\n' + blocks.join('\n\n') : '';
+    };
 
     return {
         id: `link-${Date.now()}`,
@@ -190,19 +235,31 @@ const transformAnalysis = (rawText: string, pointsCost: number): VideoAnalysis =
             veracity: transformVerdict(c.verdict),
             verdict: (c.verdict?.toUpperCase?.() || 'UNVERIFIABLE') as string,
             explanation: (() => {
-                const lang = getApiLang();
                 const base = c.evidence || (lang === 'en' ? 'No information available' : 'Няма налична информация');
                 const src = Array.isArray(c.sources) ? c.sources.filter((s: any) => typeof s === 'string' && s.trim().length > 0) : [];
-                if (!src.length) return base;
-                const header = lang === 'en' ? 'Sources:' : 'Източници:';
-                return `${base}\n\n${header}\n- ${src.join('\n- ')}`;
+                const checklist = formatChecklist(c.verificationChecklist);
+                const blocks: string[] = [base];
+                if (src.length) blocks.push((lang === 'en' ? 'Sources:' : 'Източници:') + `\n- ${src.join('\n- ')}`);
+                if (checklist) blocks.push(checklist);
+                return blocks.join('\n\n');
             })(),
             missingContext: c.context || ''
         })),
         manipulations: (raw.manipulationTechniques || []).map((m: any) => ({
             technique: m.technique,
             timestamp: '0:00',
-            logic: m.description,
+            logic: (() => {
+                const desc = typeof m.description === 'string' ? m.description.trim() : '';
+                const mech = typeof m.mechanism === 'string' ? m.mechanism.trim() : '';
+                const rat = typeof m.rationale === 'string' ? m.rationale.trim() : '';
+                const cf = typeof m.counterFrame === 'string' ? m.counterFrame.trim() : '';
+                const blocks: string[] = [];
+                if (desc) blocks.push(desc);
+                if (mech) blocks.push((lang === 'en' ? 'Mechanism:' : 'Механизъм:') + ' ' + mech);
+                if (rat) blocks.push((lang === 'en' ? 'Why it is manipulation here:' : 'Защо е манипулация тук:') + ' ' + rat);
+                if (cf) blocks.push((lang === 'en' ? 'Counter-frame:' : 'Контра-рамка:') + ' ' + cf);
+                return blocks.join('\n\n') || desc;
+            })(),
             effect: m.impact || '',
             severity: m.severity || 0,
             counterArgument: m.counterArgument || ''
@@ -214,7 +271,7 @@ const transformAnalysis = (rawText: string, pointsCost: number): VideoAnalysis =
             manipulationIndex: raw.detailedMetrics?.propagandaScore || 0,
             unverifiablePercent: 0,
             finalClassification: classification,
-            overallSummary: raw.summary || '',
+            overallSummary: (raw.summary || '') + formatSummaryExtras(raw.summaryExtras),
             totalDuration: '0:00',
             detailedStats: {
                 factualAccuracy: raw.detailedMetrics?.factualAccuracy || 0,

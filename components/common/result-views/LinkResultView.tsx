@@ -107,6 +107,101 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
 
     const hasComments = !!analysis.commentsAnalysis?.found;
 
+    const parseClaimExplanation = (explanation: unknown) => {
+        const text = typeof explanation === 'string' ? explanation : '';
+        const norm = text.replace(/\r\n/g, '\n');
+
+        const extractSection = (labelCandidates: string[]) => {
+            const lower = norm.toLowerCase();
+            let start = -1;
+            let label = '';
+            for (const l of labelCandidates) {
+                const idx = lower.indexOf(l.toLowerCase());
+                if (idx !== -1 && (start === -1 || idx < start)) {
+                    start = idx;
+                    label = norm.slice(idx, idx + l.length);
+                }
+            }
+            if (start === -1) return { before: norm.trim(), section: '', after: '' };
+            const before = norm.slice(0, start).trim();
+            const afterLabel = norm.slice(start + label.length).trimStart();
+
+            const otherLabels = [
+                'Източници:', 'Sources:',
+                'Чеклист за проверка:', 'Verification checklist:'
+            ].map(s => s.toLowerCase());
+
+            const nextIdx = otherLabels
+                .map(l => afterLabel.toLowerCase().indexOf('\n' + l))
+                .filter(i => i >= 0)
+                .sort((a, b) => a - b)[0];
+
+            const section = (nextIdx !== undefined && nextIdx >= 0)
+                ? afterLabel.slice(0, nextIdx).trim()
+                : afterLabel.trim();
+            const after = (nextIdx !== undefined && nextIdx >= 0)
+                ? afterLabel.slice(nextIdx + 1).trim()
+                : '';
+            return { before, section, after };
+        };
+
+        const s = extractSection(['Източници:', 'Sources:']);
+        const c = (() => {
+            const tmp = s.after || norm;
+            const lower = tmp.toLowerCase();
+            const idxBg = lower.indexOf('чеклист за проверка:');
+            const idxEn = lower.indexOf('verification checklist:');
+            const idx = (idxBg !== -1 && idxEn !== -1) ? Math.min(idxBg, idxEn) : Math.max(idxBg, idxEn);
+            if (idx === -1) return { section: '' };
+            const labelLen = idx === idxBg ? 'Чеклист за проверка:'.length : 'Verification checklist:'.length;
+            const afterLabel = tmp.slice(idx + labelLen).trim();
+            return { section: afterLabel.trim() };
+        })();
+
+        const parseBullets = (block: string) => block
+            .split('\n')
+            .map(l => l.trim())
+            .filter(Boolean)
+            .map(l => l.replace(/^\-\s+/, '').trim())
+            .filter(Boolean);
+
+        const main = s.before || norm.trim();
+        const sources = s.section ? parseBullets(s.section) : [];
+        const checklist = c.section ? parseBullets(c.section) : [];
+        return { main, sources, checklist };
+    };
+
+    const summaryParts = useMemo(() => {
+        const text = typeof analysis.summary?.overallSummary === 'string' ? analysis.summary.overallSummary : '';
+        const splitMarkers = [
+            '\n\nTL;DR:\n',
+            '\n\nKey takeaways:\n',
+            '\n\nКлючови изводи:\n',
+            '\n\nСледващи действия:\n',
+            '\n\nNext actions:\n',
+            '\n\nПроверено vs непроверено:',
+            '\n\nVerified vs unverified:'
+        ];
+        const firstIdx = splitMarkers
+            .map(m => text.indexOf(m))
+            .filter(i => i >= 0)
+            .sort((a, b) => a - b)[0];
+        const base = firstIdx >= 0 ? text.slice(0, firstIdx).trim() : text.trim();
+        const extras = firstIdx >= 0 ? text.slice(firstIdx).trim() : '';
+
+        const blocks: { title: string; body: string }[] = [];
+        const rx = /(?:^|\n\n)(TL;DR:|Key takeaways:|Ключови изводи:|Следващи действия:|Next actions:|Проверено vs непроверено:.*|Verified vs unverified:.*)\n([\s\S]*?)(?=\n\n(?:TL;DR:|Key takeaways:|Ключови изводи:|Следващи действия:|Next actions:|Проверено vs непроверено:|Verified vs unverified:)|$)/g;
+        let m: RegExpExecArray | null;
+        while ((m = rx.exec(extras)) !== null) {
+            const head = (m[1] || '').trim();
+            const body = (m[2] || '').trim();
+            if (!head || !body) continue;
+            blocks.push({ title: head, body });
+        }
+
+        return { baseSummary: base, extraBlocks: blocks };
+    }, [analysis.summary?.overallSummary]);
+
     const allTabs = useMemo(() => [
         { id: 'summary' as const, label: t('analysis.tabSummary') },
         { id: 'claims' as const, label: t('analysis.tabClaimsVerification') },
@@ -199,9 +294,20 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                             <div className="space-y-3">
                                 <h3 className="text-[9px] font-black text-[#968B74] uppercase tracking-widest border-b border-[#968B74]/50 pb-1 inline-block">{t('analysis.executiveSummaryShort')}</h3>
                                 <p className="text-[#ddd] text-base md:text-lg leading-[1.65] border-l-2 border-[#968B74] pl-6 py-2 bg-[#252525]/50">
-                                    „{analysis.summary.overallSummary}“
+                                    „{summaryParts.baseSummary}“
                                 </p>
                             </div>
+
+                            {summaryParts.extraBlocks.length > 0 && (
+                                <div className="grid grid-cols-1 gap-4">
+                                    {summaryParts.extraBlocks.map((b, i) => (
+                                        <div key={i} className="editorial-card p-6 space-y-2 border-l-4 border-l-[#968B74]/60">
+                                            <p className="text-[9px] font-black text-[#968B74] uppercase tracking-widest border-b border-[#968B74]/30 pb-1 inline-block">{b.title}</p>
+                                            <p className="text-[#ccc] text-[15px] leading-[1.7] font-medium whitespace-pre-wrap">{b.body}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
 
                             <div className="editorial-card p-8 space-y-4 border-l-4 border-l-[#968B74]">
                                 <h3 className="text-[9px] font-black text-[#968B74] uppercase tracking-widest border-b border-[#968B74]/50 pb-1 inline-block">{t('analysis.strategicRecommendations')}</h3>
@@ -224,8 +330,11 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                                 </p>
                             </div>
 
-                            {analysis.claims.map((claim, idx) => (
-                                <div key={idx} className="editorial-card p-6 md:p-8 space-y-6 border-l-2 border-l-[#968B74]/50">
+                            {analysis.claims.map((claim, idx) => {
+                                const parsed = parseClaimExplanation(claim.explanation);
+                                const hasExplanation = !(claim.explanation === 'Няма налична информация' || claim.explanation === 'No information available');
+                                return (
+                                    <div key={idx} className="editorial-card p-6 md:p-8 space-y-6 border-l-2 border-l-[#968B74]/50">
                                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-[#333] pb-4">
                                         <span className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest border ${['FALSE', 'MOSTLY_FALSE'].includes(claim.verdict || '') || (claim.veracity || '').toLowerCase().includes('невярно') || (claim.veracity || '').toLowerCase().includes('подвеждащо') ? 'border-[#8b4a4a] text-[#c66] bg-[#8b4a4a]/20' : 'border-[#4a7c59] text-[#7cb87c] bg-[#4a7c59]/20'}`}>{t(getVerdictKey(claim))}</span>
                                         <div className="text-[8px] font-black uppercase tracking-widest text-[#666]">{t('analysis.claimNumber', { num: idx + 1 })}</div>
@@ -233,10 +342,35 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                                     <blockquote className="text-base md:text-xl font-black text-[#E8E8E8] leading-snug  tracking-tight">„{claim.quote}“</blockquote>
                                     <div className="p-4 bg-[#252525] border-l-4 border-[#333]">
                                         <h5 className="text-[9px] font-black text-[#968B74] uppercase tracking-widest mb-1">{t('analysis.factAnalysis')}</h5>
-                                        <p className="text-[#ccc] leading-[1.6] font-medium text-[15px]">{(claim.explanation === 'Няма налична информация' || claim.explanation === 'No information available') ? t('analysis.noInfoAvailable') : claim.explanation}</p>
+                                        <p className="text-[#ccc] leading-[1.6] font-medium text-[15px] whitespace-pre-wrap">
+                                            {hasExplanation ? parsed.main : t('analysis.noInfoAvailable')}
+                                        </p>
                                     </div>
+
+                                    {parsed.sources.length > 0 && (
+                                        <div className="p-4 bg-[#1a1a1a] border border-[#333]">
+                                            <h5 className="text-[9px] font-black text-[#968B74] uppercase tracking-widest mb-2">{analysisLang === 'en' ? 'Sources' : 'Източници'}</h5>
+                                            <div className="space-y-2">
+                                                {parsed.sources.map((s, i) => (
+                                                    <p key={i} className="text-xs text-[#ccc] leading-[1.6] break-words">- {s}</p>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {parsed.checklist.length > 0 && (
+                                        <div className="p-4 bg-[#252525] border-l-4 border-l-[#4a7c59]">
+                                            <h5 className="text-[9px] font-black text-[#7cb87c] uppercase tracking-widest mb-2">{analysisLang === 'en' ? 'Verification checklist' : 'Чеклист за проверка'}</h5>
+                                            <div className="space-y-2">
+                                                {parsed.checklist.map((s, i) => (
+                                                    <p key={i} className="text-xs text-[#ddd] leading-[1.6] break-words">- {s}</p>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
 
@@ -282,7 +416,7 @@ const LinkResultView: React.FC<LinkResultViewProps> = ({ analysis, url, price, o
                                             <span className="text-[9px] font-black text-[#968B74] uppercase tracking-widest">{t('analysis.weightLabel')} {Math.round((tech.severity > 1 ? tech.severity / 100 : tech.severity) * 100)}%</span>
                                         </div>
                                     </div>
-                                    <p className="text-[15px] text-[#ccc] leading-[1.6] font-medium">{tech.logic}</p>
+                                    <p className="text-[15px] text-[#ccc] leading-[1.6] font-medium whitespace-pre-wrap">{tech.logic}</p>
                                     {tech.effect && (
                                         <div className="mt-4 p-4 bg-[#252525] border-l-2 border-[#968B74]/30">
                                             <p className="text-[9px] font-black text-[#C4B091] uppercase tracking-widest mb-1">{t('analysis.audienceImpact')}:</p>

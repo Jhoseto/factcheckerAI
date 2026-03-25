@@ -521,6 +521,32 @@ const LINK_RESPONSE_SCHEMA = {
         title: { type: 'string' },
         siteName: { type: 'string' },
         summary: { type: 'string' },
+        summaryExtras: {
+            type: 'object',
+            properties: {
+                tldr: { type: 'array', items: { type: 'string' } },
+                keyTakeaways: { type: 'array', items: { type: 'string' } },
+                verifiedVsUnverified: {
+                    type: 'object',
+                    properties: {
+                        verifiedPct: { type: 'number' },   // 0..100
+                        unverifiedPct: { type: 'number' }, // 0..100
+                        notes: { type: 'array', items: { type: 'string' } }
+                    }
+                },
+                nextActions: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            action: { type: 'string' },
+                            why: { type: 'string' },
+                            url: { type: 'string' }
+                        }
+                    }
+                }
+            }
+        },
         overallAssessment: { type: 'string' },
         detailedMetrics: {
             type: 'object',
@@ -616,6 +642,7 @@ const LINK_RESPONSE_SCHEMA = {
                 type: 'object',
                 properties: {
                     claim: { type: 'string' },
+                    claimType: { type: 'string', enum: ['fact', 'interpretation', 'opinion'] },
                     verdict: { type: 'string' },
                     evidence: { type: 'string' },
                     sources: { type: 'array', items: { type: 'string' } },
@@ -623,7 +650,9 @@ const LINK_RESPONSE_SCHEMA = {
                     context: { type: 'string' },
                     logicalAnalysis: { type: 'string' },
                     factualVerification: { type: 'string' },
-                    comparison: { type: 'string' }
+                    comparison: { type: 'string' },
+                    verificationChecklist: { type: 'array', items: { type: 'string' } },
+                    primarySourceQuote: { type: 'string' }
                 }
             }
         },
@@ -639,6 +668,9 @@ const LINK_RESPONSE_SCHEMA = {
                     effect: { type: 'string' },
                     severity: { type: 'number' },
                     counterArgument: { type: 'string' },
+                    counterFrame: { type: 'string' },
+                    mechanism: { type: 'string' },
+                    rationale: { type: 'string' },
                     example: { type: 'string' },
                     speaker: { type: 'string' },
                     logic: { type: 'string' }

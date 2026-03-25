@@ -74,6 +74,18 @@ ANTI-LOOP / QUALITY GUARDRAILS (CRITICAL):
   "title": "Точното заглавие от статията",
   "siteName": "Медия",
   "summary": "ДЕТАЙЛНО резюме (минимум 4-6 изречения): какво твърди статията, кои са ключовите факти и числа, каква е основната теза, кои са засегнатите страни, защо е важно.",
+  "summaryExtras": {
+    "tldr": ["1 изречение", "1 изречение", "1 изречение"],
+    "keyTakeaways": ["3–7 конкретни извода"],
+    "verifiedVsUnverified": {
+      "verifiedPct": 0,
+      "unverifiedPct": 0,
+      "notes": ["Кратки бележки защо"]
+    },
+    "nextActions": [
+      { "action": "Какво да провери потребителят", "why": "Защо", "url": "URL (ако има)" }
+    ]
+  },
   "overallAssessment": "ACCURATE" | "MOSTLY_ACCURATE" | "MIXED" | "MISLEADING" | "FALSE",
   "detailedMetrics": {
     "factualAccuracy": 0.0, "logicalSoundness": 0.0, "emotionalBias": 0.0,
@@ -124,12 +136,15 @@ ANTI-LOOP / QUALITY GUARDRAILS (CRITICAL):
   "factualClaims": [
     {
       "claim": "ПЪЛНОТО твърдение както е написано в статията (не скъсвай)",
+      "claimType": "fact" | "interpretation" | "opinion",
       "verdict": "TRUE" | "MOSTLY_TRUE" | "MIXED" | "MOSTLY_FALSE" | "FALSE" | "UNVERIFIABLE",
       "evidence": "ДЕТАЙЛНО доказателство или опровержение с фактически данни, статистики, сравнения с независими източници.",
       "sources": ["URL на надежден източник"],
       "confidence": 0.0,
       "context": "Пълен контекст — как се вписва в статията, какво е казано преди и след.",
-      "logicalAnalysis": "Логически анализ — има ли заблуди, последователна ли е аргументацията."
+      "logicalAnalysis": "Логически анализ — има ли заблуди, последователна ли е аргументацията.",
+      "verificationChecklist": ["1–3 конкретни стъпки за проверка"],
+      "primarySourceQuote": "Къс, точен цитат от статията (ако има смисъл)"
     }
   ],
   "manipulationTechniques": [
@@ -139,7 +154,10 @@ ANTI-LOOP / QUALITY GUARDRAILS (CRITICAL):
       "severity": 0.0,
       "example": "ПЪЛЕН цитат от статията който демонстрира техниката",
       "impact": "КАКВО е въздействието върху читателя — как променя мисленето, чувствата и поведението. Краткосрочни и дългосрочни ефекти.",
-      "counterArgument": "Как да се противодейства — какво трябва да знае читателят, какви въпроси да зададе, как да разпознае техниката в бъдеще."
+      "counterArgument": "Как да се противодейства — какво трябва да знае читателят, какви въпроси да зададе, как да разпознае техниката в бъдеще.",
+      "mechanism": "Механизъм: как работи техниката (кратко, ясно).",
+      "counterFrame": "Контра-рамка: как да го мислим/проверим без внушението.",
+      "rationale": "Защо това е манипулация именно тук (1–2 изречения)."
     }
   ],
   "commentsAnalysis": {
