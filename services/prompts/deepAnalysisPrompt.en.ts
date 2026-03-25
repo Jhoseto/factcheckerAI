@@ -17,6 +17,7 @@ CRITICAL DATA EXTRACTION REQUIREMENTS (DEEP RESEARCH & GOOGLE SEARCH):
 4. **CONTEXTUAL VALUE**: Search for information about historical events mentioned in the video to give the user a true "Deep Research" experience.
 5. **MULTIMODAL SYNERGY**: Combine what you see/hear in the video with what you find via Google Search.
 6. **RETURNING LITTLE DATA IS A CRITICAL ERROR** — be exceptionally comprehensive and use the full token limit!
+7. **VIDEO claims[] — VERIFICATION DISCIPLINE**: For every claim, the "explanation" field must reflect **Google Search grounding first**. FALSE/MOSTLY_FALSE only if search gives a source in "explanation" that **directly refutes** the claim (include at least one URL). If search is empty/inconclusive → **UNVERIFIABLE**, do not "logic away" a verdict. **FORBIDDEN**: decisive technical/military numbers from memory (missile range, distances) without a URL; "no coverage from Reuters/AP/CNN" stated as a proven fact; "lack of global reaction" as proof an event did not happen (*argumentum ad silentium*). Rhetorical logic in the video does **not** replace fact-checking.
 
 IMPORTANT: All text (summaries, explanations, recommendations) must be in ENGLISH. Only JSON enum values remain in English (they already are).
 

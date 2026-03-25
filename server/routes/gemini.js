@@ -440,6 +440,7 @@ const VIDEO_PROPERTIES = {
     },
     claims: {
         type: 'array',
+        description: 'Each claim verified via googleSearch. FALSE/MOSTLY_FALSE only with refuting URL in explanation; no "no Reuters coverage" or silence fallacies; no uncited military specs.',
         items: {
             type: 'object',
             properties: {
@@ -447,9 +448,16 @@ const VIDEO_PROPERTIES = {
                 quote: { type: 'string' },
                 formulation: { type: 'string' },
                 category: { type: 'string' },
-                verdict: { type: 'string', enum: ['TRUE', 'MOSTLY_TRUE', 'MIXED', 'MOSTLY_FALSE', 'FALSE', 'UNVERIFIABLE'] },
+                verdict: {
+                    type: 'string',
+                    enum: ['TRUE', 'MOSTLY_TRUE', 'MIXED', 'MOSTLY_FALSE', 'FALSE', 'UNVERIFIABLE'],
+                    description: 'FALSE only when search grounding refutes the claim (URL in explanation). Otherwise UNVERIFIABLE if search inconclusive.'
+                },
                 veracity: { type: 'string' },
-                explanation: { type: 'string' },
+                explanation: {
+                    type: 'string',
+                    description: 'Grounding-first: what Google Search showed; at least one http(s) URL when verdict is not UNVERIFIABLE if possible.'
+                },
                 missingContext: { type: 'string' },
                 confidence: { type: 'number' },
                 speaker: { type: 'string' },
@@ -1404,9 +1412,9 @@ router.post('/generate-stream', requireAuth, analysisRateLimiter, async (req, re
                     : '';
                 const verificationInstruction = L2(
                     `ПРАВИЛО ЗА ВЕРИФИКАЦИЯ (днес: ${todayStr}):
-За ВСЯКО твърдение: използвай Google Search, за да го провериш спрямо днешната дата. Върни информация, актуална към момента на изготвяне на доклада. Посочи точни дати/факти от резултатите. Използвай Stage 1 като база, но ВИНАГИ потвърждавай фактите и датите чрез търсене.`,
+За ВСЯКО твърдение: използвай Google Search спрямо днешната дата; актуална информация към момента на доклада; точни дати/факти от резултатите. Stage 1 е база, но фактите се потвърждават чрез търсене. FALSE/MOSTLY_FALSE само ако търсенето дава източник, който директно опровергава (URL в explanation); иначе UNVERIFIABLE. Забранено: „няма новини в Reuters/AP/CNN“ като факт; аргумент от мълчание; технични/военни цифри без URL.`,
                     `VERIFICATION RULE (today: ${todayStr}):
-For EVERY claim: use Google Search to verify it against today's date. Return information current as of the moment this report is created. Verify events and cite accurate dates from your search results. Use the research above as base, but always confirm facts and dates via search.`
+For EVERY claim: Google Search vs TODAY; current as of report time; cite dates/facts from results. Stage 1 is a base — confirm facts via search. FALSE/MOSTLY_FALSE only if search gives a source that directly refutes (URL in explanation); else UNVERIFIABLE. FORBIDDEN: "no Reuters/AP/CNN coverage" as a proven fact; argument from silence; uncited military/technical numbers.`
                 );
                 currentContents.push({
                     role: 'user',
@@ -1428,14 +1436,20 @@ For EVERY claim: use Google Search to verify it against today's date. Return inf
             const isBgLang = (lang || 'bg') !== 'en';
             const L = (bg, en) => (isBgLang ? bg : en);
             const verificationRule = L(
-                `ПРАВИЛО ЗА ВЕРИФИКАЦИЯ (БЕЗ КОМПРОМИСИ):
-- Ако НЕ можеш да потвърдиш твърдение чрез Google Search ДНЕС → verdict = "UNVERIFIABLE" и ясно кажи, че не е потвърдено.
+                `ПРАВИЛО ЗА ВЕРИФИКАЦИЯ (БЕЗ КОМПРОМИСИ) — ВИДЕО claims[]:
+- Ако НЕ можеш да потвърдиш/опровергаяш фактическо твърдение чрез Google Search ДНЕС → verdict = "UNVERIFIABLE" и ясно опиши какво връща търсенето (или че няма надеждно покритие).
+- **FALSE / MOSTLY_FALSE** само ако търсенето дава източник, който **директно опровергава** твърдението; включи URL в explanation. Без такъв източник — не присъждай FALSE по „логика“, липса на реакция или памет за технични данни.
+- **ЗАБРАНЕНО**: да твърдиш като факт „няма новини в Reuters/AP/CNN“ (не можеш да докажеш пълно отсъствие на публикации). **ЗАБРАНЕНО**: „липсата на световна реакция“ като доказателство, че събитието не се е случило.
+- **ЗАБРАНЕНО**: решаващи технични/военни цифри (обхват, дистанции) без URL към първичен/експертен източник — при несигурност UNVERIFIABLE.
 - Никога не измисляй "към днешна дата" факти/дати/смърт/политически промени/войни/пазарни събития/съдебни развръзки.
-- За всеки verdict различен от UNVERIFIABLE (TRUE/MOSTLY_TRUE/MIXED/MOSTLY_FALSE/FALSE) добави поне 1 URL в explanation + ключов факт/дата от проверката.`,
-                `VERIFICATION HARD RULE (NON-NEGOTIABLE):
-- If you cannot confirm a claim with Google Search TODAY, set verdict to "UNVERIFIABLE" and clearly say it is not verified.
+- За всеки verdict различен от UNVERIFIABLE добави поне 1 URL в explanation + ключов факт/дата от проверката (когато търсенето го позволява).`,
+                `VERIFICATION HARD RULE (VIDEO claims[]) — NON-NEGOTIABLE:
+- If you cannot confirm OR refute a factual claim with Google Search TODAY, set verdict to "UNVERIFIABLE" and state what the search returned (or that coverage was insufficient).
+- **FALSE / MOSTLY_FALSE** only if search provides a source that **directly refutes** the claim; include that URL in explanation. Without such a source, do not assign FALSE based on "logic", silence, or memory about technical specs.
+- **FORBIDDEN**: claiming as fact "no news from Reuters/AP/CNN" (you cannot prove absence of coverage). **FORBIDDEN**: "lack of global reaction" as proof an event did not happen.
+- **FORBIDDEN**: decisive technical/military numbers (range, distance) without a URL to a primary/expert source — if uncertain, use UNVERIFIABLE.
 - Never invent "as of today" facts, dates, deaths, political changes, wars, market events, or legal outcomes.
-- For any claim marked TRUE/MOSTLY_TRUE/MIXED/MOSTLY_FALSE/FALSE, include at least 1 source URL in explanation and cite the key date/fact you found.`
+- For any verdict other than UNVERIFIABLE, include at least 1 URL in explanation + key date/fact from the check (when search allows).`
             );
             const densityRule = isLongVideo
                 ? L(
@@ -1704,10 +1718,15 @@ Ensure valid JSON. Do not truncate.`
                 role: c.role,
                 parts: c.parts.filter(p => !p.fileData && !p.inlineData)
             }));
-            const verificationInstruction = `VERIFICATION RULE (today: ${todayStr}): For EVERY claim: use Google Search to verify against today's date. Return information current as of report creation. Verify events and cite accurate dates from search results.`;
+            const verificationInstruction = L(
+                `ПРАВИЛО ЗА ВЕРИФИКАЦИЯ (днес: ${todayStr}) — ВИДЕО claims[]:
+За ВСЯКО твърдение: Google Search спрямо днешната дата. FALSE/MOSTLY_FALSE само ако търсенето дава източник, който директно опровергава — включи URL в explanation. Без такъв източник или при неясно търсене → UNVERIFIABLE. Забранено: „няма новини в Reuters/AP/CNN“ като проверен факт; „липса на световна реакция“ като доказателство; решаващи технични/военни цифри без URL.`,
+                `VERIFICATION RULE (today: ${todayStr}) — VIDEO claims[]:
+For EVERY claim: Google Search vs TODAY. FALSE/MOSTLY_FALSE only if search provides a source that directly refutes the claim — include URL in explanation. If search is inconclusive or lacks a refuting source → UNVERIFIABLE. FORBIDDEN: "no Reuters/AP/CNN coverage" as a proven fact; "lack of global reaction" as proof; decisive technical/military numbers without a URL.`
+            );
             const synthesisContents = [
                 ...textContents,
-                { role: 'user', parts: [{ text: `${videoContextStr}ESTABLISHED RESEARCH DATA:\n\n${rawText}\n\n${verificationInstruction}\n\nINSTRUCTION: Using the findings above, synthesize the final JSON analysis. For each claim: verify via Google Search against today; give current info and accurate dates. You MUST include finalInvestigativeReport — a full official DCGE intelligence report (4–8 paragraphs) synthesizing all findings, verdicts, and key conclusions.` }] }
+                { role: 'user', parts: [{ text: `${videoContextStr}${L('УСТАНОВЕНИ ДАННИ ОТ ПРОУЧВАНЕ:', 'ESTABLISHED RESEARCH DATA:')}\n\n${rawText}\n\n${verificationInstruction}\n\n${L('ИНСТРУКЦИЯ: Синтезирай финалния JSON. За всяко твърдение: спазвай правилото за верификация; при съмнение UNVERIFIABLE. Задължително finalInvestigativeReport — 4–8 параграфа.', 'INSTRUCTION: Synthesize final JSON. For each claim: follow verification rule; use UNVERIFIABLE when uncertain. You MUST include finalInvestigativeReport — 4–8 paragraphs DCGE-style synthesis.')}` }] }
             ];
 
             const finalConfig = {

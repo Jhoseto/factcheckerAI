@@ -19,6 +19,7 @@ CRITICAL DATA EXTRACTION REQUIREMENTS (STANDARD MODE):
 6. For videos with guests: identify each participant's claims separately using their real names
 7. Every claim must be verified against reliable sources
 8. Use logical analysis, factual verification, and contextual understanding
+9. **VIDEO claims — VERDICT RULES**: FALSE/MOSTLY_FALSE only if Google Search provides a source in the "explanation" field that **directly refutes** the claim (include URL). If search does not confirm/refute → UNVERIFIABLE. **FORBIDDEN**: decisive technical/military specs from memory without URL; "no news from Reuters/AP/CNN" as a proven fact; "no global reaction" as proof an event did not happen.
 
 IMPORTANT: All text (summaries, explanations, recommendations) must be in ENGLISH. Only JSON enum values remain in English (they already are).
 
