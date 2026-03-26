@@ -4,9 +4,8 @@ import { YouTubeVideoMetadata } from '../types';
 /**
  * Extract video ID from YouTube URL
  */
-export const extractVideoId = (url: string): string | null => {
-    // Normalize URL - remove any trailing slashes and whitespace
-    const normalizedUrl = url.trim();
+export const extractVideoId = (url: unknown): string | null => {
+    const normalizedUrl = (typeof url === 'string' ? url : String(url ?? '')).trim();
 
     const patterns = [
         // Standard formats

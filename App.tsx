@@ -62,7 +62,8 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const fetchMetadata = async () => {
-      if (!youtubeUrl.trim()) {
+      const urlStr = typeof youtubeUrl === 'string' ? youtubeUrl : '';
+      if (!urlStr.trim()) {
         setVideoMetadata(null);
         setCostEstimates(null);
         return;
@@ -70,7 +71,7 @@ const App: React.FC = () => {
       setFetchingMetadata(true);
       setError(null);
       try {
-        const metadata = await getYouTubeMetadata(youtubeUrl);
+        const metadata = await getYouTubeMetadata(urlStr);
         setVideoMetadata(metadata);
         const estimates = getAllCostEstimates(metadata.duration);
         setCostEstimates(estimates);
@@ -89,8 +90,17 @@ const App: React.FC = () => {
   }, [youtubeUrl]);
 
   const handleStartAnalysis = async (overrideUrl?: string, overrideMode?: AnalysisMode) => {
-    const url = overrideUrl || youtubeUrl;
-    const mode = overrideMode || analysisMode || 'standard';
+    // onClick подава React SyntheticEvent като първи аргумент — не го ползваме като URL
+    const url =
+      typeof overrideUrl === 'string' && overrideUrl.trim()
+        ? overrideUrl
+        : typeof youtubeUrl === 'string'
+          ? youtubeUrl
+          : '';
+    const mode =
+      overrideMode === 'standard' || overrideMode === 'deep'
+        ? overrideMode
+        : analysisMode || 'standard';
     
     const validation = validateYouTubeUrl(url);
     if (!validation.valid) { setError(t('errors.invalidYoutubeUrl')); return; }
@@ -188,7 +198,8 @@ const App: React.FC = () => {
                 className="input-luxury w-full flex-1 px-6 py-4 rounded text-sm placeholder:text-[#666] tracking-wide"
               />
               <button
-                onClick={handleStartAnalysis}
+                type="button"
+                onClick={() => void handleStartAnalysis()}
                 disabled={loading || !analysisMode || fetchingMetadata}
                 className={`w-full md:w-auto px-10 py-4 rounded text-[10px] uppercase tracking-[0.2em] whitespace-nowrap transition-all ${!analysisMode
                   ? 'bg-[#222] border border-[#444] text-[#666] cursor-not-allowed'

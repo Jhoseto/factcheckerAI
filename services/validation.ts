@@ -7,8 +7,9 @@
  * @param url - The URL to validate
  * @returns Object with valid flag and optional error message
  */
-export const validateYouTubeUrl = (url: string): { valid: boolean; error?: string } => {
-  if (!url.trim()) {
+export const validateYouTubeUrl = (url: unknown): { valid: boolean; error?: string } => {
+  const s = typeof url === 'string' ? url : String(url ?? '');
+  if (!s.trim()) {
     return { valid: false, error: 'Моля, въведете URL' };
   }
 
@@ -22,7 +23,7 @@ export const validateYouTubeUrl = (url: string): { valid: boolean; error?: strin
     /^https?:\/\/m\.youtube\.com\/shorts\/[\w-]+/
   ];
 
-  const isValid = youtubePatterns.some(pattern => pattern.test(url.trim()));
+  const isValid = youtubePatterns.some(pattern => pattern.test(s.trim()));
 
   if (!isValid) {
     return {
@@ -40,9 +41,9 @@ export const validateYouTubeUrl = (url: string): { valid: boolean; error?: strin
  * @param url - The YouTube URL to normalize
  * @returns Normalized YouTube URL in standard desktop format
  */
-export const normalizeYouTubeUrl = (url: string): string => {
+export const normalizeYouTubeUrl = (url: unknown): string => {
   try {
-    const trimmedUrl = url.trim();
+    const trimmedUrl = (typeof url === 'string' ? url : String(url ?? '')).trim();
 
     // Extract video ID from various formats
     let videoId = '';
@@ -79,8 +80,7 @@ export const normalizeYouTubeUrl = (url: string): string => {
     // If no video ID found, return original URL
     return trimmedUrl;
   } catch {
-    // In case of any error, return original URL
-    return url;
+    return typeof url === 'string' ? url : String(url ?? '');
   }
 };
 
@@ -89,13 +89,14 @@ export const normalizeYouTubeUrl = (url: string): string => {
  * @param url - The URL to validate
  * @returns Object with valid flag and optional error message
  */
-export const validateNewsUrl = (url: string): { valid: boolean; error?: string } => {
-  if (!url.trim()) {
+export const validateNewsUrl = (url: unknown): { valid: boolean; error?: string } => {
+  const s = typeof url === 'string' ? url : String(url ?? '');
+  if (!s.trim()) {
     return { valid: false, error: 'Моля, въведете URL' };
   }
 
   try {
-    const urlObj = new URL(url.trim());
+    const urlObj = new URL(s.trim());
 
     // Check if it's a valid HTTP/HTTPS URL
     if (!['http:', 'https:'].includes(urlObj.protocol)) {
