@@ -20,23 +20,40 @@ const MobileLiveDebugOverlay: React.FC<MobileLiveDebugOverlayProps> = ({ visible
   const isBg = i18n.language === 'bg';
   const [displayedSeconds, setDisplayedSeconds] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [currentQuoteIndex, setCurrentQuoteIndex] = useState(0);
 
   const agents: DebugAgent[] = isBg ? [
-    { id: 'metadata', name: 'Метаданни', status: 'active', icon: <FileText size={16} /> },
-    { id: 'transcript', name: 'Транскрипция', status: 'active', icon: <Type size={16} /> },
-    { id: 'factual', name: 'Факти', status: 'active', icon: <Search size={16} /> },
-    { id: 'vocal', name: 'Вокал', status: 'idle', icon: <Mic size={16} /> },
-    { id: 'visual', name: 'Визуал', status: 'idle', icon: <Eye size={16} /> },
-    { id: 'manipulation', name: 'Манипулация', status: 'idle', icon: <AlertTriangle size={16} /> },
-    { id: 'synthesis', name: 'Синтезис', status: 'idle', icon: <Brain size={16} /> },
+    { id: 'metadata', name: 'Метаданни', status: 'active', icon: <FileText size={14} /> },
+    { id: 'transcript', name: 'Транскрипция', status: 'active', icon: <Type size={14} /> },
+    { id: 'factual', name: 'Факти', status: 'active', icon: <Search size={14} /> },
+    { id: 'vocal', name: 'Вокал', status: 'idle', icon: <Mic size={14} /> },
+    { id: 'visual', name: 'Визуал', status: 'idle', icon: <Eye size={14} /> },
+    { id: 'manipulation', name: 'Манипулация', status: 'idle', icon: <AlertTriangle size={14} /> },
+    { id: 'synthesis', name: 'Синтезис', status: 'idle', icon: <Brain size={14} /> },
   ] : [
-    { id: 'metadata', name: 'Metadata', status: 'active', icon: <FileText size={16} /> },
-    { id: 'transcript', name: 'Transcript', status: 'active', icon: <Type size={16} /> },
-    { id: 'factual', name: 'Factual', status: 'active', icon: <Search size={16} /> },
-    { id: 'vocal', name: 'Vocal', status: 'idle', icon: <Mic size={16} /> },
-    { id: 'visual', name: 'Visual', status: 'idle', icon: <Eye size={16} /> },
-    { id: 'manipulation', name: 'Manipulation', status: 'idle', icon: <AlertTriangle size={16} /> },
-    { id: 'synthesis', name: 'Synthesis', status: 'idle', icon: <Brain size={16} /> },
+    { id: 'metadata', name: 'Metadata', status: 'active', icon: <FileText size={14} /> },
+    { id: 'transcript', name: 'Transcript', status: 'active', icon: <Type size={14} /> },
+    { id: 'factual', name: 'Factual', status: 'active', icon: <Search size={14} /> },
+    { id: 'vocal', name: 'Vocal', status: 'idle', icon: <Mic size={14} /> },
+    { id: 'visual', name: 'Visual', status: 'idle', icon: <Eye size={14} /> },
+    { id: 'manipulation', name: 'Manipulation', status: 'idle', icon: <AlertTriangle size={14} /> },
+    { id: 'synthesis', name: 'Synthesis', status: 'idle', icon: <Brain size={14} /> },
+  ];
+
+  const quotes = isBg ? [
+    'Анализирам видео метаданни...',
+    'Кръстосвам с Google базите данни...',
+    'Разпознавам емоции в речта...',
+    'Идентифицирам манипулативни техники...',
+    'Синтезирам резултатите...',
+    'Проверявам фактическата точност...',
+  ] : [
+    'Analyzing video metadata...',
+    'Cross-referencing with Google...',
+    'Recognizing emotions in speech...',
+    'Identifying manipulative techniques...',
+    'Synthesizing results...',
+    'Verifying factual accuracy...',
   ];
 
   const [activeAgents, setActiveAgents] = useState<string[]>(['metadata', 'transcript', 'factual']);
@@ -52,17 +69,28 @@ const MobileLiveDebugOverlay: React.FC<MobileLiveDebugOverlayProps> = ({ visible
     return () => clearInterval(interval);
   }, [visible]);
 
-  // Update progress bar based on elapsed time
+  // Update progress bar (6 minutes = 360 seconds)
   useEffect(() => {
     if (!visible) return;
 
     const currentSeconds = displayedSeconds || elapsedSeconds;
-    const maxDuration = 45; // Expected max duration in seconds
+    const maxDuration = 360; // 6 minutes
     const newProgress = Math.min((currentSeconds / maxDuration) * 100, 100);
     setProgress(newProgress);
   }, [displayedSeconds, elapsedSeconds, visible]);
 
-  // Simulate agent activation over time
+  // Rotate quotes every 3 seconds
+  useEffect(() => {
+    if (!visible) return;
+
+    const interval = setInterval(() => {
+      setCurrentQuoteIndex(prev => (prev + 1) % quotes.length);
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [visible, quotes.length]);
+
+  // Simulate agent activation
   useEffect(() => {
     if (!visible) return;
 
@@ -87,13 +115,13 @@ const MobileLiveDebugOverlay: React.FC<MobileLiveDebugOverlayProps> = ({ visible
 
   return (
     <div className="fixed inset-0 z-[999] bg-black/85 backdrop-blur-sm flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-sm">
+      <div className="w-full max-w-sm max-h-[90vh] overflow-y-auto">
         <div className="bg-gradient-to-b from-[#1a1a1a] to-[#111] border border-[#968B74]/30 rounded-2xl p-6 shadow-2xl">
           {/* Header */}
           <div className="text-center mb-6">
             <div className="flex items-center justify-center gap-2 mb-3">
               <span className="animate-spin" style={{ animationDuration: '2s' }}>
-                <Circle size={18} className="text-[#968B74]" />
+                <Circle size={16} className="text-[#968B74]" />
               </span>
               <h2 className="text-lg font-serif text-[#E0E0E0] tracking-tight">
                 {isBg ? 'Live Анализ' : 'Live Analysis'}
@@ -120,6 +148,18 @@ const MobileLiveDebugOverlay: React.FC<MobileLiveDebugOverlayProps> = ({ visible
                 transition: 'width 0.5s linear',
               }}
             />
+          </div>
+
+          {/* Dynamic Quote */}
+          <div className="bg-[#252525] border border-[#333] rounded-lg p-4 mb-6 min-h-16 flex items-center justify-center">
+            <p
+              className="text-center text-[#C4B091] font-serif text-sm leading-relaxed"
+              style={{
+                animation: 'fadeInOut 3s ease-in-out infinite',
+              }}
+            >
+              {quotes[currentQuoteIndex]}
+            </p>
           </div>
 
           {/* Agents Grid - Compact */}
@@ -154,7 +194,7 @@ const MobileLiveDebugOverlay: React.FC<MobileLiveDebugOverlayProps> = ({ visible
                   </p>
                   {isComplete && (
                     <div className="text-emerald-400">
-                      <CheckCircle2 size={12} />
+                      <CheckCircle2 size={10} />
                     </div>
                   )}
                   {isActive && !isComplete && (
@@ -190,6 +230,12 @@ const MobileLiveDebugOverlay: React.FC<MobileLiveDebugOverlayProps> = ({ visible
         @keyframes pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.5; }
+        }
+        @keyframes fadeInOut {
+          0% { opacity: 0; transform: translateY(10px); }
+          10% { opacity: 1; transform: translateY(0); }
+          90% { opacity: 1; transform: translateY(0); }
+          100% { opacity: 0; transform: translateY(-10px); }
         }
       `}</style>
     </div>
