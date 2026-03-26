@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { FileText, Type, Search, Mic, Eye, AlertTriangle, Brain, CheckCircle2, Circle } from 'lucide-react';
 
 interface DebugAgent {
   id: string;
   name: string;
   status: 'idle' | 'active' | 'complete';
-  icon: string;
+  icon: React.ReactNode;
 }
 
 interface MobileLiveDebugOverlayProps {
@@ -21,21 +22,21 @@ const MobileLiveDebugOverlay: React.FC<MobileLiveDebugOverlayProps> = ({ visible
   const [progress, setProgress] = useState(0);
 
   const agents: DebugAgent[] = isBg ? [
-    { id: 'metadata', name: 'Метаданни', status: 'active', icon: '📋' },
-    { id: 'transcript', name: 'Транскрипция', status: 'active', icon: '📝' },
-    { id: 'factual', name: 'Факти', status: 'active', icon: '🔍' },
-    { id: 'vocal', name: 'Вокал', status: 'idle', icon: '🎙️' },
-    { id: 'visual', name: 'Визуал', status: 'idle', icon: '👁️' },
-    { id: 'manipulation', name: 'Манипулация', status: 'idle', icon: '⚠️' },
-    { id: 'synthesis', name: 'Синтезис', status: 'idle', icon: '🧠' },
+    { id: 'metadata', name: 'Метаданни', status: 'active', icon: <FileText size={16} /> },
+    { id: 'transcript', name: 'Транскрипция', status: 'active', icon: <Type size={16} /> },
+    { id: 'factual', name: 'Факти', status: 'active', icon: <Search size={16} /> },
+    { id: 'vocal', name: 'Вокал', status: 'idle', icon: <Mic size={16} /> },
+    { id: 'visual', name: 'Визуал', status: 'idle', icon: <Eye size={16} /> },
+    { id: 'manipulation', name: 'Манипулация', status: 'idle', icon: <AlertTriangle size={16} /> },
+    { id: 'synthesis', name: 'Синтезис', status: 'idle', icon: <Brain size={16} /> },
   ] : [
-    { id: 'metadata', name: 'Metadata', status: 'active', icon: '📋' },
-    { id: 'transcript', name: 'Transcript', status: 'active', icon: '📝' },
-    { id: 'factual', name: 'Factual', status: 'active', icon: '🔍' },
-    { id: 'vocal', name: 'Vocal', status: 'idle', icon: '🎙️' },
-    { id: 'visual', name: 'Visual', status: 'idle', icon: '👁️' },
-    { id: 'manipulation', name: 'Manipulation', status: 'idle', icon: '⚠️' },
-    { id: 'synthesis', name: 'Synthesis', status: 'idle', icon: '🧠' },
+    { id: 'metadata', name: 'Metadata', status: 'active', icon: <FileText size={16} /> },
+    { id: 'transcript', name: 'Transcript', status: 'active', icon: <Type size={16} /> },
+    { id: 'factual', name: 'Factual', status: 'active', icon: <Search size={16} /> },
+    { id: 'vocal', name: 'Vocal', status: 'idle', icon: <Mic size={16} /> },
+    { id: 'visual', name: 'Visual', status: 'idle', icon: <Eye size={16} /> },
+    { id: 'manipulation', name: 'Manipulation', status: 'idle', icon: <AlertTriangle size={16} /> },
+    { id: 'synthesis', name: 'Synthesis', status: 'idle', icon: <Brain size={16} /> },
   ];
 
   const [activeAgents, setActiveAgents] = useState<string[]>(['metadata', 'transcript', 'factual']);
@@ -91,7 +92,9 @@ const MobileLiveDebugOverlay: React.FC<MobileLiveDebugOverlayProps> = ({ visible
           {/* Header */}
           <div className="text-center mb-6">
             <div className="flex items-center justify-center gap-2 mb-3">
-              <span className="text-xl animate-spin" style={{ animationDuration: '2s' }}>⚙️</span>
+              <span className="animate-spin" style={{ animationDuration: '2s' }}>
+                <Circle size={18} className="text-[#968B74]" />
+              </span>
               <h2 className="text-lg font-serif text-[#E0E0E0] tracking-tight">
                 {isBg ? 'Live Анализ' : 'Live Analysis'}
               </h2>
@@ -139,14 +142,20 @@ const MobileLiveDebugOverlay: React.FC<MobileLiveDebugOverlayProps> = ({ visible
                     animation: isActive && !isComplete ? 'pulse 1.5s ease-in-out infinite' : 'none',
                   }}
                 >
-                  <div className="text-lg">{agent.icon}</div>
+                  <div className={`${
+                    isComplete ? 'text-emerald-400' : isActive ? 'text-[#C4B091]' : 'text-[#666]'
+                  }`}>
+                    {agent.icon}
+                  </div>
                   <p className={`text-[7px] font-bold uppercase tracking-wider text-center leading-tight ${
                     isComplete ? 'text-emerald-400' : isActive ? 'text-[#C4B091]' : 'text-[#666]'
                   }`}>
                     {agent.name}
                   </p>
                   {isComplete && (
-                    <div className="text-emerald-400 text-xs">✓</div>
+                    <div className="text-emerald-400">
+                      <CheckCircle2 size={12} />
+                    </div>
                   )}
                   {isActive && !isComplete && (
                     <div className="w-1.5 h-1.5 rounded-full bg-[#C4B091] animate-pulse shadow-[0_0_6px_rgba(196,176,145,0.6)]" />

@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { FileText, Type, Search, Mic, Eye, AlertTriangle, Brain, CheckCircle2, Circle } from 'lucide-react';
 
 interface DebugAgent {
   id: string;
   name: string;
   status: 'idle' | 'active' | 'complete';
-  icon: string;
+  icon: React.ReactNode;
   description: string;
 }
 
@@ -22,21 +23,21 @@ const LiveDebugOverlay: React.FC<LiveDebugOverlayProps> = ({ visible, streamingP
   const [progress, setProgress] = useState(0);
 
   const agents: DebugAgent[] = isBg ? [
-    { id: 'metadata', name: 'Метаданни Агент', status: 'active', icon: '📋', description: 'Извличане на метаданни' },
-    { id: 'transcript', name: 'Транскрипция Агент', status: 'active', icon: '📝', description: 'Обработка на текст' },
-    { id: 'factual', name: 'Фактически Агент', status: 'active', icon: '🔍', description: 'Проверка на факти' },
-    { id: 'vocal', name: 'Вокален Агент', status: 'idle', icon: '🎙️', description: 'Анализ на тон и емоции' },
-    { id: 'visual', name: 'Визуален Агент', status: 'idle', icon: '👁️', description: 'Анализ на визуални елементи' },
-    { id: 'manipulation', name: 'Манипулация Агент', status: 'idle', icon: '⚠️', description: 'Разкриване на техники' },
-    { id: 'synthesis', name: 'Синтезис Агент', status: 'idle', icon: '🧠', description: 'Генериране на доклад' },
+    { id: 'metadata', name: 'Метаданни Агент', status: 'active', icon: <FileText size={20} />, description: 'Извличане на метаданни' },
+    { id: 'transcript', name: 'Транскрипция Агент', status: 'active', icon: <Type size={20} />, description: 'Обработка на текст' },
+    { id: 'factual', name: 'Фактически Агент', status: 'active', icon: <Search size={20} />, description: 'Проверка на факти' },
+    { id: 'vocal', name: 'Вокален Агент', status: 'idle', icon: <Mic size={20} />, description: 'Анализ на тон и емоции' },
+    { id: 'visual', name: 'Визуален Агент', status: 'idle', icon: <Eye size={20} />, description: 'Анализ на визуални елементи' },
+    { id: 'manipulation', name: 'Манипулация Агент', status: 'idle', icon: <AlertTriangle size={20} />, description: 'Разкриване на техники' },
+    { id: 'synthesis', name: 'Синтезис Агент', status: 'idle', icon: <Brain size={20} />, description: 'Генериране на доклад' },
   ] : [
-    { id: 'metadata', name: 'Metadata Agent', status: 'active', icon: '📋', description: 'Extracting metadata' },
-    { id: 'transcript', name: 'Transcript Agent', status: 'active', icon: '📝', description: 'Processing text' },
-    { id: 'factual', name: 'Factual Agent', status: 'active', icon: '🔍', description: 'Verifying facts' },
-    { id: 'vocal', name: 'Vocal Agent', status: 'idle', icon: '🎙️', description: 'Analyzing tone & emotion' },
-    { id: 'visual', name: 'Visual Agent', status: 'idle', icon: '👁️', description: 'Analyzing visuals' },
-    { id: 'manipulation', name: 'Manipulation Agent', status: 'idle', icon: '⚠️', description: 'Detecting techniques' },
-    { id: 'synthesis', name: 'Synthesis Agent', status: 'idle', icon: '🧠', description: 'Generating report' },
+    { id: 'metadata', name: 'Metadata Agent', status: 'active', icon: <FileText size={20} />, description: 'Extracting metadata' },
+    { id: 'transcript', name: 'Transcript Agent', status: 'active', icon: <Type size={20} />, description: 'Processing text' },
+    { id: 'factual', name: 'Factual Agent', status: 'active', icon: <Search size={20} />, description: 'Verifying facts' },
+    { id: 'vocal', name: 'Vocal Agent', status: 'idle', icon: <Mic size={20} />, description: 'Analyzing tone & emotion' },
+    { id: 'visual', name: 'Visual Agent', status: 'idle', icon: <Eye size={20} />, description: 'Analyzing visuals' },
+    { id: 'manipulation', name: 'Manipulation Agent', status: 'idle', icon: <AlertTriangle size={20} />, description: 'Detecting techniques' },
+    { id: 'synthesis', name: 'Synthesis Agent', status: 'idle', icon: <Brain size={20} />, description: 'Generating report' },
   ];
 
   const [activeAgents, setActiveAgents] = useState<string[]>(['metadata', 'transcript', 'factual']);
@@ -92,7 +93,9 @@ const LiveDebugOverlay: React.FC<LiveDebugOverlayProps> = ({ visible, streamingP
           {/* Header */}
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-3 mb-4">
-              <span className="text-2xl animate-spin" style={{ animationDuration: '2s' }}>⚙️</span>
+              <span className="animate-spin" style={{ animationDuration: '2s' }}>
+                <Circle size={24} className="text-[#968B74]" />
+              </span>
               <h2 className="text-2xl font-serif text-[#E0E0E0] tracking-tight">
                 {isBg ? 'Live Анализ' : 'Live Analysis'}
               </h2>
@@ -144,7 +147,11 @@ const LiveDebugOverlay: React.FC<LiveDebugOverlayProps> = ({ visible, streamingP
                   }}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="text-2xl flex-shrink-0">{agent.icon}</div>
+                    <div className={`flex-shrink-0 ${
+                      isComplete ? 'text-emerald-400' : isActive ? 'text-[#C4B091]' : 'text-[#666]'
+                    }`}>
+                      {agent.icon}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-bold uppercase tracking-wider ${
                         isComplete ? 'text-emerald-400' : isActive ? 'text-[#C4B091]' : 'text-[#666]'
@@ -154,7 +161,9 @@ const LiveDebugOverlay: React.FC<LiveDebugOverlayProps> = ({ visible, streamingP
                       <p className="text-xs text-[#888] mt-1">{agent.description}</p>
                     </div>
                     {isComplete && (
-                      <div className="flex-shrink-0 text-emerald-400 font-bold text-lg">✓</div>
+                      <div className="flex-shrink-0 text-emerald-400">
+                        <CheckCircle2 size={18} />
+                      </div>
                     )}
                     {isActive && !isComplete && (
                       <div className="flex-shrink-0">
