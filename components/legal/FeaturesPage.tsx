@@ -186,7 +186,7 @@ const FeaturesPage: React.FC = () => {
                                 <span className="text-bronze-gradient">{isBg ? 'най-висок клас' : 'highest class'}</span>
                             </h2>
                             <p className="text-sm text-[#888] leading-relaxed mb-10">
-                                {isBg ? 'DCGE (Deep Contextual Generative Engine) е нашата собствена архитектура, която координира десетки специализирани AI агенти. Те работят в синхрон, за да осигурят прецизност, която обикновените модели не могат да постигнат сами.' : 'DCGE (Deep Contextual Generative Engine) is our proprietary architecture that coordinates dozens of specialized AI agents. They work in sync to provide precision that ordinary models cannot achieve alone.'}
+                                {isBg ? 'DCGE (Deep Contextual Generative Engine) е нашата собствена архитектура, която координира специализирани AI агенти. Те работят в синхрон, за да осигурят прецизност, която обикновените модели не могат да постигнат сами.' : 'DCGE (Deep Contextual Generative Engine) is our proprietary architecture that coordinates dozens of specialized AI agents. They work in sync to provide precision that ordinary models cannot achieve alone.'}
                             </p>
                             <div className="flex gap-8">
                                 <div className="flex items-center gap-3">
