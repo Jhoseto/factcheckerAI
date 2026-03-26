@@ -77,6 +77,30 @@ const Navbar: React.FC = () => {
                         {t('nav.link')}
                         <span className="absolute -bottom-3 left-1/2 w-0 h-[1px] bg-[#968B74] transition-all duration-500 group-hover:w-full -translate-x-1/2 opacity-50"></span>
                     </button>
+
+                    <button
+                        onClick={() => navigate('/how-it-works')}
+                        className="text-[9px] font-bold tracking-[0.25em] text-[#666] hover:text-[#968B74] transition-all duration-500 uppercase relative group"
+                    >
+                        {t('nav.howItWorks')}
+                        <span className="absolute -bottom-3 left-1/2 w-0 h-[1px] bg-[#968B74] transition-all duration-500 group-hover:w-full -translate-x-1/2 opacity-50"></span>
+                    </button>
+
+                    <button
+                        onClick={() => navigate('/features')}
+                        className="text-[9px] font-bold tracking-[0.25em] text-[#666] hover:text-[#968B74] transition-all duration-500 uppercase relative group"
+                    >
+                        {t('nav.features')}
+                        <span className="absolute -bottom-3 left-1/2 w-0 h-[1px] bg-[#968B74] transition-all duration-500 group-hover:w-full -translate-x-1/2 opacity-50"></span>
+                    </button>
+
+                    <button
+                        onClick={() => navigate('/faq')}
+                        className="text-[9px] font-bold tracking-[0.25em] text-[#666] hover:text-[#968B74] transition-all duration-500 uppercase relative group"
+                    >
+                        {t('nav.faq')}
+                        <span className="absolute -bottom-3 left-1/2 w-0 h-[1px] bg-[#968B74] transition-all duration-500 group-hover:w-full -translate-x-1/2 opacity-50"></span>
+                    </button>
                 </div>
 
                 {/* Profile / Actions */}

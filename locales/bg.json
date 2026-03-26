@@ -9,6 +9,9 @@
     "logout": "Изход",
     "video": "ВИДЕО",
     "link": "ЛИНК",
+    "howItWorks": "КАК РАБОТИ",
+    "features": "ВЪЗМОЖНОСТИ",
+    "faq": "ВЪПРОСИ",
     "brandSubtitle": "DEEP CONTEXTUAL GENERATIVE ENGINE (DCGE) | v 4.8.0"
   },
   "auth": {

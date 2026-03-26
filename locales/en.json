@@ -9,6 +9,9 @@
     "logout": "Log Out",
     "video": "VIDEO",
     "link": "LINK",
+    "howItWorks": "HOW IT WORKS",
+    "features": "FEATURES",
+    "faq": "FAQ",
     "brandSubtitle": "DEEP CONTEXTUAL GENERATIVE ENGINE (DCGE) | v 4.8.0"
   },
   "auth": {

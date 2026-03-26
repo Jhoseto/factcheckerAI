@@ -31,6 +31,27 @@ const LegalFooter: React.FC = () => {
         {t('legal.refund')}
       </Link>
       <span className="text-[#968B74]/70">|</span>
+      <Link
+        to="/how-it-works"
+        className="text-[10px] font-normal text-[#968B74] hover:text-[#C4B091] transition-colors uppercase tracking-wider"
+      >
+        {t('nav.howItWorks')}
+      </Link>
+      <span className="text-[#968B74]/70">|</span>
+      <Link
+        to="/features"
+        className="text-[10px] font-normal text-[#968B74] hover:text-[#C4B091] transition-colors uppercase tracking-wider"
+      >
+        {t('nav.features')}
+      </Link>
+      <span className="text-[#968B74]/70">|</span>
+      <Link
+        to="/faq"
+        className="text-[10px] font-normal text-[#968B74] hover:text-[#C4B091] transition-colors uppercase tracking-wider"
+      >
+        {t('nav.faq')}
+      </Link>
+      <span className="text-[#968B74]/70">|</span>
       <a
         href="mailto:factcheckerai42@gmail.com"
         className="text-[10px] font-normal text-[#968B74] hover:text-[#C4B091] transition-colors"

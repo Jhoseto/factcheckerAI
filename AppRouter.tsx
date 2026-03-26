@@ -22,6 +22,9 @@ const AdminApp = lazy(() => import('./admin/client/index').then(m => ({ default:
 const TermsPage = lazy(() => import('./components/legal/TermsPage'));
 const PrivacyPage = lazy(() => import('./components/legal/PrivacyPage'));
 const RefundPage = lazy(() => import('./components/legal/RefundPage'));
+const FAQPage = lazy(() => import('./components/legal/FAQPage'));
+const HowItWorksPage = lazy(() => import('./components/legal/HowItWorksPage'));
+const FeaturesPage = lazy(() => import('./components/legal/FeaturesPage'));
 const MobileView = lazy(() => import('./mobileView').then(m => ({ default: m.MobileView })));
 
 const MOBILE_BREAKPOINT = 768;
@@ -148,6 +151,9 @@ const AppRouter: React.FC = () => {
                     <Route path="/terms" element={<TermsPage />} />
                     <Route path="/privacy" element={<PrivacyPage />} />
                     <Route path="/refund-policy" element={<RefundPage />} />
+                    <Route path="/faq" element={<FAQPage />} />
+                    <Route path="/how-it-works" element={<HowItWorksPage />} />
+                    <Route path="/features" element={<FeaturesPage />} />
 
                     {/* Fallback */}
                     <Route path="*" element={<Navigate to="/" replace />} />
