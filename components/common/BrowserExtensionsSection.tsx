@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Chrome, Download, Zap, Globe } from 'lucide-react';
+import { Download, Zap } from 'lucide-react';
 
 const BrowserExtensionsSection: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -14,7 +14,7 @@ const BrowserExtensionsSection: React.FC = () => {
       description: isBg 
         ? 'Проверявайте YouTube видеа директно от браузъра си. Добавете бутон "Check with FactChecker" под всяко видео.'
         : 'Check YouTube videos directly from your browser. Add a "Check with FactChecker" button under every video.',
-      icon: Chrome,
+      logo: '/assets/logos/chrome-logo.png',
       color: 'from-blue-600 to-blue-400',
       downloadUrl: '#',
       features: [
@@ -29,7 +29,7 @@ const BrowserExtensionsSection: React.FC = () => {
       description: isBg
         ? 'Същата мощна функционалност за Firefox. Проверявайте линкове и видеа с един клик.'
         : 'Same powerful functionality for Firefox. Check links and videos with one click.',
-      icon: Globe,
+      logo: '/assets/logos/firefox-logo.png',
       color: 'from-orange-600 to-orange-400',
       downloadUrl: '#',
       features: [
@@ -67,7 +67,6 @@ const BrowserExtensionsSection: React.FC = () => {
         {/* Extensions Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
           {extensions.map((ext) => {
-            const IconComponent = ext.icon;
             const isHovered = hoveredExtension === ext.id;
 
             return (
@@ -81,11 +80,15 @@ const BrowserExtensionsSection: React.FC = () => {
                 <div className={`editorial-card p-8 bg-gradient-to-br from-[#252525] to-[#1a1a1a] border border-[#333] hover:border-[#968B74]/40 transition-all duration-500 h-full flex flex-col ${
                   isHovered ? 'shadow-[0_20px_60px_rgba(196,176,145,0.15)] -translate-y-2' : ''
                 }`}>
-                  {/* Icon */}
-                  <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${ext.color} flex items-center justify-center mb-6 mx-auto shadow-lg transition-transform duration-500 ${
+                  {/* Logo */}
+                  <div className={`w-24 h-24 rounded-2xl bg-white flex items-center justify-center mb-6 mx-auto shadow-lg transition-transform duration-500 overflow-hidden ${
                     isHovered ? 'scale-110 rotate-6' : ''
                   }`}>
-                    <IconComponent size={32} className="text-white" />
+                    <img 
+                      src={ext.logo} 
+                      alt={ext.name}
+                      className="w-20 h-20 object-contain"
+                    />
                   </div>
 
                   {/* Title & Description */}
