@@ -1,10 +1,14 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
+import { Zap, HelpCircle } from 'lucide-react';
 import MobileSafeArea from './components/MobileSafeArea';
 import ScannerAnimation from '../components/common/ScannerAnimation';
 
 const MobileHome: React.FC = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+
   return (
     <MobileSafeArea className="relative overflow-hidden bg-[#111]">
       {/* Animated Background Glow */}
@@ -21,9 +25,9 @@ const MobileHome: React.FC = () => {
         </div>
       </header>
 
-      <main className="relative z-10 flex flex-col flex-1 px-5 pt-10 pb-12 overflow-y-auto">
+      <main className="relative z-10 flex flex-col flex-1 px-5 pt-8 pb-12 overflow-y-auto">
         <div className="mb-8 mobile-fade-in">
-          <div className="space-y-8 text-center">
+          <div className="space-y-6 text-center">
             <div className="relative inline-block space-y-4">
               <h2 className="text-3xl sm:text-4xl font-serif font-black text-[#E0E0E0] tracking-tight leading-[1.15]">
                 <span className="block mb-2">
@@ -35,16 +39,35 @@ const MobileHome: React.FC = () => {
                 </span>
               </h2>
             </div>
-            <div className="space-y-5 px-2">
+            <div className="space-y-4 px-2">
               <p className="text-[#ccc] text-sm leading-relaxed font-medium py-3.5 px-5 text-center mobile-glass rounded-2xl shadow-xl">
                 {t('mobile.homeSubtitle')}
               </p>
-              <p className="text-[#888] text-[11px] leading-relaxed text-center px-4">
+              
+              {/* Quick Navigation Buttons */}
+              <div className="flex gap-3 pt-2">
+                <button 
+                  onClick={() => navigate('/features')}
+                  className="flex-1 flex items-center justify-center gap-2 py-3.5 px-4 bg-[#252525] border border-[#968B74]/20 rounded-xl text-[10px] font-black text-[#C4B091] uppercase tracking-wider mobile-tap shadow-lg"
+                >
+                  <Zap size={14} />
+                  {t('nav.features')}
+                </button>
+                <button 
+                  onClick={() => navigate('/faq')}
+                  className="flex-1 flex items-center justify-center gap-2 py-3.5 px-4 bg-[#252525] border border-[#333] rounded-xl text-[10px] font-black text-[#888] uppercase tracking-wider mobile-tap shadow-lg"
+                >
+                  <HelpCircle size={14} />
+                  {t('nav.faq')}
+                </button>
+              </div>
+
+              <p className="text-[#888] text-[11px] leading-relaxed text-center px-4 pt-2">
                 {t('mobile.homeSubtitle2')}
               </p>
             </div>
-            <div className="flex justify-center items-center py-8 opacity-90 mix-blend-screen drop-shadow-2xl">
-              <ScannerAnimation size={240} />
+            <div className="flex justify-center items-center py-4 opacity-90 mix-blend-screen drop-shadow-2xl">
+              <ScannerAnimation size={220} />
             </div>
           </div>
         </div>

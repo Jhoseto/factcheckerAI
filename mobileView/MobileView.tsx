@@ -7,6 +7,8 @@ import MobileAudit from './MobileAudit';
 import MobileReportPage from './MobileReportPage';
 import MobileProfile from './MobileProfile';
 import MobileExpensesPage from './MobileExpensesPage';
+import MobileFeatures from './MobileFeatures';
+import MobileFAQ from './MobileFAQ';
 import MobileBottomNav from './components/MobileBottomNav';
 import ArchivePage from '../components/archive/ArchivePage';
 import PricingPage from '../components/pricing/PricingPage';
@@ -36,6 +38,8 @@ const MobileView: React.FC = () => {
           <Route path="/pricing" element={currentUser ? <PricingPage /> : <Navigate to="/login" replace />} />
           <Route path="/profile" element={currentUser ? <MobileProfile /> : <Navigate to="/login" replace />} />
           <Route path="/expenses" element={currentUser ? <MobileExpensesPage /> : <Navigate to="/login" replace />} />
+          <Route path="/features" element={<MobileFeatures />} />
+          <Route path="/faq" element={<MobileFAQ />} />
           <Route path="/login" element={currentUser ? <Navigate to="/profile" replace /> : <Login />} />
           <Route path="/register" element={currentUser ? <Navigate to="/profile" replace /> : <Register />} />
           <Route path="/terms" element={<TermsPage />} />

@@ -213,7 +213,7 @@ const MobileAudit: React.FC = () => {
               <span className="text-[9px] font-black text-[#C4B091] uppercase tracking-[0.4em]">{t('mobile.youtubeVideoAudit')}</span>
               <span className="h-[1px] w-6 bg-gradient-to-l from-transparent to-[#968B74]/50" />
             </div>
-            <h2 className="text-2xl font-serif font-black text-[#E0E0E0] tracking-tight leading-tight text-center mb-6">
+            <h2 className="text-xl sm:text-2xl font-serif font-black text-[#E0E0E0] tracking-tight leading-tight text-center mb-6">
               {t('mobile.analyzeVideoStream')}
             </h2>
 
@@ -313,7 +313,7 @@ const MobileAudit: React.FC = () => {
               <span className="text-[9px] font-black text-[#C4B091] uppercase tracking-[0.4em]">{t('mobile.linkAuditSection')}</span>
               <span className="h-[1px] w-6 bg-gradient-to-l from-transparent to-[#968B74]/50" />
             </div>
-            <h2 className="text-2xl font-serif font-black text-[#E0E0E0] tracking-tight leading-tight mb-6 text-center">
+            <h2 className="text-xl sm:text-2xl font-serif font-black text-[#E0E0E0] tracking-tight leading-tight text-center mb-6">
               {t('mobile.analyzeArticle')}
             </h2>
 

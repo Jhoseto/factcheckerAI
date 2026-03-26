@@ -93,7 +93,7 @@ const MobileResultView: React.FC<MobileResultViewProps> = ({ analysis, reportLoa
   return (
     <div className="flex flex-col h-full min-h-0 bg-[#1a1a1a]">
       <MobileHeader
-        title={analysis.videoTitle || t('report.result')}
+        title={analysis.videoTitle || analysis.title || t('report.result')}
         showBack
         onBack={onBack}
         right={
@@ -153,8 +153,8 @@ const MobileResultView: React.FC<MobileResultViewProps> = ({ analysis, reportLoa
               </div>
             </button>
           )}
-          <div ref={tabsScrollRef} className="px-5 py-4 overflow-x-auto mobile-no-scrollbar">
-            <div className="flex gap-2.5 min-w-max pb-1">
+          <div ref={tabsScrollRef} className="px-5 py-3 overflow-x-auto mobile-no-scrollbar">
+            <div className="flex gap-2 min-w-max pb-1">
               {allTabs.map((tab) => {
                 const isReport = tab.id === 'report';
                 const disabled = isReport && reportLoading;
@@ -164,12 +164,12 @@ const MobileResultView: React.FC<MobileResultViewProps> = ({ analysis, reportLoa
                     type="button"
                     onClick={() => !disabled && setActiveTab(tab.id)}
                     disabled={disabled}
-                    className={`mobile-tap flex-shrink-0 px-5 py-2.5 min-h-[44px] rounded-full text-[10px] font-black uppercase tracking-[0.15em] transition-all duration-300 touch-manipulation focus:outline-none ${disabled ? 'bg-[#252525] text-[#555]' : activeTab === tab.id
+                    className={`mobile-tap flex-shrink-0 px-4 py-2 min-h-[40px] rounded-full text-[9px] font-black uppercase tracking-[0.12em] transition-all duration-300 touch-manipulation focus:outline-none flex items-center ${disabled ? 'bg-[#252525] text-[#555]' : activeTab === tab.id
                       ? 'bg-gradient-to-r from-[#C4B091] to-[#968B74] text-[#111] shadow-[0_4px_12px_rgba(196,176,145,0.25)]'
                       : 'bg-[#252525] text-[#aaa] border border-[#333] active:bg-[#333]'
                       }`}
                   >
-                    <TabIcon id={tab.id as import('../components/common/result-views/DeepTabIcons').TabId} className={`w-3.5 h-3.5 mr-2 shrink-0 ${activeTab === tab.id ? 'opacity-90' : 'opacity-70'}`} />
+                    <TabIcon id={tab.id as any} className={`w-3 h-3 mr-1.5 shrink-0 ${activeTab === tab.id ? 'opacity-90' : 'opacity-70'}`} />
                     {tab.label}
                   </button>
                 );
