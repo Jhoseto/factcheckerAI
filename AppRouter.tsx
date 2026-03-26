@@ -23,7 +23,7 @@ const TermsPage = lazy(() => import('./components/legal/TermsPage'));
 const PrivacyPage = lazy(() => import('./components/legal/PrivacyPage'));
 const RefundPage = lazy(() => import('./components/legal/RefundPage'));
 const FAQPage = lazy(() => import('./components/legal/FAQPage'));
-const HowItWorksPage = lazy(() => import('./components/legal/HowItWorksPage'));
+// HowItWorks content consolidated into FeaturesPage
 const FeaturesPage = lazy(() => import('./components/legal/FeaturesPage'));
 const MobileView = lazy(() => import('./mobileView').then(m => ({ default: m.MobileView })));
 
@@ -152,7 +152,7 @@ const AppRouter: React.FC = () => {
                     <Route path="/privacy" element={<PrivacyPage />} />
                     <Route path="/refund-policy" element={<RefundPage />} />
                     <Route path="/faq" element={<FAQPage />} />
-                    <Route path="/how-it-works" element={<HowItWorksPage />} />
+                    {/* HowItWorks content consolidated into FeaturesPage */}
                     <Route path="/features" element={<FeaturesPage />} />
 
                     {/* Fallback */}
