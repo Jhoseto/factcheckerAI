@@ -42,7 +42,8 @@ const App: React.FC = () => {
         setVideoMetadata(metadata);
         const estimates = getAllCostEstimates(metadata.duration);
         setCostEstimates(estimates);
-        // Do not auto-select a mode, let the user pick explicitly
+        // Auto-select standard mode for better UX
+        if (!analysisMode) setAnalysisMode('standard');
       } catch (e: any) {
         console.error('[Metadata Error]', e);
         setError(t('errors.metadata'));

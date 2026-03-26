@@ -46,6 +46,8 @@ const MobileAudit: React.FC = () => {
         const metadata = await getYouTubeMetadata(youtubeUrl);
         setVideoMetadata(metadata);
         setCostEstimates(getAllCostEstimates(metadata.duration));
+        // Auto-select standard mode for better mobile UX
+        if (!analysisMode) setAnalysisMode('standard');
       } catch {
         setVideoMetadata(null);
         setCostEstimates(null);
