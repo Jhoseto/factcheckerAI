@@ -15,7 +15,7 @@ const HowItWorksPage: React.FC = () => {
         },
         {
             title: "Дълбок контекстуален анализ",
-            description: "Изкуственият интелект Gemini 2.5 Flash анализира езика, тона и логическата структура на съдържанието.",
+            description: "Усъвършенствани алгоритми за обработка на естествен език анализират езика, тона и логическата структура на съдържанието.",
             icon: <Cpu size={24} className="text-[#968B74]" />
         },
         {
@@ -36,7 +36,7 @@ const HowItWorksPage: React.FC = () => {
         },
         {
             title: "Deep Contextual Analysis",
-            description: "Gemini 2.5 Flash AI analyzes the language, tone, and logical structure of the content.",
+            description: "Advanced natural language processing algorithms analyze the language, tone, and logical structure of the content.",
             icon: <Cpu size={24} className="text-[#968B74]" />
         },
         {
@@ -135,8 +135,8 @@ const HowItWorksPage: React.FC = () => {
                                 </div>
                                 <div className="w-[1px] h-10 bg-[#333]"></div>
                                 <div className="text-center">
-                                    <div className="text-2xl font-serif text-[#C4B091] mb-1">AI</div>
-                                    <div className="text-[8px] text-[#555] uppercase tracking-widest">{isBg ? 'GEMINI 2.5' : 'GEMINI 2.5'}</div>
+                                    <div className="text-2xl font-serif text-[#C4B091] mb-1">DCGE</div>
+                                    <div className="text-[8px] text-[#555] uppercase tracking-widest">{isBg ? 'ТЕХНОЛОГИЯ' : 'TECHNOLOGY'}</div>
                                 </div>
                             </div>
                         </div>

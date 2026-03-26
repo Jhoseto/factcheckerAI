@@ -12,7 +12,7 @@ const FAQPage: React.FC = () => {
     const faqs = isBg ? [
         {
             question: "Какво представлява FactChecker AI?",
-            answer: "FactChecker AI е усъвършенствана платформа за медиен анализ, която използва изкуствен интелект (DCGE технология), за да проверява истинността на видеоклипове и статии. Ние помагаме на потребителите да разпознават дезинформация, манипулативни техники и пропаганда в реално време.",
+            answer: "FactChecker AI е усъвършенствана платформа за медиен анализ, която използва нашата собствена DCGE (Deep Contextual Generative Engine) технология, за да проверява истинността на видеоклипове и статии. Ние помагаме на потребителите да разпознават дезинформация, манипулативни техники и пропаганда в реално време чрез сложна многоагентна система.",
             icon: <ShieldCheck className="text-[#968B74]" size={20} />
         },
         {
@@ -33,7 +33,7 @@ const FAQPage: React.FC = () => {
     ] : [
         {
             question: "What is FactChecker AI?",
-            answer: "FactChecker AI is an advanced media analysis platform that uses artificial intelligence (DCGE technology) to verify the truthfulness of videos and articles. We help users identify misinformation, manipulative techniques, and propaganda in real-time.",
+            answer: "FactChecker AI is an advanced media analysis platform that uses our proprietary DCGE (Deep Contextual Generative Engine) technology to verify the truthfulness of videos and articles. We help users identify misinformation, manipulative techniques, and propaganda in real-time through a sophisticated multi-agent system.",
             icon: <ShieldCheck className="text-[#968B74]" size={20} />
         },
         {
