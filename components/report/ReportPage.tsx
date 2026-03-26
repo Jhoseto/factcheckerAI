@@ -15,6 +15,7 @@ import VideoResultView from '../common/result-views/VideoResultView';
 import LinkResultView from '../common/result-views/LinkResultView';
 import { VideoAnalysis } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
+import ReportAnalysisSeo from '../seo/ReportAnalysisSeo';
 // import { usePoints } from '../../contexts/PointsContext'; // Removed invalid import
 
 const SLOT_LIMITS = { video: 10, link: 15 };
@@ -230,6 +231,7 @@ const ReportPage: React.FC = () => {
     if (type === 'link') {
         return (
             <>
+                <ReportAnalysisSeo analysis={analysis} />
                 <div className="min-h-screen relative pt-32 pb-24">
                     <div className="premium-bg-wrapper">
                         <div className="premium-wave-1" />
@@ -261,7 +263,9 @@ const ReportPage: React.FC = () => {
     }
 
     return (
-        <div className="min-h-screen relative pt-32 pb-24">
+        <>
+            <ReportAnalysisSeo analysis={analysis} />
+            <div className="min-h-screen relative pt-32 pb-24">
             <div className="premium-bg-wrapper">
                 <div className="premium-wave-1" />
                 <div className="premium-wave-2" />
@@ -272,11 +276,11 @@ const ReportPage: React.FC = () => {
                 <button
                     onClick={() => navigate('/')}
                         className="mb-6 flex items-center gap-3 text-[9px] font-bold text-[#666] uppercase tracking-[0.2em] hover:text-[#968B74] transition-colors group"
-                    >
-                        <span className="w-4 h-[1px] bg-[#666] group-hover:bg-[#968B74] transition-colors" />
-                        {t('report.backToHome')}
-                    </button>
-                    <VideoResultView
+                >
+                    <span className="w-4 h-[1px] bg-[#666] group-hover:bg-[#968B74] transition-colors" />
+                    {t('report.backToHome')}
+                </button>
+                <VideoResultView
                     analysis={analysis}
                     reportLoading={reportLoading}
                     onSaveToArchive={!isSaved ? handleSaveToArchive : undefined}
@@ -286,6 +290,7 @@ const ReportPage: React.FC = () => {
                 />
             </div>
         </div>
+        </>
     );
 };
 

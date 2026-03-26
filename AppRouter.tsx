@@ -12,6 +12,7 @@ import ChatWidget from './chatBot/src/components/ChatWidget';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
 import App from './App';
+import SeoHead from './components/seo/SeoHead';
 
 const PricingPage = lazy(() => import('./components/pricing/PricingPage'));
 const ExpensesPage = lazy(() => import('./components/user/ExpensesPage'));
@@ -76,14 +77,18 @@ const AppRouter: React.FC = () => {
 
     if (showMobileView) {
         return (
-            <Suspense fallback={<PageFallback />}>
-                <MobileView />
-            </Suspense>
+            <>
+                <SeoHead />
+                <Suspense fallback={<PageFallback />}>
+                    <MobileView />
+                </Suspense>
+            </>
         );
     }
 
     return (
         <>
+            <SeoHead />
             <MaintenanceOverlay />
             <AnnouncementBanner />
             <UserMessageBanner />

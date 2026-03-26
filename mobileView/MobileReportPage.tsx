@@ -17,6 +17,7 @@ import MobileResultView from './MobileResultView';
 import MobileLinkResultView from './MobileLinkResultView';
 import MobileSafeArea from './components/MobileSafeArea';
 import MobileHeader from './components/MobileHeader';
+import ReportAnalysisSeo from '../components/seo/ReportAnalysisSeo';
 
 const LIMITS = { video: 10, link: 15 };
 
@@ -191,26 +192,32 @@ const MobileReportPage: React.FC = () => {
 
   if (activeType === 'link') {
     return (
-      <MobileSafeArea className="bg-[#1a1a1a]">
+      <>
+        <ReportAnalysisSeo analysis={analysisWithId as VideoAnalysis} />
+        <MobileSafeArea className="bg-[#1a1a1a]">
         <MobileLinkResultView
           analysis={analysisWithId}
           reportLoading={false}
           onSaveToArchive={isPreview ? handleSaveToArchive : undefined}
           onBack={() => navigate('/')}
         />
-      </MobileSafeArea>
+        </MobileSafeArea>
+      </>
     );
   }
 
   return (
-    <MobileSafeArea className="bg-[#1a1a1a]">
+    <>
+      <ReportAnalysisSeo analysis={analysisWithId as VideoAnalysis} />
+      <MobileSafeArea className="bg-[#1a1a1a]">
       <MobileResultView
         analysis={analysisWithId}
         reportLoading={reportLoading}
         onSaveToArchive={isPreview ? handleSaveToArchive : undefined}
         onBack={() => navigate('/')}
       />
-    </MobileSafeArea>
+      </MobileSafeArea>
+    </>
   );
 };
 
