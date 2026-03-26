@@ -6,15 +6,20 @@
 
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { FileText, Type, Search, Mic, Eye, AlertTriangle, Brain } from 'lucide-react';
 
 interface ScannerAnimationProps {
     size?: number;
     width?: number;
     height?: number;
     className?: string;
+    /** Hero: пълен сканер + ротиращи думи. Analysis: същият фон/линии/ripple, контури икони на агенти вместо точки. */
+    variant?: 'hero' | 'analysis';
 }
 
-const ScannerAnimation: React.FC<ScannerAnimationProps> = ({ size = 320, width, height, className = '' }) => {
+const iconClass = 'text-[#C4B091]/75 drop-shadow-[0_0_8px_rgba(196,176,145,0.25)]';
+
+const ScannerAnimation: React.FC<ScannerAnimationProps> = ({ size = 320, width, height, className = '', variant = 'hero' }) => {
     const { t } = useTranslation();
     const w = width ?? size;
     const h = height ?? size;
@@ -31,6 +36,8 @@ const ScannerAnimation: React.FC<ScannerAnimationProps> = ({ size = 320, width, 
         );
     }
 
+    const isAnalysis = variant === 'analysis';
+
     const [activeWordIndex, setActiveWordIndex] = useState(0);
     const wordKeys = [
         'app.scannerUnderstanding',
@@ -46,11 +53,12 @@ const ScannerAnimation: React.FC<ScannerAnimationProps> = ({ size = 320, width, 
     const words = wordKeys.map((k) => t(k));
 
     useEffect(() => {
+        if (isAnalysis) return;
         const interval = setInterval(() => {
             setActiveWordIndex((prev) => (prev + 1) % words.length);
         }, 4000);
         return () => clearInterval(interval);
-    }, [words.length]);
+    }, [words.length, isAnalysis]);
 
     const nodes = [
         { top: '20%', left: '25%', delay: '0s' },
@@ -82,12 +90,23 @@ const ScannerAnimation: React.FC<ScannerAnimationProps> = ({ size = 320, width, 
                 <div className="absolute bottom-0 left-1/2 w-20 h-px bg-gradient-to-r from-transparent via-[#968B74]/35 to-transparent -translate-x-1/2 scanner-corner-accent" style={{ animationDelay: '1.5s' }} />
             </div>
 
-            {/* Orbiting micro-dots – 3 точки, появяват се и изчезват до минимум */}
+            {/* Orbiting micro-dots (hero) или контури икони (analysis) */}
             <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
                 <div className="scanner-orbit-dots" style={{ width: '70%', height: '70%', position: 'relative' }}>
                     {[0, 1, 2].map((i) => (
                         <div key={i} className="absolute left-1/2 top-1/2 w-0 h-1/2 origin-top" style={{ transform: `rotate(${i * 120}deg)`, marginLeft: 0 }}>
-                            <div className="absolute bottom-0 left-1/2 w-1 h-1 rounded-full bg-[#968B74]/40 -ml-0.5 scanner-dot-appear" style={{ animationDelay: `${i * 1.4}s` }} />
+                            {isAnalysis ? (
+                                <div
+                                    className="absolute bottom-0 left-1/2 -translate-x-1/2 scanner-dot-appear flex items-center justify-center"
+                                    style={{ animationDelay: `${i * 1.4}s` }}
+                                >
+                                    {i === 0 && <Search className={`w-3.5 h-3.5 ${iconClass}`} strokeWidth={1.15} />}
+                                    {i === 1 && <Mic className={`w-3.5 h-3.5 ${iconClass}`} strokeWidth={1.15} />}
+                                    {i === 2 && <Eye className={`w-3.5 h-3.5 ${iconClass}`} strokeWidth={1.15} />}
+                                </div>
+                            ) : (
+                                <div className="absolute bottom-0 left-1/2 w-1 h-1 rounded-full bg-[#968B74]/40 -ml-0.5 scanner-dot-appear" style={{ animationDelay: `${i * 1.4}s` }} />
+                            )}
                         </div>
                     ))}
                 </div>
@@ -99,25 +118,57 @@ const ScannerAnimation: React.FC<ScannerAnimationProps> = ({ size = 320, width, 
                 <div className="absolute top-1/2 left-1/2 w-[140%] h-[1px] bg-gradient-to-r from-transparent via-[#968B74]/12 to-transparent -translate-x-1/2 -translate-y-1/2 -rotate-12 scanner-line-glow" style={{ animationDelay: '1.2s' }}></div>
                 <div className="absolute top-1/2 left-1/2 w-[140%] h-[1px] bg-gradient-to-r from-transparent via-[#968B74]/12 to-transparent -translate-x-1/2 -translate-y-1/2 rotate-90 scanner-line-glow" style={{ animationDelay: '2.4s' }}></div>
 
-                {/* Data dots – 4 точки, появяват се и изчезват */}
-                {dataDots.map((d, i) => (
-                    <div key={`dot-${i}`} className="absolute w-1.5 h-1.5 rounded-full bg-[#C4B091]/40 scanner-dot-float scanner-dot-appear" style={{ top: d.top, left: d.left, animationDelay: d.delay }} />
-                ))}
+                {/* Data dots (hero) или контури икони (analysis) */}
+                {isAnalysis
+                    ? dataDots.map((d, i) => {
+                          const OrbitIcon = [FileText, Type, AlertTriangle, Brain][i] ?? FileText;
+                          return (
+                              <div
+                                  key={`dot-${i}`}
+                                  className="absolute flex items-center justify-center scanner-dot-float scanner-dot-appear"
+                                  style={{ top: d.top, left: d.left, animationDelay: d.delay, transform: 'translate(-50%, -50%)' }}
+                              >
+                                  <OrbitIcon className={`w-4 h-4 ${iconClass}`} strokeWidth={1.15} />
+                              </div>
+                          );
+                      })
+                    : dataDots.map((d, i) => (
+                          <div
+                              key={`dot-${i}`}
+                              className="absolute w-1.5 h-1.5 rounded-full bg-[#C4B091]/40 scanner-dot-float scanner-dot-appear"
+                              style={{ top: d.top, left: d.left, animationDelay: d.delay }}
+                          />
+                      ))}
 
-                {/* Nodes: изчезват напълно и се появяват с различни забавяния */}
-                {nodes.map((node, i) => (
-                    <div
-                        key={i}
-                        className="absolute w-3 h-3 scanner-node-appear"
-                        style={{ top: node.top, left: node.left, animationDelay: node.delay }}
-                    >
-                        <div className="absolute inset-0 scanner-node-float">
-                            <div className="absolute inset-0 rounded-full bg-[#968B74]/30 scanner-node-glow" style={{ boxShadow: '0 0 10px rgba(150,139,116,0.25)' }} />
-                            <div className="absolute inset-0 rounded-full border-2 border-[#968B74]/50 scanner-node-pulse-ring" style={{ transformOrigin: 'center' }} />
-                            <div className="absolute inset-0.5 rounded-full bg-[#C4B091]/70 scanner-node-core" style={{ transformOrigin: 'center' }} />
-                        </div>
-                    </div>
-                ))}
+                {/* Nodes: пълни възли (hero) или контури икони (analysis) */}
+                {isAnalysis
+                    ? nodes.map((node, i) => {
+                          const NodeIcon = [FileText, Type, Search, Mic, Eye][i] ?? FileText;
+                          return (
+                              <div
+                                  key={i}
+                                  className="absolute flex items-center justify-center scanner-node-appear"
+                                  style={{ top: node.top, left: node.left, animationDelay: node.delay, transform: 'translate(-50%, -50%)' }}
+                              >
+                                  <div className="scanner-node-float flex items-center justify-center">
+                                      <NodeIcon className={`w-[18px] h-[18px] ${iconClass}`} strokeWidth={1.2} />
+                                  </div>
+                              </div>
+                          );
+                      })
+                    : nodes.map((node, i) => (
+                          <div
+                              key={i}
+                              className="absolute w-3 h-3 scanner-node-appear"
+                              style={{ top: node.top, left: node.left, animationDelay: node.delay }}
+                          >
+                              <div className="absolute inset-0 scanner-node-float">
+                                  <div className="absolute inset-0 rounded-full bg-[#968B74]/30 scanner-node-glow" style={{ boxShadow: '0 0 10px rgba(150,139,116,0.25)' }} />
+                                  <div className="absolute inset-0 rounded-full border-2 border-[#968B74]/50 scanner-node-pulse-ring" style={{ transformOrigin: 'center' }} />
+                                  <div className="absolute inset-0.5 rounded-full bg-[#C4B091]/70 scanner-node-core" style={{ transformOrigin: 'center' }} />
+                              </div>
+                          </div>
+                      ))}
             </div>
 
             {/* 2. Central Ripple - smooth scale + fade */}
@@ -127,26 +178,28 @@ const ScannerAnimation: React.FC<ScannerAnimationProps> = ({ size = 320, width, 
                 <div className="scanner-ripple rounded-full border border-[#968B74]/10" style={{ animationDelay: '4s' }}></div>
             </div>
 
-            {/* 3. Typography Reveal */}
-            <div className="relative z-10 flex flex-col items-center justify-center">
-                <div className="h-10 flex items-center justify-center overflow-hidden">
-                    {words.map((word, i) => (
-                        <div
-                            key={wordKeys[i]}
-                            className={`absolute font-serif font-medium tracking-[0.25em] text-[#C4B091]/90 transition-all duration-[2000ms] ease-[cubic-bezier(0.4,0,0.2,1)]
+            {/* 3. Typography Reveal (само hero — при analysis центърът остава за ripple) */}
+            {!isAnalysis && (
+                <div className="relative z-10 flex flex-col items-center justify-center">
+                    <div className="h-10 flex items-center justify-center overflow-hidden">
+                        {words.map((word, i) => (
+                            <div
+                                key={wordKeys[i]}
+                                className={`absolute font-serif font-medium tracking-[0.25em] text-[#C4B091]/90 transition-all duration-[2000ms] ease-[cubic-bezier(0.4,0,0.2,1)]
                                 ${i === activeWordIndex
                                     ? 'opacity-100 blur-0 scale-100 translate-y-0'
                                     : 'opacity-0 blur-md scale-95 translate-y-2'}
                             `}
-                            style={{
-                                textShadow: '0 0 20px rgba(255,255,255,0.8)' // Allow text to read over any busy background
-                            }}
-                        >
-                            {word}
-                        </div>
-                    ))}
+                                style={{
+                                    textShadow: '0 0 20px rgba(255,255,255,0.8)',
+                                }}
+                            >
+                                {word}
+                            </div>
+                        ))}
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Premium smooth keyframes */}
             <style>{`

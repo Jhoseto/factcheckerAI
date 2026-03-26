@@ -11,6 +11,7 @@ const LinkAuditPage: React.FC = () => {
     const { t } = useTranslation();
     const [url, setUrl] = useState('');
     const [loading, setLoading] = useState(false);
+    const [streamingProgress, setStreamingProgress] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const navigate = useNavigate();
     const { currentUser, userProfile, updateLocalBalance, refreshProfile } = useAuth();
@@ -37,10 +38,11 @@ const LinkAuditPage: React.FC = () => {
 
         setLoading(true);
         setError(null);
+        setStreamingProgress(null);
         clearAnalysisSession();
 
         try {
-            const result = await analyzeLinkDeep(url);
+            const result = await analyzeLinkDeep(url, (status) => setStreamingProgress(status));
             navigate('/analysis-result', { 
                 state: { 
                     analysis: result.analysis, 
@@ -60,12 +62,13 @@ const LinkAuditPage: React.FC = () => {
             setError(e.message || t('linkAudit.errorAnalysis'));
         } finally {
             setLoading(false);
+            setStreamingProgress(null);
         }
     };
 
     return (
         <section id="link-analysis" className="relative py-24 z-10">
-            <LiveDebugOverlay visible={loading} elapsedSeconds={0} />
+            <LiveDebugOverlay visible={loading} streamingProgress={streamingProgress} elapsedSeconds={0} />
             <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[#968B74]/20 to-transparent"></div>
 
             <div className="max-w-5xl mx-auto px-6 text-center animate-fadeUp">
@@ -96,7 +99,7 @@ const LinkAuditPage: React.FC = () => {
                             disabled={loading || !url.trim()}
                             className="btn-luxury-solid w-full md:w-auto px-10 py-4 rounded text-[10px] uppercase tracking-[0.2em] whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {loading ? t('linkAudit.analyzing') : t('app.execute')}
+                            {t('app.execute')}
                         </button>
                     </div>
                     {error && <p className="text-red-400 text-xs tracking-wide mt-4 font-bold p-3 bg-red-900/10 rounded border border-red-900/20">{error}</p>}

@@ -264,7 +264,7 @@ const MobileResultView: React.FC<MobileResultViewProps> = ({ analysis, reportLoa
             <div className="space-y-4 mobile-fade-in">
               <div className="rounded-xl p-4 bg-[#252525] border border-[#333]">
                 <div className="text-[#ccc] text-sm leading-relaxed whitespace-pre-wrap">
-                  {rawReport || t('analysis.reportGenerating')}
+                  {rawReport || (reportLoading ? '' : t('analysis.reportGenerating'))}
                 </div>
               </div>
             </div>

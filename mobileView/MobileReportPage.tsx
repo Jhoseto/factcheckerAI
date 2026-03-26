@@ -18,6 +18,7 @@ import MobileLinkResultView from './MobileLinkResultView';
 import MobileSafeArea from './components/MobileSafeArea';
 import MobileHeader from './components/MobileHeader';
 import ReportAnalysisSeo from '../components/seo/ReportAnalysisSeo';
+import MobileLiveDebugOverlay from './components/MobileLiveDebugOverlay';
 
 const LIMITS = { video: 10, link: 15 };
 
@@ -206,9 +207,12 @@ const MobileReportPage: React.FC = () => {
     );
   }
 
+  const reportSynthStatus = `${t('analysis.reportGeneratingTitle')} — ${t('analysis.reportGeneratingSub')}`;
+
   return (
     <>
       <ReportAnalysisSeo analysis={analysisWithId as VideoAnalysis} />
+      <MobileLiveDebugOverlay visible={reportLoading} streamingProgress={reportSynthStatus} elapsedSeconds={0} />
       <MobileSafeArea className="bg-[#1a1a1a]">
       <MobileResultView
         analysis={analysisWithId}

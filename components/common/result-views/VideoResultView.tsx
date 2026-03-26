@@ -215,11 +215,7 @@ const ReportView: React.FC<{ analysis: VideoAnalysis; reportRef?: React.RefObjec
             </header>
 
             {reportLoading ? (
-                <div className="text-center py-20 animate-pulse">
-                    <div className="inline-block w-8 h-8 border-2 border-[#968B74] border-t-transparent rounded-full animate-spin mb-6"></div>
-                    <h4 className="text-lg font-black text-[#C4B091] uppercase tracking-widest mb-2">{t('analysis.reportGeneratingTitle')}</h4>
-                    <p className="text-xs text-[#666] uppercase tracking-wider">{t('analysis.reportGeneratingSub')}</p>
-                </div>
+                <div className="min-h-[45vh]" aria-hidden />
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
                     <div className="md:col-span-8 space-y-2">
@@ -447,7 +443,6 @@ const VideoResultView: React.FC<VideoResultViewProps> = ({ analysis, reportLoadi
                     >
                         <TabIcon id={tab.id as import('./DeepTabIcons').TabId} className="w-4 h-4" />
                         {tab.label}
-                        {isReportTab && reportLoading && <span className="inline-block w-3 h-3 border-2 border-[#968B74] border-t-transparent rounded-full animate-spin"></span>}
                         {activeTab === tab.id && !isDisabled && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#968B74]"></div>}
                     </button>
                 );

@@ -313,7 +313,7 @@ const MobileAudit: React.FC = () => {
               disabled={!linkUrl.trim() || linkLoading}
               className="mobile-tap w-full py-4 rounded-xl bg-gradient-to-r from-[#C4B091] to-[#968B74] text-[#111] text-[11px] font-black uppercase tracking-[0.2em] shadow-[0_4px_15px_rgba(196,176,145,0.3)] transition-all duration-200 disabled:opacity-50 disabled:shadow-none disabled:active:scale-100 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C4B091] active:scale-[0.98]"
             >
-              {linkLoading ? t('mobile.analyzing') : t('mobile.auditPoints', { count: FIXED_PRICES.linkArticle })}
+              {t('mobile.auditPoints', { count: FIXED_PRICES.linkArticle })}
             </button>
           </div>
         </div>

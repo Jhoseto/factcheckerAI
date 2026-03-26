@@ -1,9 +1,18 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 
-const AbstractBackground: React.FC = () => {
+interface AbstractBackgroundProps {
+    /** В пълноекранен оверлей: absolute спрямо родителя вместо fixed зад целия сайт */
+    embedded?: boolean;
+}
+
+const AbstractBackground: React.FC<AbstractBackgroundProps> = ({ embedded = false }) => {
+    const rootClass = embedded
+        ? 'absolute inset-0 z-0 bg-[#222222] overflow-hidden'
+        : 'fixed inset-0 z-[-1] bg-[#222222] overflow-hidden';
+
     return (
-        <div className="fixed inset-0 z-[-1] bg-[#222222] overflow-hidden">
+        <div className={rootClass}>
             {/* Base Layer: Static Satin Graphite Radial Gradient */}
             <div
                 className="absolute inset-0 opacity-90"

@@ -16,6 +16,7 @@ import LinkResultView from '../common/result-views/LinkResultView';
 import { VideoAnalysis } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import ReportAnalysisSeo from '../seo/ReportAnalysisSeo';
+import LiveDebugOverlay from '../common/LiveDebugOverlay';
 // import { usePoints } from '../../contexts/PointsContext'; // Removed invalid import
 
 const SLOT_LIMITS = { video: 10, link: 15 };
@@ -262,9 +263,12 @@ const ReportPage: React.FC = () => {
         );
     }
 
+    const reportSynthStatus = `${t('analysis.reportGeneratingTitle')} — ${t('analysis.reportGeneratingSub')}`;
+
     return (
         <>
             <ReportAnalysisSeo analysis={analysis} />
+            <LiveDebugOverlay visible={reportLoading} streamingProgress={reportSynthStatus} elapsedSeconds={0} />
             <div className="min-h-screen relative pt-32 pb-24">
             <div className="premium-bg-wrapper">
                 <div className="premium-wave-1" />
