@@ -14,7 +14,14 @@ const BrowserExtensionsSection: React.FC = () => {
       description: isBg 
         ? 'Проверявайте YouTube видеа директно от браузъра си. Добавете бутон "Check with FactChecker" под всяко видео.'
         : 'Check YouTube videos directly from your browser. Add a "Check with FactChecker" button under every video.',
-      logo: '/assets/logos/chrome-logo.png',
+      icon: (
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="32" cy="32" r="30" stroke="currentColor" strokeWidth="1.5"/>
+          <circle cx="32" cy="32" r="20" stroke="currentColor" strokeWidth="1.5"/>
+          <circle cx="32" cy="32" r="10" stroke="currentColor" strokeWidth="1.5"/>
+          <path d="M32 12 L42 32 L32 52 L22 32 Z" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+        </svg>
+      ),
       color: 'from-blue-600 to-blue-400',
       downloadUrl: '#',
       features: [
@@ -29,7 +36,13 @@ const BrowserExtensionsSection: React.FC = () => {
       description: isBg
         ? 'Същата мощна функционалност за Firefox. Проверявайте линкове и видеа с един клик.'
         : 'Same powerful functionality for Firefox. Check links and videos with one click.',
-      logo: '/assets/logos/firefox-logo.png',
+      icon: (
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M32 12 C22 12, 14 20, 14 32 C14 44, 22 52, 32 52 C42 52, 50 44, 50 32 C50 20, 42 12, 32 12 Z" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+          <path d="M32 20 C26 20, 21 25, 21 32 C21 39, 26 44, 32 44 C38 44, 43 39, 43 32 C43 25, 38 20, 32 20 Z" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+          <circle cx="32" cy="32" r="4" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+        </svg>
+      ),
       color: 'from-orange-600 to-orange-400',
       downloadUrl: '#',
       features: [
@@ -80,15 +93,13 @@ const BrowserExtensionsSection: React.FC = () => {
                 <div className={`editorial-card p-8 bg-gradient-to-br from-[#252525] to-[#1a1a1a] border border-[#333] hover:border-[#968B74]/40 transition-all duration-500 h-full flex flex-col ${
                   isHovered ? 'shadow-[0_20px_60px_rgba(196,176,145,0.15)] -translate-y-2' : ''
                 }`}>
-                  {/* Logo */}
-                  <div className={`w-24 h-24 rounded-2xl bg-white flex items-center justify-center mb-6 mx-auto shadow-lg transition-transform duration-500 overflow-hidden ${
-                    isHovered ? 'scale-110 rotate-6' : ''
+                  {/* Icon - Outline Style */}
+                  <div className={`w-24 h-24 rounded-2xl flex items-center justify-center mb-6 mx-auto transition-all duration-500 ${
+                    isHovered ? 'scale-110 -rotate-6' : ''
                   }`}>
-                    <img 
-                      src={ext.logo} 
-                      alt={ext.name}
-                      className="w-20 h-20 object-contain"
-                    />
+                    <div className="text-[#968B74] hover:text-[#C4B091] transition-colors duration-300">
+                      {ext.icon}
+                    </div>
                   </div>
 
                   {/* Title & Description */}

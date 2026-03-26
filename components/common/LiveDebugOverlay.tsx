@@ -18,6 +18,8 @@ interface LiveDebugOverlayProps {
 const LiveDebugOverlay: React.FC<LiveDebugOverlayProps> = ({ visible, streamingProgress, elapsedSeconds = 0 }) => {
   const { t, i18n } = useTranslation();
   const isBg = i18n.language === 'bg';
+  const [displayedSeconds, setDisplayedSeconds] = useState(0);
+  const [progress, setProgress] = useState(0);
 
   const agents: DebugAgent[] = isBg ? [
     { id: 'metadata', name: 'Метаданни Агент', status: 'active', icon: '📋', description: 'Извличане на метаданни' },
@@ -39,25 +41,49 @@ const LiveDebugOverlay: React.FC<LiveDebugOverlayProps> = ({ visible, streamingP
 
   const [activeAgents, setActiveAgents] = useState<string[]>(['metadata', 'transcript', 'factual']);
 
+  // Update timer and progress every second
   useEffect(() => {
     if (!visible) return;
 
-    // Simulate agent activation over time
-    const timings = [
-      { delay: 2000, agents: ['metadata', 'transcript', 'factual', 'vocal'] },
-      { delay: 5000, agents: ['metadata', 'transcript', 'factual', 'vocal', 'visual'] },
-      { delay: 8000, agents: ['metadata', 'transcript', 'factual', 'vocal', 'visual', 'manipulation'] },
-      { delay: 11000, agents: ['metadata', 'transcript', 'factual', 'vocal', 'visual', 'manipulation', 'synthesis'] },
-    ];
+    const interval = setInterval(() => {
+      setDisplayedSeconds(prev => prev + 1);
+    }, 1000);
 
-    const timers = timings.map(({ delay, agents: agentIds }) =>
-      setTimeout(() => setActiveAgents(agentIds), delay)
-    );
-
-    return () => timers.forEach(timer => clearTimeout(timer));
+    return () => clearInterval(interval);
   }, [visible]);
 
+  // Update progress bar based on elapsed time
+  useEffect(() => {
+    if (!visible) return;
+
+    const currentSeconds = displayedSeconds || elapsedSeconds;
+    const maxDuration = 45; // Expected max duration in seconds
+    const newProgress = Math.min((currentSeconds / maxDuration) * 100, 100);
+    setProgress(newProgress);
+  }, [displayedSeconds, elapsedSeconds, visible]);
+
+  // Simulate agent activation over time
+  useEffect(() => {
+    if (!visible) return;
+
+    const currentSeconds = displayedSeconds || elapsedSeconds;
+    
+    if (currentSeconds >= 11) {
+      setActiveAgents(['metadata', 'transcript', 'factual', 'vocal', 'visual', 'manipulation', 'synthesis']);
+    } else if (currentSeconds >= 8) {
+      setActiveAgents(['metadata', 'transcript', 'factual', 'vocal', 'visual', 'manipulation']);
+    } else if (currentSeconds >= 5) {
+      setActiveAgents(['metadata', 'transcript', 'factual', 'vocal', 'visual']);
+    } else if (currentSeconds >= 2) {
+      setActiveAgents(['metadata', 'transcript', 'factual', 'vocal']);
+    } else {
+      setActiveAgents(['metadata', 'transcript', 'factual']);
+    }
+  }, [displayedSeconds, elapsedSeconds, visible]);
+
   if (!visible) return null;
+
+  const currentSeconds = displayedSeconds || elapsedSeconds;
 
   return (
     <div className="fixed inset-0 z-[999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
@@ -66,7 +92,7 @@ const LiveDebugOverlay: React.FC<LiveDebugOverlayProps> = ({ visible, streamingP
           {/* Header */}
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-3 mb-4">
-              <span className="text-2xl">⚙️</span>
+              <span className="text-2xl animate-spin" style={{ animationDuration: '2s' }}>⚙️</span>
               <h2 className="text-2xl font-serif text-[#E0E0E0] tracking-tight">
                 {isBg ? 'Live Анализ' : 'Live Analysis'}
               </h2>
@@ -78,8 +104,8 @@ const LiveDebugOverlay: React.FC<LiveDebugOverlayProps> = ({ visible, streamingP
 
           {/* Timer */}
           <div className="text-center mb-8">
-            <p className="text-5xl font-serif text-[#C4B091] tabular-nums tracking-tight drop-shadow-lg">
-              {String(Math.floor(elapsedSeconds / 60)).padStart(2, '0')}<span className="text-[#968B74] mx-2">:</span>{String(elapsedSeconds % 60).padStart(2, '0')}
+            <p className="text-5xl font-serif text-[#C4B091] tabular-nums tracking-tight drop-shadow-lg font-mono">
+              {String(Math.floor(currentSeconds / 60)).padStart(2, '0')}<span className="text-[#968B74] mx-2">:</span>{String(currentSeconds % 60).padStart(2, '0')}
             </p>
             <p className="text-[10px] text-[#666] uppercase tracking-widest mt-2">
               {isBg ? 'Прогрес на анализа' : 'Analysis Progress'}
@@ -91,8 +117,8 @@ const LiveDebugOverlay: React.FC<LiveDebugOverlayProps> = ({ visible, streamingP
             <div
               className="h-full bg-gradient-to-r from-[#968B74] via-[#C4B091] to-[#968B74] rounded-full shadow-[0_0_10px_rgba(196,176,145,0.5)]"
               style={{
-                width: `${Math.min((elapsedSeconds / 45) * 100, 100)}%`,
-                transition: 'width 0.3s ease-out',
+                width: `${progress}%`,
+                transition: 'width 0.5s linear',
               }}
             />
           </div>
@@ -101,7 +127,7 @@ const LiveDebugOverlay: React.FC<LiveDebugOverlayProps> = ({ visible, streamingP
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
             {agents.map((agent, idx) => {
               const isActive = activeAgents.includes(agent.id);
-              const isComplete = elapsedSeconds > 12 || (idx < 3 && elapsedSeconds > 3);
+              const isComplete = currentSeconds > 12 || (idx < 3 && currentSeconds > 3);
 
               return (
                 <div
