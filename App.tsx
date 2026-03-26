@@ -7,7 +7,7 @@ import { getAllCostEstimates } from './services/costEstimationService';
 import { validateYouTubeUrl } from './services/validation';
 import { clearAnalysisSession } from './services/analysisSession';
 import { useAuth } from './contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import LinkAuditPage from './components/linkAudit/LinkAuditPage';
 import ScannerAnimation from './components/common/ScannerAnimation';
 import AbstractBackground from './components/common/AbstractBackground';
@@ -23,11 +23,42 @@ const App: React.FC = () => {
 
   const { currentUser, userProfile, updateLocalBalance, refreshProfile } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode | null>(null);
   const [videoMetadata, setVideoMetadata] = useState<YouTubeVideoMetadata | null>(null);
   const [costEstimates, setCostEstimates] = useState<Record<AnalysisMode, CostEstimate> | null>(null);
   const [fetchingMetadata, setFetchingMetadata] = useState(false);
+  const [autoStartAttempted, setAutoStartAttempted] = useState(false);
+
+  // Handle auto-start from browser extension
+  useEffect(() => {
+    const urlParam = searchParams.get('url');
+    const modeParam = searchParams.get('mode') as AnalysisMode | null;
+    const autoStart = searchParams.get('autoStart') === 'true';
+
+    if (urlParam && !autoStartAttempted) {
+      setYoutubeUrl(urlParam);
+      if (modeParam && (modeParam === 'standard' || modeParam === 'deep')) {
+        setAnalysisMode(modeParam);
+      }
+      setAutoStartAttempted(true);
+    }
+  }, [searchParams, autoStartAttempted]);
+
+  // Auto-start analysis when metadata is ready
+  useEffect(() => {
+    const autoStart = searchParams.get('autoStart') === 'true';
+    const urlParam = searchParams.get('url');
+
+    if (autoStart && urlParam && videoMetadata && analysisMode && !loading && autoStartAttempted) {
+      // Small delay to ensure all state is ready
+      const timeoutId = setTimeout(() => {
+        handleStartAnalysis();
+      }, 500);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [videoMetadata, analysisMode, autoStartAttempted]);
 
   useEffect(() => {
     const fetchMetadata = async () => {
@@ -43,7 +74,7 @@ const App: React.FC = () => {
         setVideoMetadata(metadata);
         const estimates = getAllCostEstimates(metadata.duration);
         setCostEstimates(estimates);
-        // Auto-select standard mode for better UX
+        // Auto-select standard mode for better UX (if not already set)
         if (!analysisMode) setAnalysisMode('standard');
       } catch (e: any) {
         console.error('[Metadata Error]', e);
@@ -57,15 +88,17 @@ const App: React.FC = () => {
     return () => clearTimeout(timeoutId);
   }, [youtubeUrl]);
 
-  const handleStartAnalysis = async () => {
-    const url = youtubeUrl;
+  const handleStartAnalysis = async (overrideUrl?: string, overrideMode?: AnalysisMode) => {
+    const url = overrideUrl || youtubeUrl;
+    const mode = overrideMode || analysisMode || 'standard';
+    
     const validation = validateYouTubeUrl(url);
     if (!validation.valid) { setError(t('errors.invalidYoutubeUrl')); return; }
     if (!currentUser) { navigate('/login'); return; }
 
     let estimatedCost = 10;
-    if (costEstimates && analysisMode && costEstimates[analysisMode]) {
-      estimatedCost = costEstimates[analysisMode].pointsCost;
+    if (costEstimates && mode && costEstimates[mode]) {
+      estimatedCost = costEstimates[mode].pointsCost;
     }
     if (userProfile && userProfile.pointsBalance < estimatedCost) {
       setError(t('errors.insufficientPoints', { count: estimatedCost }));
@@ -77,12 +110,12 @@ const App: React.FC = () => {
     clearAnalysisSession();
 
     try {
-      const response = await analyzeYouTubeStandard(url, videoMetadata || undefined, 'gemini-2.5-flash', analysisMode || 'standard', setStreamingProgress);
+      const response = await analyzeYouTubeStandard(url, videoMetadata || undefined, 'gemini-2.5-flash', mode, setStreamingProgress);
       navigate('/analysis-result', { 
         state: { 
           analysis: response.analysis, 
           type: 'video', 
-          url: youtubeUrl,
+          url: url,
           billingPayload: response.billingPayload 
         } 
       });
@@ -90,6 +123,7 @@ const App: React.FC = () => {
       else refreshProfile();
     } catch (e: any) {
       setError(e.message || t('errors.analysisFailed'));
+      setAutoStartAttempted(false); // Reset to allow retry
     } finally {
       setLoading(false);
     }

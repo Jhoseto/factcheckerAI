@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FactChecker AI</title>
+  <style>
+    :root {
+      --bronze: #968B74;
+      --bronze-light: #C4B091;
+      --bg-dark: #1a1a1a;
+      --bg-card: #2e2e2e;
+      --text-white: #e0e0e0;
+      --text-muted: #888;
+    }
+    body {
+      width: 300px;
+      margin: 0;
+      padding: 16px;
+      background-color: var(--bg-dark);
+      color: var(--text-white);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #444;
+      padding-bottom: 12px;
+    }
+    .header h1 {
+      font-size: 18px;
+      margin: 0;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    .header span {
+      color: var(--bronze-light);
+    }
+    .content {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .info-text {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+    .btn {
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #444;
+      background: var(--bg-card);
+      color: var(--text-white);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: left;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .btn:hover {
+      border-color: var(--bronze);
+      background: rgba(150, 139, 116, 0.1);
+    }
+    .btn-title {
+      font-size: 13px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .btn-desc {
+      font-size: 11px;
+      color: var(--bronze-light);
+    }
+    .footer {
+      margin-top: 20px;
+      font-size: 10px;
+      text-align: center;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>FactChecker <span>AI</span></h1>
+  </div>
+  <div class="content">
+    <p class="info-text" id="status-text">Detecting content...</p>
+    <button class="btn" id="standard-btn">
+      <span class="btn-title">Standard Analysis</span>
+      <span class="btn-desc">Quick credibility check</span>
+    </button>
+    <button class="btn" id="deep-btn">
+      <span class="btn-title">Deep Analysis</span>
+      <span class="btn-desc">Full multimodal investigation</span>
+    </button>
+  </div>
+  <div class="footer">
+    &copy; 2026 FactChecker AI
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

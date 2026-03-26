@@ -1,0 +1,40 @@
+/* FactChecker AI - Content Script Styles */
+
+#factchecker-ai-btn-container {
+  display: inline-flex !important;
+  margin-left: 12px !important;
+  vertical-align: middle !important;
+}
+
+#factchecker-ai-btn {
+  background-color: #968B74 !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 18px !important;
+  padding: 0 16px !important;
+  height: 36px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  transition: background-color 0.2s ease !important;
+  font-family: Roboto, Arial, sans-serif !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+#factchecker-ai-btn:hover {
+  background-color: #C4B091 !important;
+  box-shadow: 0 4px 12px rgba(196, 176, 145, 0.3) !important;
+}
+
+#factchecker-ai-btn:active {
+  transform: scale(0.98) !important;
+}
+
+#factchecker-ai-btn svg {
+  width: 16px !important;
+  height: 16px !important;
+  margin-right: 4px !important;
+}

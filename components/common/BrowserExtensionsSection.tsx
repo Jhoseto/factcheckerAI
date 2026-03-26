@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Download, Zap } from 'lucide-react';
+import { Download, ShieldCheck, Zap, Globe, MousePointerClick } from 'lucide-react';
 
 const BrowserExtensionsSection: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -10,75 +10,57 @@ const BrowserExtensionsSection: React.FC = () => {
   const extensions = [
     {
       id: 'chrome',
-      name: isBg ? 'Chrome Разширение' : 'Chrome Extension',
+      name: isBg ? 'Chrome Extension' : 'Chrome Extension',
       description: isBg 
-        ? 'Проверявайте YouTube видеа директно от браузъра си. Добавете бутон "Check with FactChecker" под всяко видео.'
-        : 'Check YouTube videos directly from your browser. Add a "Check with FactChecker" button under every video.',
-      icon: (
-        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="32" cy="32" r="30" stroke="currentColor" strokeWidth="1.5"/>
-          <circle cx="32" cy="32" r="20" stroke="currentColor" strokeWidth="1.5"/>
-          <circle cx="32" cy="32" r="10" stroke="currentColor" strokeWidth="1.5"/>
-          <path d="M32 12 L42 32 L32 52 L22 32 Z" stroke="currentColor" strokeWidth="1.5" fill="none"/>
-        </svg>
-      ),
-      color: 'from-blue-600 to-blue-400',
-      downloadUrl: '#',
+        ? 'Анализирайте YouTube видеа директно с един клик.'
+        : 'Analyze YouTube videos directly with a single click.',
+      logo: '/assets/logos/chrome-logo.png',
+      color: 'from-blue-600/20 to-blue-400/10',
+      borderColor: 'group-hover:border-blue-500/30',
+      downloadUrl: '/factchecker-ai-extension.zip',
       features: [
-        isBg ? '🎬 Директна проверка на YouTube видеа' : '🎬 Direct YouTube video verification',
-        isBg ? '⚡ Моментален резултат' : '⚡ Instant results',
-        isBg ? '🔐 Приватна и безопасна' : '🔐 Private & secure',
+        { icon: <Zap size={14} />, text: isBg ? 'Бърз анализ' : 'Quick Analysis' },
+        { icon: <ShieldCheck size={14} />, text: isBg ? 'Проверка на факти' : 'Fact Checking' },
       ]
     },
     {
       id: 'firefox',
-      name: isBg ? 'Firefox Разширение' : 'Firefox Extension',
+      name: isBg ? 'Firefox Extension' : 'Firefox Extension',
       description: isBg
-        ? 'Същата мощна функционалност за Firefox. Проверявайте линкове и видеа с един клик.'
-        : 'Same powerful functionality for Firefox. Check links and videos with one click.',
-      icon: (
-        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M32 12 C22 12, 14 20, 14 32 C14 44, 22 52, 32 52 C42 52, 50 44, 50 32 C50 20, 42 12, 32 12 Z" stroke="currentColor" strokeWidth="1.5" fill="none"/>
-          <path d="M32 20 C26 20, 21 25, 21 32 C21 39, 26 44, 32 44 C38 44, 43 39, 43 32 C43 25, 38 20, 32 20 Z" stroke="currentColor" strokeWidth="1.5" fill="none"/>
-          <circle cx="32" cy="32" r="4" stroke="currentColor" strokeWidth="1.5" fill="none"/>
-        </svg>
-      ),
-      color: 'from-orange-600 to-orange-400',
-      downloadUrl: '#',
+        ? 'Пълна функционалност за вашия Firefox браузър.'
+        : 'Full functionality for your Firefox browser.',
+      logo: '/assets/logos/firefox-logo.png',
+      color: 'from-orange-600/20 to-orange-400/10',
+      borderColor: 'group-hover:border-orange-500/30',
+      downloadUrl: '/factchecker-ai-extension.zip',
       features: [
-        isBg ? '🔗 Проверка на линкове в контекстното меню' : '🔗 Check links in context menu',
-        isBg ? '⚡ Бързо и лесно' : '⚡ Fast & easy',
-        isBg ? '🌍 Работи на всички сайтове' : '🌍 Works on all websites',
+        { icon: <Globe size={14} />, text: isBg ? 'Глобален обхват' : 'Global Reach' },
+        { icon: <MousePointerClick size={14} />, text: isBg ? 'Лесна употреба' : 'Easy to Use' },
       ]
     }
   ];
 
   return (
-    <section className="relative py-32 z-10">
+    <section className="relative py-24 z-10">
       <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[#968B74]/20 to-transparent"></div>
 
-      <div className="max-w-6xl mx-auto px-6 text-center animate-fadeUp">
+      <div className="max-w-5xl mx-auto px-6 text-center animate-fadeUp">
         {/* Header */}
-        <div className="mb-16 space-y-6">
-          <div className="flex items-center justify-center gap-4 opacity-60">
+        <div className="mb-12 space-y-4">
+          <div className="flex items-center justify-center gap-4 opacity-50">
             <div className="h-[1px] w-12 bg-[#968B74]"></div>
             <span className="text-[10px] font-bold text-[#C4B091] uppercase tracking-[0.4em]">
-              {isBg ? 'БРАУЗЪРНИ РАЗШИРЕНИЯ' : 'BROWSER EXTENSIONS'}
+              {isBg ? 'РАЗШИРЕНИЯ' : 'EXTENSIONS'}
             </span>
             <div className="h-[1px] w-12 bg-[#968B74]"></div>
           </div>
-          <h2 className="text-4xl md:text-5xl font-serif text-[#E0E0E0] tracking-tight">
-            {isBg ? 'Проверявайте' : 'Check'} <span className="text-bronze-gradient">{isBg ? 'навсякъде' : 'Everywhere'}</span>
+          <h2 className="text-3xl md:text-4xl font-serif text-[#E0E0E0]">
+            {isBg ? 'Инсталирайте в' : 'Install on'} <span className="text-bronze-gradient">{isBg ? 'Браузъра' : 'Browser'}</span>
           </h2>
-          <p className="text-sm text-[#888] max-w-2xl mx-auto leading-relaxed uppercase tracking-widest">
-            {isBg
-              ? 'Инсталирайте нашето разширение и получете мощната проверка на FactChecker AI директно в браузъра си. Проверявайте видеа и статии без да напускате сайта.'
-              : 'Install our extension and get FactChecker AI\'s powerful verification directly in your browser. Check videos and articles without leaving the site.'}
-          </p>
         </div>
 
-        {/* Extensions Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
+        {/* Extensions Grid - More Compact */}
+        <div className="flex flex-wrap justify-center gap-6 mb-16">
           {extensions.map((ext) => {
             const isHovered = hoveredExtension === ext.id;
 
@@ -87,134 +69,108 @@ const BrowserExtensionsSection: React.FC = () => {
                 key={ext.id}
                 onMouseEnter={() => setHoveredExtension(ext.id as any)}
                 onMouseLeave={() => setHoveredExtension(null)}
-                className="group relative"
+                className="group relative w-full max-w-[340px]"
               >
                 {/* Card */}
-                <div className={`editorial-card p-8 bg-gradient-to-br from-[#252525] to-[#1a1a1a] border border-[#333] hover:border-[#968B74]/40 transition-all duration-500 h-full flex flex-col ${
-                  isHovered ? 'shadow-[0_20px_60px_rgba(196,176,145,0.15)] -translate-y-2' : ''
+                <div className={`editorial-card p-6 bg-[#1a1a1a]/80 backdrop-blur-md border border-[#333] ${ext.borderColor} transition-all duration-500 h-full flex flex-col items-center text-center ${
+                  isHovered ? 'shadow-[0_15px_40px_rgba(0,0,0,0.4)] -translate-y-1' : ''
                 }`}>
-                  {/* Icon - Outline Style */}
-                  <div className={`w-24 h-24 rounded-2xl flex items-center justify-center mb-6 mx-auto transition-all duration-500 ${
-                    isHovered ? 'scale-110 -rotate-6' : ''
-                  }`}>
-                    <div className="text-[#968B74] hover:text-[#C4B091] transition-colors duration-300">
-                      {ext.icon}
-                    </div>
+                  
+                  {/* Real Logo */}
+                  <div className="mb-5 relative">
+                    <div className={`absolute inset-0 bg-gradient-to-br ${ext.color} blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500`}></div>
+                    <img 
+                      src={ext.logo} 
+                      alt={ext.name} 
+                      className={`w-16 h-16 relative z-10 transition-transform duration-500 ${isHovered ? 'scale-110' : ''}`} 
+                    />
                   </div>
 
                   {/* Title & Description */}
-                  <h3 className="text-xl font-serif text-[#E0E0E0] mb-3 group-hover:text-[#C4B091] transition-colors">
+                  <h3 className="text-lg font-serif text-[#E0E0E0] mb-2 group-hover:text-[#C4B091] transition-colors">
                     {ext.name}
                   </h3>
-                  <p className="text-sm text-[#888] mb-6 leading-relaxed flex-grow">
+                  <p className="text-xs text-[#888] mb-6 leading-relaxed">
                     {ext.description}
                   </p>
 
-                  {/* Features List */}
-                  <div className="space-y-2 mb-8">
+                  {/* Features List - Stylish Outline Icons */}
+                  <div className="flex justify-center gap-4 mb-8">
                     {ext.features.map((feature, idx) => (
                       <div
                         key={idx}
-                        className="flex items-center gap-3 text-sm text-[#aaa] opacity-0 transform translate-y-2 transition-all duration-500"
-                        style={{
-                          animation: isHovered ? `slideUp 0.5s ease-out ${idx * 0.1}s forwards` : 'none',
-                        }}
+                        className="flex items-center gap-1.5 text-[10px] text-[#aaa] uppercase tracking-wider bg-[#252525] px-3 py-1.5 rounded-full border border-[#333]"
                       >
-                        <span className="text-[#968B74] font-bold">✓</span>
-                        {feature}
+                        <span className="text-[#968B74]">{feature.icon}</span>
+                        {feature.text}
                       </div>
                     ))}
                   </div>
 
-                  {/* Download Button */}
+                  {/* Download Button - Compact */}
                   <button
                     onClick={() => window.open(ext.downloadUrl, '_blank')}
-                    className={`w-full py-3 px-6 rounded-lg font-bold uppercase tracking-wider text-[10px] transition-all duration-500 flex items-center justify-center gap-2 ${
+                    className={`w-full py-3 px-6 rounded-lg font-bold uppercase tracking-widest text-[9px] transition-all duration-300 flex items-center justify-center gap-2 ${
                       isHovered
-                        ? `bg-gradient-to-r ${ext.color} text-white shadow-lg`
-                        : 'bg-[#1a1a1a] border border-[#333] text-[#888] hover:text-[#C4B091]'
+                        ? 'bg-[#968B74] text-white shadow-lg'
+                        : 'bg-[#252525] border border-[#333] text-[#888] hover:text-[#C4B091]'
                     }`}
                   >
-                    <Download size={14} />
+                    <Download size={12} />
                     {isBg ? 'ИЗТЕГЛИ' : 'DOWNLOAD'}
                   </button>
                 </div>
-
-                {/* Glow Effect */}
-                <div
-                  className={`absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-500 pointer-events-none ${
-                    isHovered ? 'opacity-100' : ''
-                  }`}
-                  style={{
-                    background: `radial-gradient(circle at center, rgba(196,176,145,0.1) 0%, transparent 70%)`,
-                  }}
-                />
               </div>
             );
           })}
         </div>
 
-        {/* Installation Steps */}
-        <div className="bg-[#252525] border border-[#333] rounded-2xl p-8 md:p-12 mb-12">
-          <h3 className="text-2xl font-serif text-[#E0E0E0] mb-8 text-center">
-            {isBg ? 'Как да инсталирам?' : 'How to Install?'}
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        {/* Installation Steps - Compact */}
+        <div className="max-w-4xl mx-auto bg-[#1a1a1a]/40 border border-[#333] rounded-xl p-8">
+          <div className="mb-8 text-center">
+            <h3 className="text-lg font-serif text-[#E0E0E0] mb-2">
+              {isBg ? 'Как да инсталирам в Developer Mode?' : 'How to Install in Developer Mode?'}
+            </h3>
+            <p className="text-[11px] text-[#888] max-w-2xl mx-auto">
+              {isBg 
+                ? 'Тъй като разширението е в ранен етап, можете да го инсталирате ръчно чрез Developer Mode на вашия браузър.'
+                : 'As the extension is in early stages, you can install it manually via your browser\'s Developer Mode.'}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {[
               {
                 step: 1,
                 title: isBg ? 'Изтегли' : 'Download',
-                description: isBg ? 'Кликни на бутона "Изтегли" за твоя браузър' : 'Click the "Download" button for your browser',
+                description: isBg ? 'Свалете и разархивирайте ZIP файла' : 'Download and extract the ZIP file',
               },
               {
                 step: 2,
-                title: isBg ? 'Инсталирай' : 'Install',
-                description: isBg ? 'Следвай инструкциите на браузъра за инсталация' : 'Follow your browser\'s installation instructions',
+                title: isBg ? 'Отвори' : 'Open',
+                description: isBg ? 'Отидете на chrome://extensions/' : 'Go to chrome://extensions/',
               },
               {
                 step: 3,
-                title: isBg ? 'Използвай' : 'Use',
-                description: isBg ? 'Отворете YouTube или статия и кликнете на иконата' : 'Open YouTube or an article and click the icon',
+                title: isBg ? 'Активирай' : 'Enable',
+                description: isBg ? 'Включете "Developer mode" горе вдясно' : 'Enable "Developer mode" in top right',
+              },
+              {
+                step: 4,
+                title: isBg ? 'Зареди' : 'Load',
+                description: isBg ? 'Кликнете "Load unpacked" и изберете папката' : 'Click "Load unpacked" and select folder',
               },
             ].map((item) => (
-              <div key={item.step} className="text-center">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#968B74] to-[#C4B091] flex items-center justify-center mx-auto mb-4 shadow-lg">
-                  <span className="text-[#111] font-black text-lg">{item.step}</span>
+              <div key={item.step} className="flex flex-col items-center text-center">
+                <div className="w-8 h-8 rounded-full border border-[#968B74]/40 flex items-center justify-center mb-3">
+                  <span className="text-[#968B74] font-bold text-xs">{item.step}</span>
                 </div>
-                <h4 className="text-lg font-serif text-[#E0E0E0] mb-2">{item.title}</h4>
-                <p className="text-sm text-[#888]">{item.description}</p>
+                <h4 className="text-sm font-serif text-[#E0E0E0] mb-1">{item.title}</h4>
+                <p className="text-[11px] text-[#666]">{item.description}</p>
               </div>
             ))}
           </div>
         </div>
-
-        {/* CTA */}
-        <div className="text-center">
-          <p className="text-[10px] text-[#666] uppercase tracking-[0.2em] mb-4">
-            {isBg ? 'Разширенията са напълно безплатни и открити' : 'Extensions are completely free and open-source'}
-          </p>
-          <a
-            href="#"
-            className="inline-flex items-center gap-2 px-8 py-4 bg-transparent border border-[#968B74]/40 text-[#C4B091] text-[10px] font-bold uppercase tracking-[0.2em] rounded-lg hover:bg-[#968B74]/10 transition-all duration-300"
-          >
-            <Zap size={14} />
-            {isBg ? 'ПРОЧЕТИ ДОКУМЕНТАЦИЯТА' : 'READ DOCUMENTATION'}
-          </a>
-        </div>
       </div>
-
-      <style>{`
-        @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(8px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
     </section>
   );
 };
