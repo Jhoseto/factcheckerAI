@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Chrome, Firefox, Download, Zap } from 'lucide-react';
+import { Chrome, Download, Zap, Globe } from 'lucide-react';
 
 const BrowserExtensionsSection: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -29,7 +29,7 @@ const BrowserExtensionsSection: React.FC = () => {
       description: isBg
         ? 'Същата мощна функционалност за Firefox. Проверявайте линкове и видеа с един клик.'
         : 'Same powerful functionality for Firefox. Check links and videos with one click.',
-      icon: Firefox,
+      icon: Globe,
       color: 'from-orange-600 to-orange-400',
       downloadUrl: '#',
       features: [
