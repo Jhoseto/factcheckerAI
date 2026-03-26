@@ -8,6 +8,7 @@ import { PublicConfigProvider } from './contexts/PublicConfigContext';
 import { HelmetProvider } from 'react-helmet-async';
 import AppRouter from './AppRouter';
 import './index.css';
+import './styles/micro-interactions.css';
 
 const app = (
   <React.StrictMode>

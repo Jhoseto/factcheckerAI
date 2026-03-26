@@ -11,7 +11,8 @@ import { useNavigate } from 'react-router-dom';
 import LinkAuditPage from './components/linkAudit/LinkAuditPage';
 import ScannerAnimation from './components/common/ScannerAnimation';
 import AbstractBackground from './components/common/AbstractBackground';
-import AnalysisLoadingOverlay from './components/common/AnalysisLoadingOverlay';
+import LiveDebugOverlay from './components/common/LiveDebugOverlay';
+import BrowserExtensionsSection from './components/common/BrowserExtensionsSection';
 
 const App: React.FC = () => {
   const { t } = useTranslation();
@@ -97,7 +98,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen font-sans selection:bg-[#968B74] selection:text-white overflow-x-hidden relative">
 
-      <AnalysisLoadingOverlay visible={loading} streamingProgress={streamingProgress} />
+      <LiveDebugOverlay visible={loading} streamingProgress={streamingProgress} elapsedSeconds={0} />
 
       {/* Premium Background Animation */}
       <AbstractBackground />
@@ -224,6 +225,9 @@ const App: React.FC = () => {
 
       {/* 3. LINK AUDIT SECTION */}
       <LinkAuditPage />
+
+      {/* 4. BROWSER EXTENSIONS SECTION */}
+      <BrowserExtensionsSection />
     </div>
   );
 };

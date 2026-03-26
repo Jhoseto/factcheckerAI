@@ -1,6 +1,7 @@
 import { Helmet } from 'react-helmet-async';
 import { useLocation } from 'react-router-dom';
 import type { VideoAnalysis } from '../../types';
+import { extractVerdictFromAnalysis, getVerdictInfo } from '../../services/shareImageGenerator';
 
 const FALLBACK_DESC =
   'DCGE фактчек и мултимодален анализ — споделен доклад в FACTCHECKER AI.';
@@ -28,7 +29,11 @@ const ReportAnalysisSeo: React.FC<{ analysis: VideoAnalysis }> = ({ analysis }) 
   const title = `${truncate(base, 52)} | FACTCHECKER AI`;
   const description = reportDescription(analysis);
   const url = `${origin}${pathname}`;
-  const ogImage = `${origin}/share-template.png`;
+  
+  // Generate dynamic Open Graph image based on verdict
+  const verdict = extractVerdictFromAnalysis(analysis);
+  const verdictInfo = getVerdictInfo(verdict);
+  const ogImage = `${origin}/api/og-image?title=${encodeURIComponent(base)}&verdict=${verdict}&emoji=${encodeURIComponent(verdictInfo.emoji)}`;
 
   return (
     <Helmet prioritizeSeoTags>

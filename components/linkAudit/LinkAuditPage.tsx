@@ -4,7 +4,7 @@ import { analyzeLinkDeep } from '../../services/linkAudit/linkService';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { validateNewsUrl } from '../../services/validation';
-import AnalysisLoadingOverlay from '../common/AnalysisLoadingOverlay';
+import LiveDebugOverlay from '../common/LiveDebugOverlay';
 import { clearAnalysisSession } from '../../services/analysisSession';
 
 const LinkAuditPage: React.FC = () => {
@@ -65,7 +65,7 @@ const LinkAuditPage: React.FC = () => {
 
     return (
         <section id="link-analysis" className="relative py-24 z-10">
-            <AnalysisLoadingOverlay visible={loading} />
+            <LiveDebugOverlay visible={loading} elapsedSeconds={0} />
             <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[#968B74]/20 to-transparent"></div>
 
             <div className="max-w-5xl mx-auto px-6 text-center animate-fadeUp">

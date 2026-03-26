@@ -12,6 +12,7 @@ import type { AnalysisMode, YouTubeVideoMetadata, CostEstimate } from '../types'
 import { clearAnalysisSession } from '../services/analysisSession';
 import MobileSafeArea from './components/MobileSafeArea';
 import MobileHeader from './components/MobileHeader';
+import MobileLiveDebugOverlay from './components/MobileLiveDebugOverlay';
 
 const LOADING_PHASE_KEYS = ['mobile.loadingPhase1', 'mobile.loadingPhase2', 'mobile.loadingPhase3', 'mobile.loadingPhase4'] as const;
 
@@ -173,31 +174,7 @@ const MobileAudit: React.FC = () => {
   };
 
   if (loading || linkLoading) {
-    return (
-      <MobileSafeArea className="flex flex-col relative overflow-hidden bg-[#111]">
-        {/* Subtle background glow for loading */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150%] h-[50%] bg-[#C4B091] opacity-[0.05] blur-[100px] rounded-full mix-blend-screen pointer-events-none animate-pulse" style={{ animationDuration: '4s' }} />
-
-        <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-8">
-          <div className="w-full max-w-[240px] h-1.5 bg-[#252525] border border-[#333] rounded-full overflow-hidden mb-10 shadow-[inset_0_1px_3px_rgba(0,0,0,0.5)]">
-            <div className="h-full w-1/2 bg-gradient-to-r from-transparent via-[#C4B091] to-transparent rounded-full mobile-loading-bar" />
-          </div>
-
-          <div className="flex flex-col items-center gap-1 mb-6">
-            <p className="text-[9px] font-black text-[#888] uppercase tracking-[0.4em] mb-1">{t('loading.title')}</p>
-            <p className="text-4xl font-serif text-[#E0E0E0] tabular-nums tracking-tight drop-shadow-[0_2px_10px_rgba(196,176,145,0.2)]">
-              {String(Math.floor(elapsedSeconds / 60)).padStart(2, '0')}<span className="text-[#968B74] mx-1">:</span>{String(elapsedSeconds % 60).padStart(2, '0')}
-            </p>
-          </div>
-
-          <div className="h-12 flex items-center justify-center">
-            <p className="text-[10px] font-bold text-[#C4B091] uppercase tracking-[0.2em] text-center animate-pulse">
-              {streamingProgress || t(LOADING_PHASE_KEYS[loadingPhase])}
-            </p>
-          </div>
-        </div>
-      </MobileSafeArea>
-    );
+    return <MobileLiveDebugOverlay visible={true} streamingProgress={streamingProgress} elapsedSeconds={elapsedSeconds} />;
   }
 
   return (

@@ -1,0 +1,355 @@
+/* Micro-interactions and Enhanced Interactivity Styles */
+
+/* Smooth Hover Effects on Cards */
+.editorial-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.editorial-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(196, 176, 145, 0.1);
+}
+
+/* Button Interactions */
+.btn-luxury,
+.btn-luxury-solid {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-luxury::before,
+.btn-luxury-solid::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.btn-luxury:hover::before,
+.btn-luxury-solid:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+.btn-luxury:active,
+.btn-luxury-solid:active {
+  transform: scale(0.98);
+}
+
+/* Input Focus Effects */
+.input-luxury {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.input-luxury:focus {
+  border-color: #968B74;
+  box-shadow: 0 0 20px rgba(196, 176, 145, 0.2), inset 0 0 10px rgba(196, 176, 145, 0.05);
+}
+
+.input-luxury::placeholder {
+  transition: color 0.3s ease;
+}
+
+.input-luxury:focus::placeholder {
+  color: #666;
+}
+
+/* Tab Smooth Transitions */
+.tab-button {
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tab-button::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #968B74, #C4B091);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tab-button.active::after {
+  width: 100%;
+}
+
+.tab-button:hover::after {
+  width: 100%;
+  opacity: 0.5;
+}
+
+/* Smooth Scroll Behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Fade-in Animation on Scroll */
+.fade-in-on-scroll {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fade-in-on-scroll.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Staggered List Animation */
+.staggered-list > * {
+  animation: slideInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) backwards;
+}
+
+.staggered-list > *:nth-child(1) { animation-delay: 0s; }
+.staggered-list > *:nth-child(2) { animation-delay: 0.1s; }
+.staggered-list > *:nth-child(3) { animation-delay: 0.2s; }
+.staggered-list > *:nth-child(4) { animation-delay: 0.3s; }
+.staggered-list > *:nth-child(5) { animation-delay: 0.4s; }
+.staggered-list > *:nth-child(n+6) { animation-delay: 0.5s; }
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Loading Bar Animation */
+.mobile-loading-bar {
+  animation: loadingBar 1.5s ease-in-out infinite;
+}
+
+@keyframes loadingBar {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+/* Pulse Effect for Active Elements */
+.pulse-active {
+  animation: pulseActive 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulseActive {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Glow Effect on Hover */
+.glow-on-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glow-on-hover:hover {
+  box-shadow: 0 0 20px rgba(196, 176, 145, 0.3);
+  filter: brightness(1.1);
+}
+
+/* Smooth Color Transitions */
+.color-transition {
+  transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Icon Rotation on Hover */
+.icon-rotate-on-hover {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.icon-rotate-on-hover:hover {
+  transform: rotate(12deg) scale(1.1);
+}
+
+/* Smooth Dropdown Animation */
+.dropdown-enter {
+  animation: dropdownEnter 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes dropdownEnter {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Smooth Sidebar Slide */
+.sidebar-slide-in {
+  animation: sidebarSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes sidebarSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Bounce Animation for CTAs */
+.bounce-cta {
+  animation: bounceCta 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+}
+
+@keyframes bounceCta {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+/* Ripple Effect on Click */
+.ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+.ripple::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(196, 176, 145, 0.3);
+  transform: translate(-50%, -50%);
+  animation: rippleEffect 0.6s ease-out;
+}
+
+@keyframes rippleEffect {
+  to {
+    width: 500px;
+    height: 500px;
+    opacity: 0;
+  }
+}
+
+/* Smooth Text Selection */
+::selection {
+  background-color: #968B74;
+  color: white;
+}
+
+::-moz-selection {
+  background-color: #968B74;
+  color: white;
+}
+
+/* Smooth Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #111;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #968B74;
+  border-radius: 4px;
+  transition: background 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #C4B091;
+}
+
+/* Smooth Transition for Dark Mode */
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Disable transitions for performance-critical animations */
+.no-transition {
+  transition: none !important;
+}
+
+/* Smooth Gradient Animation */
+.gradient-animate {
+  background-size: 200% 200%;
+  animation: gradientShift 3s ease infinite;
+}
+
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Smooth Focus Visible for Accessibility */
+:focus-visible {
+  outline: 2px solid #968B74;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Enhanced Mobile Touch Interactions */
+@media (hover: none) and (pointer: coarse) {
+  .btn-luxury,
+  .btn-luxury-solid {
+    padding: 16px 20px;
+    min-height: 44px;
+  }
+
+  .input-luxury {
+    min-height: 44px;
+  }
+
+  .tab-button {
+    padding: 12px 16px;
+    min-height: 44px;
+  }
+}
+
+/* Smooth Transition for Reduced Motion Users */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
