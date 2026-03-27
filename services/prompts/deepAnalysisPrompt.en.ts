@@ -3,6 +3,7 @@
  * Used with gemini-2.5-flash when the UI language is set to English.
  * Provides MAXIMUM detail with extensive multimodal analysis requirements.
  * Produces a native English analysis without any post-translation overhead.
+ * FIXED: JSON structure and verification formulas aligned perfectly with the working BG version to prevent crashes and token exhaustion.
  */
 export const getDeepAnalysisPromptEn = (url: string, type: 'video' | 'news'): string => {
   const currentDate = new Date().toLocaleString('en-US', { dateStyle: 'full' });
@@ -13,11 +14,10 @@ YOUR MISSION: Reveal the truth. Find every manipulation. Verify every claim. Giv
 CRITICAL DATA EXTRACTION REQUIREMENTS (DEEP RESEARCH & GOOGLE SEARCH):
 1. **TEMPORAL CONTEXT**${type === 'video' ? ' (video)' : ''}: Today's date is ${currentDate}. You MUST use this date as your absolute reference point for "now". First, use Google Search to determine if the events in the content are happening currently or within the last few days relative to this date. ACTIVELY USE the googleSearch tool for every claim. If there is a match, prioritize this current search information over your internal pre-trained memory. Evaluate the truth of claims based on the most recent facts available as of today. If the content is old, note its historical context, but the final verdict must reflect the current state of things today based on all available modern data. It is CATEGORICALLY FORBIDDEN to ignore new news from the last 7 days (e.g., political changes, deaths of world leaders, or economic crashes), even if the content is several years old.
 2. **USE GOOGLE SEARCH**: Your secret power is real-time internet access. USE the search tool to verify facts, find context about participants, and confirm or refute claims with external sources.
-3. **MAXIMUM DETAIL**: Be thorough, but for **long recordings (~45+ minutes)** output **30–55 distinct checkable factual claims** (merge duplicates by meaning), **up to ~28 manipulation episodes/techniques**, and **rich multimodal + psycho + cultural** content in this JSON — the next stage has **no video** and relies on this output for those tabs. Do not list hundreds of near-duplicate micro-claims.
-4. **CONTEXTUAL VALUE**: Search for information about historical events mentioned in the video to give the user a true "Deep Research" experience.
-5. **MULTIMODAL SYNERGY**: Combine what you see/hear in the video with what you find via Google Search.
+3. **EXPLANATION FOR EVERY CLAIM (STRICT FORMULA)**: Minimum 2–3 sentences. For factual claims, first describe what Google Search returns; if the verdict is not UNVERIFIABLE — include at least ONE real URL in the explanation. FALSE/MOSTLY_FALSE is used only if the search yields a source that directly refutes the claim; without such a source → UNVERIFIABLE. Forbidden: using technical/military figures from memory as decisive proof without a URL; stating "no news in Reuters/CNN" as a verified fact; "lack of global reaction" as proof.
+4. **CONTEXT BY DEFAULT**: For EVERY claim, the "missingContext" field is MANDATORY. Minimum 2-3 full sentences covering: 1) what was said immediately BEFORE/AFTER the claim; 2) what CRITICAL information is missing/omitted; 3) how the lack of this context changes the interpretation.
+5. **MAXIMUM DETAIL**: Be thorough, but for **long recordings (~45+ minutes)** output **30–55 distinct checkable factual claims** (merge duplicates by meaning), **up to ~28 manipulation episodes/techniques**, and **rich multimodal + psycho + cultural** content in this JSON — the next stage has **no video** and relies on this output for those tabs. Do not list hundreds of near-duplicate micro-claims.
 6. **RETURNING LITTLE DATA IS A CRITICAL ERROR** — be exceptionally comprehensive and use the full token limit!
-7. **VIDEO claims[] — VERIFICATION DISCIPLINE**: For every claim, the "explanation" field must reflect **Google Search grounding first**. FALSE/MOSTLY_FALSE only if search gives a source in "explanation" that **directly refutes** the claim (include at least one URL). If search is empty/inconclusive → **UNVERIFIABLE**, do not "logic away" a verdict. **FORBIDDEN**: decisive technical/military numbers from memory (missile range, distances) without a URL; "no coverage from Reuters/AP/CNN" stated as a proven fact; "lack of global reaction" as proof an event did not happen (*argumentum ad silentium*). Rhetorical logic in the video does **not** replace fact-checking.
 
 IMPORTANT: All text (summaries, explanations, recommendations) must be in ENGLISH. Only JSON enum values remain in English (they already are).
 
@@ -165,23 +165,18 @@ PARTICIPANTS: Identify people/voices from dialogue and on-screen text; use names
 
 [BODY LANGUAGE] **Non-verbal communication and congruence** with speech: gesture, gaze, posture, micro-movement at sensitive moments; dominance, withdrawal, avoidance; relational dynamics — **analysis**, not a timestamped gesture catalogue.
 
-[VOCAL] **Audio and paralinguistic report**: tempo, pauses, silence, fillers, hesitations, loudness and voice quality at stress points, intonation shifts; how delivery supports or undermines meaning — **not** a literal rehash of dialogue.
-
-[DECEPTION] **Incongruence / credibility stress-test** framework: words vs face/gesture/tone; deflection; changes in baseline under pressure. Clear theses + anchored examples. If none: \"No observable mismatch between words and non-verbal behaviour in the recording.\"
+[VOCAL] **Audio and paralinguistic report**: tempo, pauses, silence, fillers, hesitations, loudness and voice quality at stress points, intonation shifts; how delivery supports or undermines meaning — **not** a literal rehash of dialogue.[DECEPTION] **Incongruence / credibility stress-test** framework: words vs face/gesture/tone; deflection; changes in baseline under pressure. Clear theses + anchored examples. If none: \"No observable mismatch between words and non-verbal behaviour in the recording.\"
 
 [HUMOR] **Strategic humour/irony**: trivialisation, mockery, topic deflection — with **effect on the audience**. If none: \"No clear humorous or ironic element in the observable dialogue.\"
 
-Use EXACTLY these marker lines (Latin, square brackets): [VISUAL] [BODY LANGUAGE] [VOCAL] [DECEPTION] [HUMOR].
+Use EXACTLY these marker lines (Latin, square brackets): [VISUAL] [BODY LANGUAGE][VOCAL] [DECEPTION] [HUMOR].
 ALSO MANDATORY: Fill arrays visualAnalysis, bodyLanguageAnalysis, vocalAnalysis, deceptionAnalysis, humorAnalysis with the same substance as multimodalObservations, split into objects { "point", "details" } (see minimums above).
-- **psychologicalProfile** (Psycho tab): **minimum 6–10 objects**; motivation, emotional tone, cognitive biases, manipulation risk toward the audience — **3–5 sentences** in "details" with examples from the recording.
-- **culturalSymbolicAnalysis** (Cultural tab): **minimum 6–10 objects**; symbols, colour, dress, culturally loaded gestures, myth/religion/national identity/pop-culture references — **3–5 sentences** in "details" tied to specific shots/lines.
 
 18. PSYCHOLOGICAL PROFILE OF PARTICIPANTS (IN DEPTH):
 - Analyse PERSONALITY TRAITS — extrovert vs introvert, aggressive vs passive, narcissistic traits
 - Check for MANIPULATION TACTICS — gaslighting, guilt-tripping, victim playing, hero complex
 - Analyse POWER DYNAMICS — who dominates the conversation, who submits, who manipulates
 - Check for EMOTIONAL INTELLIGENCE — whether participants understand and manage their emotions
-- Analyse COGNITIVE BIASES of participants — confirmation bias, Dunning-Kruger effect, etc.
 - Assess LEVEL OF PREPARATION — improvisation vs pre-prepared script
 
 19. CULTURAL AND SYMBOLIC ANALYSIS (IN DEPTH):
@@ -189,101 +184,55 @@ ALSO MANDATORY: Fill arrays visualAnalysis, bodyLanguageAnalysis, vocalAnalysis,
 - Check for DOG WHISTLES — coded language understood only by a specific group
 - Analyse the use of ARCHETYPES — hero, villain, victim, saviour
 - Check for CULTURAL APPROPRIATION or misrepresentation
-- Analyse religious, national, political SYMBOLS in the video
 - Assess whether there is exploitation of cultural traumas or historical wounds
 
-Return the result as JSON in the following format:
+Return the result as JSON in the exact following format:
 {
-  "summary": "EXCEPTIONALLY DETAILED summary in English (minimum 8–12 sentences) covering all key points, claims, manipulations, and conclusions. The summary must be comprehensive and give a complete picture of the content.",
-  "overallAssessment": "ACCURATE" | "MOSTLY_ACCURATE" | "MIXED" | "MISLEADING" | "FALSE",
-  "detailedMetrics": {
-    "factualAccuracy": 0.0,
-    "logicalSoundness": 0.0,
-    "emotionalBias": 0.0,
-    "propagandaScore": 0.0,
-    "sourceReliability": 0.0,
-    "subjectivityScore": 0.0,
-    "objectivityScore": 0.0,
-    "biasIntensity": 0.0,
-    "narrativeConsistencyScore": 0.0,
-    "semanticDensity": 0.0,
-    "contextualStability": 0.0
+  "summary": {
+    "overallSummary": "EXCEPTIONALLY DETAILED summary in English (minimum 4-5 sentences) covering all key points and claims.",
+    "credibilityIndex": 0.0,
+    "manipulationIndex": 0.0,
+    "unverifiablePercent": 0.0,
+    "finalClassification": "ACCURATE" | "MOSTLY_ACCURATE" | "MIXED" | "MISLEADING" | "FALSE",
+    "totalDuration": "00:00",
+    "detailedStats": {
+      "factualAccuracy": 0.0, "logicalSoundness": 0.0, "emotionalBias": 0.0, "propagandaScore": 0.0,
+      "sourceReliability": 0.0, "subjectivityScore": 0.0, "objectivityScore": 0.0, "biasIntensity": 0.0
+    }
   },
-  "geopoliticalContext": [
-    { "point": "Key Aspect", "details": "EXCEPTIONALLY DETAILED analysis without markdown. Maximum 2-3 timestamps total (e.g. 1:20, 3:15)." }
-  ],
-  "historicalParallel": [
-    { "point": "Historical Event", "details": "Detailed comparison with the past..." }
-  ],
-  "psychoLinguisticAnalysis": [
-    { "point": "Linguistic Technique", "details": "Where and how it is used (max 2 timestamps)..." }
-  ],
-  "strategicIntent": [
-    { "point": "Hidden Goal", "details": "Who benefits and why..." }
-  ],
-  "narrativeArchitecture": [
-    { "point": "Story Structure", "details": "How the narrative is built..." }
-  ],
-  "technicalForensics": [
-    { "point": "Data Review", "details": "Analysis of specific statistics or charts..." }
-  ],
-  "socialImpactPrediction": [
-    { "point": "Risk to Society", "details": "Which groups are affected..." }
-  ],
-  "psychologicalProfile": [
-    { "point": "Psychological Profile", "details": "Minimum 3–5 sentences with examples from the recording." }
-  ],
-  "culturalSymbolicAnalysis": [
-    { "point": "Cultural Reference", "details": "Minimum 3–5 sentences: symbol/reference tied to shot or dialogue." }
-  ],
-  "recommendations": [
-    { "point": "Recommendation", "details": "What viewers need to know..." }
-  ],
-  "biasIndicators": {
-    "politicalBias": "LEFT" | "CENTER_LEFT" | "CENTER" | "CENTER_RIGHT" | "RIGHT" | "UNCLEAR",
-    "emotionalLanguage": "DETAILED examples of emotionally charged language in English with analysis of each example",
-    "selectiveReporting": "DETAILED evidence for cherry-picking of facts in English with concrete examples of what was omitted and why it matters"
-  },
-  "claims": [
+  "claims":[
     {
       "claim": "The FULL claim as stated (do not truncate — include all context)",
-      "quote": "A full direct quote from the video/transcript (include enough surrounding context to avoid misquoting)",
+      "quote": "A full direct quote from the video/transcript",
       "verdict": "TRUE" | "MOSTLY_TRUE" | "MIXED" | "MOSTLY_FALSE" | "FALSE" | "UNVERIFIABLE",
-      "explanation": "EXCEPTIONALLY DETAILED verification + reasoning. If verdict is not UNVERIFIABLE, include at least 1 source URL here and cite the key date/fact found today.",
-      "confidence": 0.0,
-      "speaker": "REAL name of the speaker (if mentioned in the video, otherwise 'Speaker 1', 'Speaker 2', etc.)",
-      "timestamp": "Exact timestamp from the video",
-      "missingContext": "EXCEPTIONALLY FULL missing context — what critical information is omitted/hidden, what was said immediately before/after (if inferable), and how that changes interpretation. Minimum 2–3 full sentences.",
+      "explanation": "[FACT FROM GOOGLE SEARCH] +[LOGICAL ANALYSIS] + [CONCLUSION]. Minimum 2-3 sentences. FORBIDDEN to just say 'No info available'. Use deduction and cite at least one URL if not UNVERIFIABLE.",
+      "missingContext": "Minimum 2-3 sentences. 1) What was said before/after; 2) What critical data/metric is omitted; 3) How this changes interpretation.",
       "category": "Fact",
       "timestamp": "00:00"
     }
   ],
-  "quotes": [
+  "manipulations":[
     {
-      "quote": "FULL quote from the transcript (do not truncate — include the full sentence context)",
-      "speaker": "REAL name of the speaker (if mentioned, otherwise 'Speaker 1', 'Speaker 2', etc.)",
-      "timestamp": "Exact timestamp from the video",
-      "context": "EXCEPTIONALLY FULL context — what was said before and after the quote, how it fits into the conversation, what the entire discussion around it is",
-      "importance": "high" | "medium" | "low",
-      "analysis": "IN-DEPTH analysis of the quote — what it means at multiple levels (literal, implicit, symbolic), what the implications are (immediate, long-term), whether it is manipulative (how and why), what psychological techniques are present"
+      "technique": "Technique name in English, followed by Bulgarian translation in brackets (e.g., 'Appeal to Authority (Апел към авторитета)')",
+      "timestamp": "00:00",
+      "logic": "EXCEPTIONALLY DETAILED analysis of the manipulative logic and mechanism.",
+      "effect": "Minimum 3-5 sentences: cognitive, emotional, and behavioral impact + short/long-term effects.",
+      "severity": 0.5,
+      "counterArgument": "Practical defense plan: 3-7 point checklist + 2-3 verification questions for the user."
     }
   ],
-  "manipulations": [
-    {
-      "technique": "Name of the technique in English, followed by the Bulgarian translation in brackets (e.g. 'Emotional manipulation (Емоционална манипулация)', 'Cherry-picking', 'Appeal to Authority (Апел към авторитета)')",
-      "timestamp": "Exact timestamp from the video",
-      "logic": "EXCEPTIONALLY DETAILED analysis of the manipulative logic and mechanism with concrete examples from the video.",
-      "severity": 0.0,
-      "effect": "DETAILED description of the impact on the audience — cognitive/emotional/behavioural mechanisms + short-term and long-term effects. Minimum 3–5 full sentences.",
-      "counterArgument": "DETAILED strategies for countering this manipulation — include a 3–7 step checklist + 2–3 verification questions the audience should ask. Not a one-liner."
-    }
-  ],
-  "multimodalObservations": "[VISUAL]\nReal paragraph: 2–4 sentences on framing/light/edit/rhetoric — no empty gap between markers.\n\n[BODY LANGUAGE]\nReal paragraph on gesture, gaze, congruence with speech.\n\n[VOCAL]\nReal paragraph on tempo, pauses, voice quality.\n\n[DECEPTION]\nReal paragraph on (in)congruence or explicitly: no observable mismatch.\n\n[HUMOR]\nReal paragraph on humour/irony or explicitly: none observed.",
-  "visualAnalysis": [ { "point": "Thesis from [VISUAL]", "details": "Minimum 3–5 sentences: specifics from the frame and why it is rhetorically significant." } ],
-  "bodyLanguageAnalysis": [ { "point": "Thesis from [BODY LANGUAGE]", "details": "Minimum 3–5 sentences: gesture/gaze/posture and congruence with speech." } ],
-  "vocalAnalysis": [ { "point": "Thesis from [VOCAL]", "details": "Minimum 3–5 sentences: tempo, pauses, timbre, effect on trust." } ],
-  "deceptionAnalysis": [ { "point": "Thesis from [DECEPTION]", "details": "Minimum 3–5 sentences: mismatch or explicit absence of cues." } ],
-  "humorAnalysis": [ { "point": "Thesis from [HUMOR]", "details": "Minimum 3–5 sentences: irony/mockery and audience effect." } ],
-  "transcription": []
+  "multimodalObservations": "[VISUAL]\nReal paragraph: 2–4 sentences on framing/light/edit/rhetoric — no empty gap between markers.\n\n[BODY LANGUAGE]\nReal paragraph on gesture, gaze, congruence with speech.\n\n[VOCAL]\nReal paragraph on tempo, pauses, voice quality.\n\n[DECEPTION]\nReal paragraph on congruence or explicit absence of cues.\n\n[HUMOR]\nReal paragraph on humor/irony or explicit absence.",
+  "visualAnalysis": [ { "point": "Thesis from [VISUAL]", "details": "Minimum 3–5 sentences: specific visual evidence." } ],
+  "bodyLanguageAnalysis":[ { "point": "Thesis from [BODY LANGUAGE]", "details": "Minimum 3–5 sentences: specific gestures and speech congruence." } ],
+  "vocalAnalysis": [ { "point": "Thesis from[VOCAL]", "details": "Minimum 3–5 sentences: specific vocal tones and pauses." } ],
+  "deceptionAnalysis": [ { "point": "Thesis from [DECEPTION]", "details": "Minimum 3–5 sentences: mismatch analysis or lack of signals." } ],
+  "humorAnalysis":[ { "point": "Thesis from [HUMOR]", "details": "Minimum 3–5 sentences: irony/mockery analysis." } ],
+  "psychologicalProfile":[ { "point": "Key Trait", "details": "Minimum 3–5 sentences with specific examples from the recording." } ],
+  "culturalSymbolicAnalysis":[ { "point": "Cultural Reference", "details": "Minimum 3–5 sentences tied to specific shots/dialogue." } ],
+  "geopoliticalContext":[ { "point": "Key Aspect", "details": "Detailed context." } ],
+  "historicalParallel":[ { "point": "Historical Event", "details": "Detailed comparison." } ],
+  "strategicIntent":[ { "point": "Hidden Goal", "details": "Who benefits and why." } ],
+  "recommendations":[ { "point": "Recommendation", "details": "What viewers need to know." } ],
+  "transcription":[]
 }`;
 };
