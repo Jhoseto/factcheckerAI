@@ -5,7 +5,7 @@ import en from './locales/en.json';
 
 const STORAGE_KEY = 'app_language';
 
-const savedLang = (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEY)) || 'bg';
+const savedLang = (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEY)) || 'en';
 
 i18n.use(initReactI18next).init({
   resources: {
@@ -13,7 +13,7 @@ i18n.use(initReactI18next).init({
     en: { translation: en },
   },
   lng: savedLang === 'en' ? 'en' : 'bg',
-  fallbackLng: 'bg',
+  fallbackLng: 'en',
   supportedLngs: ['bg', 'en'],
   interpolation: { escapeValue: false },
 });

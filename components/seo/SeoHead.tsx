@@ -128,7 +128,7 @@ const SeoHead: React.FC = () => {
 
   return (
     <Helmet prioritizeSeoTags>
-      <html lang="bg" />
+      <html lang="en" />
       <title>{meta.title}</title>
       <meta name="description" content={meta.description} />
       {meta.noindex ? (

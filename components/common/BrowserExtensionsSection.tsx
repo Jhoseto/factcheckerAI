@@ -6,6 +6,7 @@ const BrowserExtensionsSection: React.FC = () => {
   const { t, i18n } = useTranslation();
   const isBg = i18n.language === 'bg';
   const [hoveredExtension, setHoveredExtension] = useState<'chrome' | 'firefox' | null>(null);
+  const [installOpen, setInstallOpen] = useState(false);
 
   const extensions = [
     {
@@ -41,12 +42,12 @@ const BrowserExtensionsSection: React.FC = () => {
   ];
 
   return (
-    <section className="relative py-24 z-10">
+    <section className="relative py-16 z-10">
       <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[#968B74]/20 to-transparent"></div>
 
       <div className="max-w-5xl mx-auto px-6 text-center animate-fadeUp">
         {/* Header */}
-        <div className="mb-12 space-y-4">
+        <div className="mb-8 space-y-3">
           <div className="flex items-center justify-center gap-4 opacity-50">
             <div className="h-[1px] w-12 bg-[#968B74]"></div>
             <span className="text-[10px] font-bold text-[#C4B091] uppercase tracking-[0.4em]">
@@ -60,7 +61,7 @@ const BrowserExtensionsSection: React.FC = () => {
         </div>
 
         {/* Extensions Grid - More Compact */}
-        <div className="flex flex-wrap justify-center gap-6 mb-16">
+        <div className="flex flex-wrap justify-center gap-5 mb-8">
           {extensions.map((ext) => {
             const isHovered = hoveredExtension === ext.id;
 
@@ -125,50 +126,65 @@ const BrowserExtensionsSection: React.FC = () => {
           })}
         </div>
 
-        {/* Installation Steps - Compact */}
-        <div className="max-w-4xl mx-auto bg-[#1a1a1a]/40 border border-[#333] rounded-xl p-8">
-          <div className="mb-8 text-center">
-            <h3 className="text-lg font-serif text-[#E0E0E0] mb-2">
-              {isBg ? 'Как да инсталирам в Developer Mode?' : 'How to Install in Developer Mode?'}
-            </h3>
-            <p className="text-[11px] text-[#888] max-w-2xl mx-auto">
-              {isBg 
-                ? 'Тъй като разширението е в ранен етап, можете да го инсталирате ръчно чрез Developer Mode на вашия браузър.'
-                : 'As the extension is in early stages, you can install it manually via your browser\'s Developer Mode.'}
-            </p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            {[
-              {
-                step: 1,
-                title: isBg ? 'Изтегли' : 'Download',
-                description: isBg ? 'Свалете и разархивирайте ZIP файла' : 'Download and extract the ZIP file',
-              },
-              {
-                step: 2,
-                title: isBg ? 'Отвори' : 'Open',
-                description: isBg ? 'Отидете на chrome://extensions/' : 'Go to chrome://extensions/',
-              },
-              {
-                step: 3,
-                title: isBg ? 'Активирай' : 'Enable',
-                description: isBg ? 'Включете "Developer mode" горе вдясно' : 'Enable "Developer mode" in top right',
-              },
-              {
-                step: 4,
-                title: isBg ? 'Зареди' : 'Load',
-                description: isBg ? 'Кликнете "Load unpacked" и изберете папката' : 'Click "Load unpacked" and select folder',
-              },
-            ].map((item) => (
-              <div key={item.step} className="flex flex-col items-center text-center">
-                <div className="w-8 h-8 rounded-full border border-[#968B74]/40 flex items-center justify-center mb-3">
-                  <span className="text-[#968B74] font-bold text-xs">{item.step}</span>
-                </div>
-                <h4 className="text-sm font-serif text-[#E0E0E0] mb-1">{item.title}</h4>
-                <p className="text-[11px] text-[#666]">{item.description}</p>
+        {/* Installation Steps - Collapsible */}
+        <div className="max-w-4xl mx-auto bg-[#1a1a1a]/40 border border-[#333] rounded-xl">
+          <button
+            type="button"
+            onClick={() => setInstallOpen((prev) => !prev)}
+            className="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-[#1f1f1f]/50 transition-colors rounded-xl"
+            aria-expanded={installOpen}
+          >
+            <div>
+              <h3 className="text-base font-serif text-[#E0E0E0]">
+                {isBg ? 'Как да инсталирам в Developer Mode?' : 'How to Install in Developer Mode?'}
+              </h3>
+              <p className="text-[11px] text-[#888] mt-1">
+                {isBg
+                  ? 'Натисни, за да покажеш стъпките'
+                  : 'Click to show installation steps'}
+              </p>
+            </div>
+            <span className={`text-[#C4B091] text-lg transition-transform duration-300 ${installOpen ? 'rotate-180' : ''}`}>
+              ▼
+            </span>
+          </button>
+
+          {installOpen && (
+            <div className="px-5 pb-5">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-5 border-t border-[#2d2d2d] pt-5">
+                {[
+                  {
+                    step: 1,
+                    title: isBg ? 'Изтегли' : 'Download',
+                    description: isBg ? 'Свалете и разархивирайте ZIP файла' : 'Download and extract the ZIP file',
+                  },
+                  {
+                    step: 2,
+                    title: isBg ? 'Отвори' : 'Open',
+                    description: isBg ? 'Отидете на chrome://extensions/' : 'Go to chrome://extensions/',
+                  },
+                  {
+                    step: 3,
+                    title: isBg ? 'Активирай' : 'Enable',
+                    description: isBg ? 'Включете "Developer mode" горе вдясно' : 'Enable "Developer mode" in top right',
+                  },
+                  {
+                    step: 4,
+                    title: isBg ? 'Зареди' : 'Load',
+                    description: isBg ? 'Кликнете "Load unpacked" и изберете папката' : 'Click "Load unpacked" and select folder',
+                  },
+                ].map((item) => (
+                  <div key={item.step} className="flex flex-col items-center text-center">
+                    <div className="w-8 h-8 rounded-full border border-[#968B74]/40 flex items-center justify-center mb-2">
+                      <span className="text-[#968B74] font-bold text-xs">{item.step}</span>
+                    </div>
+                    <h4 className="text-sm font-serif text-[#E0E0E0] mb-1">{item.title}</h4>
+                    <p className="text-[11px] text-[#666]">{item.description}</p>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </section>
