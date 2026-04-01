@@ -63,7 +63,7 @@ export const MIN_POINTS = {
 // ФИКСИРАНИ ЦЕНИ (в точки)
 // ─────────────────────────────────────────────────────────────────────────────
 export const FIXED_PRICES = {
-  linkArticle: 10,
+  linkArticle: 15,
   compareMode: 4,
 } as const;
 
